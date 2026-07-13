@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>RackDroid — Manuale</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  :root{
+    --ink:#22201c; --muted:#6b645b; --amber:#b9760f; --amber-soft:#fcf3e2;
+    --line:#e6dfd3; --dark:#2a2620; --code-bg:#f6f2ea; --accent:#8a5a12;
+  }
+  *{ box-sizing:border-box; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    font-family:"Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color:var(--ink); line-height:1.5; font-size:10.5pt; margin:0;
+  }
+  h1,h2,h3{ line-height:1.2; }
+  h2{
+    font-size:17pt; color:var(--dark); margin:26px 0 8px;
+    border-bottom:2px solid var(--amber); padding-bottom:5px;
+  }
+  h3{ font-size:12.5pt; color:var(--accent); margin:16px 0 4px; }
+  p{ margin:6px 0; }
+  code{ font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace; font-size:9pt;
+        background:var(--code-bg); padding:1px 4px; border-radius:3px; color:#7a4a06; }
+  pre{ background:var(--code-bg); border:1px solid var(--line); border-left:3px solid var(--amber);
+       border-radius:5px; padding:10px 12px; overflow:auto; font-size:8.6pt; line-height:1.45;
+       font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace; color:#3a352c; margin:8px 0; }
+  ul,ol{ margin:6px 0 6px 0; padding-left:20px; }
+  li{ margin:3px 0; }
+  .lead{ color:var(--muted); font-size:11pt; }
+  .callout{ background:var(--amber-soft); border:1px solid #f0dcb6; border-radius:6px;
+            padding:9px 12px; margin:10px 0; font-size:9.7pt; }
+  .callout b{ color:var(--accent); }
+  .grid{ display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+  .chip{ background:var(--dark); color:#f0e7d6; border-radius:6px; padding:3px 9px; font-size:8.6pt;
+         font-weight:600; }
+  table{ border-collapse:collapse; width:100%; margin:8px 0; font-size:9.3pt; }
+  th,td{ border:1px solid var(--line); padding:5px 8px; text-align:left; vertical-align:top; }
+  th{ background:var(--dark); color:#f2e9d8; font-weight:600; }
+  tr:nth-child(even) td{ background:#faf7f1; }
+  .tool{ font-weight:700; color:var(--accent); }
+  .page-break{ page-break-before:always; }
+  /* cover */
+  .cover{ height:247mm; display:flex; flex-direction:column; justify-content:center;
+          page-break-after:always; }
+  .cover .badge{ font-size:64pt; }
+  .cover h1{ font-size:40pt; margin:6px 0 0; color:var(--dark); letter-spacing:-0.5px; }
+  .cover .sub{ font-size:14pt; color:var(--amber); font-weight:600; margin-top:2px; }
+  .cover .meta{ margin-top:26px; color:var(--muted); font-size:10.5pt; }
+  .cover .rule{ width:70px; height:4px; background:var(--amber); border-radius:2px; margin:18px 0; }
+  a{ color:var(--accent); text-decoration:none; }
+  .toc a{ color:var(--ink); }
+  .toc{ font-size:10pt; }
+  .toc li{ margin:2px 0; }
+  .small{ font-size:8.8pt; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="badge">🎛️</div>
+  <h1>RackDroid</h1>
+  <div class="sub">Sintetizzatore modulare per Android — Manuale d'uso</div>
+  <div class="rule"></div>
+  <p class="lead" style="max-width:150mm">
+    Port Android di VCV Rack: costruisci patch modulari toccando lo schermo,
+    con moduli di base integrati e pacchetti aggiuntivi installabili al volo.
+  </p>
+  <div class="meta">
+    Versione 0.1.0 &nbsp;·&nbsp; luglio 2026<br>
+    Comprende: funzionalità dell'app, caricamento dei plugin, creazione di plugin
+  </div>
+</section>
+
+<section class="toc">
+  <h2 style="margin-top:0">Indice</h2>
+  <ol>
+    <li>Cos'è RackDroid</li>
+    <li>Per iniziare — il rack e i cavi</li>
+    <li>La barra degli strumenti</li>
+    <li>La palette dei moduli</li>
+    <li>I menu (File · Modifica · Visualizza · Motore · Aiuto)</li>
+    <li>Tastiera musicale e MIDI</li>
+    <li>Registrazione audio</li>
+    <li>Tutorial e guide</li>
+    <li>I moduli di base</li>
+    <li>Caricare plugin (.rdmod)</li>
+    <li>Creare un plugin</li>
+    <li>Nota su Google Play</li>
+  </ol>
+</section>
+
+<h2>1 · Cos'è RackDroid</h2>
+<p>
+  RackDroid è un port per Android di <b>VCV Rack</b>, il celebre sintetizzatore
+  modulare virtuale. Colleghi moduli (oscillatori, filtri, inviluppi, sequencer…)
+  con dei cavi virtuali per creare suoni e patch, esattamente come in un rack
+  modulare hardware — ma sul telefono, con un'interfaccia pensata per il tocco.
+</p>
+<ul>
+  <li><b>Motore audio nativo</b> a bassa latenza (Oboe/AAudio).</li>
+  <li><b>66 moduli di base</b> sempre presenti (Core, Fundamental, RackDroid Drums).</li>
+  <li><b>Pacchetti aggiuntivi</b> installabili al volo come file <code>.rdmod</code>, senza aggiornare l'app.</li>
+  <li>Registrazione su WAV, MIDI Bluetooth, tastiera musicale a schermo, 30 tutorial guidati.</li>
+</ul>
+
+<h2>2 · Per iniziare — il rack e i cavi</h2>
+<p>All'avvio trovi una patch dimostrativa già funzionante: <b>l'audio è già configurato</b> e suona appena tocchi.</p>
+<h3>Gesti principali</h3>
+<ul>
+  <li><b>Ruota una manopola</b>: trascina su/giù sulla manopola. Tieni premuto per digitare un valore o azzerarla.</li>
+  <li><b>Crea un cavo</b>: trascina da una porta a un'altra. Trascina via lo spinotto per spostarlo o rimuoverlo.</li>
+  <li><b>Sposta un modulo</b>: trascinalo per il pannello.</li>
+  <li><b>Zoom / scorrimento</b>: pizzica per lo zoom, trascina lo sfondo per spostarti nel rack.</li>
+  <li><b>Aggiungi un modulo</b>: usa la palette in basso (capitolo 4) oppure tieni premuto uno spazio vuoto del rack.</li>
+</ul>
+<div class="callout"><b>Colore dei cavi:</b> la loro tensione (quanto “cadono”) e opacità si regolano dal menu <span class="tool">Visualizza</span> — vedi capitolo 5.</div>
+
+<h2>3 · La barra degli strumenti</h2>
+<p>
+  In alto galleggia una card a vetro con due righe: i <b>menu</b> e i <b>tool</b>.
+  La freccetta centrale in basso la <b>richiude</b> lasciando solo una linguetta (toccala per riaprirla);
+  si richiude anche automaticamente quando apri un tutorial, per liberare lo schermo.
+</p>
+<h3>Riga dei menu</h3>
+<div class="grid">
+  <span class="chip">FILE</span><span class="chip">MODIFICA</span><span class="chip">VISUALIZZA</span>
+  <span class="chip">MOTORE</span><span class="chip">AIUTO</span>
+</div>
+<h3>Riga dei tool (icone)</h3>
+<table>
+  <tr><th>Icona</th><th>Funzione</th></tr>
+  <tr><td>Griglia</td><td><b>Palette dei moduli</b>: mostra/nasconde la barra dei moduli in basso.</td></tr>
+  <tr><td>Download</td><td><b>Gestore moduli</b>: installa pacchetti <code>.rdmod</code> da file e disinstalla quelli installati.</td></tr>
+  <tr><td>↶ / ↷</td><td><b>Annulla / Ripeti</b> l'ultima azione.</td></tr>
+  <tr><td>Lucchetto contorno</td><td><b>Blocca layout</b>: congela posizione dei moduli e cavi (le manopole restano attive).</td></tr>
+  <tr><td>Lucchetto pieno</td><td><b>Blocca tutto</b>: congela anche i parametri. Attivo = ambra. Stato salvato tra le sessioni.</td></tr>
+  <tr><td>Piano</td><td><b>MIDI</b>: cerca e collega controller MIDI Bluetooth LE.</td></tr>
+  <tr><td>Tastiera</td><td><b>Tastiera musicale</b> a schermo (capitolo 6).</td></tr>
+  <tr><td>Cerchio rosso</td><td><b>Registra</b> l'uscita audio su file WAV (capitolo 7). Diventa un quadrato di stop.</td></tr>
+  <tr><td>ⓘ</td><td><b>Info / crediti</b> dell'app.</td></tr>
+</table>
+
+<h2 class="page-break">4 · La palette dei moduli</h2>
+<p>
+  La barra in basso è il modo rapido per aggiungere moduli. In fondo trovi i
+  <b>chip delle categorie</b>; toccandone uno si apre sopra una striscia
+  scorrevole di anteprime dei moduli di quella categoria.
+</p>
+<div class="grid">
+  <span class="chip">VCO</span><span class="chip">LFO</span><span class="chip">VCF</span><span class="chip">VCA</span>
+  <span class="chip">ENV</span><span class="chip">SEQ</span><span class="chip">DRUM</span><span class="chip">MIX</span>
+  <span class="chip">FX</span><span class="chip">NOISE</span><span class="chip">QNT</span><span class="chip">MIDI</span><span class="chip">UTIL</span>
+</div>
+<h3>Aggiungere un modulo</h3>
+<ul>
+  <li><b>Tocco rapido</b> su un'anteprima: il modulo viene inserito al centro dello schermo.</li>
+  <li><b>Tieni premuto e trascina</b> l'anteprima sul rack: il modulo si posa esattamente dove lasci il dito.</li>
+</ul>
+<h3>Info sul modulo (ⓘ)</h3>
+<p>
+  Ogni anteprima ha un pallino <b>ⓘ</b> in alto a destra: toccandolo si apre una
+  scheda con <b>nome, marca, plugin, tag e descrizione</b> del modulo (cos'è e cosa fa).
+</p>
+<h3>Chiudere il menu aperto</h3>
+<p>
+  <b>Scorri verso il basso</b> sulla striscia dei moduli per richiuderla (la barra
+  dei chip resta al suo posto). In alternativa tocca di nuovo il chip attivo.
+  Lo scorrimento orizzontale e il trascinamento verso l'alto sul rack non ne sono
+  influenzati.
+</p>
+
+<h2>5 · I menu</h2>
+<p>I menu si aprono come pannelli dal basso. Si chiudono toccando fuori, con “indietro”, oppure <b>scorrendoli verso il basso</b>.</p>
+<table>
+  <tr><th>Menu</th><th>Cosa contiene</th></tr>
+  <tr><td><b>File</b></td><td>Nuovo, apri, salva la patch; <b>condividi</b> la patch (foglio di sistema).</td></tr>
+  <tr><td><b>Modifica</b></td><td>Annulla / ripeti e comandi di modifica.</td></tr>
+  <tr><td><b>Visualizza</b></td><td><b>Tensione dei cavi</b> e <b>Opacità dei cavi</b> (cursori 0–100%), più altre opzioni di visualizzazione.</td></tr>
+  <tr><td><b>Motore</b></td><td>Impostazioni del motore audio (frequenza di campionamento, ecc.).</td></tr>
+  <tr><td><b>Aiuto</b></td><td><b>Guida</b> e libreria dei <b>tutorial</b>.</td></tr>
+</table>
+<div class="callout"><b>Tensione e opacità dei cavi:</b> nel menu Visualizza regoli quanto i cavi si incurvano e quanto sono trasparenti. I valori restano salvati.</div>
+
+<h2>6 · Tastiera musicale e MIDI</h2>
+<p>
+  Il tasto <b>Tastiera</b> apre in basso una tastiera di pianoforte a schermo: le note
+  suonano attraverso il driver “Computer keyboard/mouse” di Rack (1V/oct + gate).
+  Le frecce <b>‹ ›</b> ai lati spostano l'ottava; il pulsante <b>✕</b> in alto a destra la chiude.
+</p>
+<p>
+  Il tasto <b>MIDI</b> avvia la ricerca di controller <b>MIDI Bluetooth LE</b>: seleziona il
+  dispositivo per collegarlo e suonare i moduli MIDI.
+</p>
+
+<h2>7 · Registrazione audio</h2>
+<p>
+  Il tasto <b>Registra</b> cattura l'uscita audio in un file <b>WAV</b>. Ripremendolo
+  la registrazione si ferma e il file viene salvato in
+  <code>Documents/RackDroid/</code>, raggiungibile da qualunque file manager
+  (nessun permesso speciale richiesto).
+</p>
+
+<h2>8 · Tutorial e guide</h2>
+<p>
+  Dal menu <b>Aiuto</b> apri la <b>Guida</b> (indice per argomenti) e la libreria dei
+  <b>tutorial</b>: 30 costruzioni guidate passo-passo su 5 livelli, dalle basi
+  (primo suono, filtro, inviluppo) a tecniche avanzate (hard sync, Karplus–Strong,
+  patch generative, droni ambient). Le schede dei tutorial appaiono in alto per
+  non coprire la palette.
+</p>
+
+<h2 class="page-break">9 · I moduli di base</h2>
+<p>Sempre presenti nell'app, senza installare nulla:</p>
+<table>
+  <tr><th>Pacchetto</th><th>Moduli</th><th>Contenuto</th></tr>
+  <tr><td><b>Core</b></td><td>integrati</td><td>Audio, MIDI e I/O del motore.</td></tr>
+  <tr><td><b>Fundamental</b></td><td>39</td><td>VCO, VCF, VCA, ADSR, LFO, SEQ-3, Delay, Mixer, Scope, Quantizer, Noise, S&amp;H…</td></tr>
+  <tr><td><b>RackDroid Drums</b></td><td>14</td><td>Voci di batteria/percussioni originali nella tradizione dell'808.</td></tr>
+</table>
+<p class="small">Tutti gli altri pacchetti (Bogaudio, Valley, Audible, Impromptu, Befaco, Grande, HetrickCV, ecc.) si scaricano e si installano come <code>.rdmod</code> — vedi capitolo seguente.</p>
+
+<h2>10 · Caricare plugin (.rdmod)</h2>
+<p>
+  Un <b>pacchetto di moduli</b> è un file <code>.rdmod</code>. Puoi aggiungerne quanti vuoi
+  senza aggiornare l'app. Ci sono due modi.
+</p>
+<h3>A · Dal gestore moduli (consigliato, in tempo reale)</h3>
+<ol>
+  <li>Tocca l'icona <b>Download</b> nella barra strumenti → si apre il gestore <b>Moduli</b>.</li>
+  <li>Tocca <b>“＋ Installa da file…”</b>: si apre il selettore file del telefono.</li>
+  <li>Scegli uno o più file <code>.rdmod</code> (da Download o ovunque siano).</li>
+  <li>Vengono copiati e <b>caricati subito</b>: i nuovi moduli compaiono nella palette, <b>senza riavvio</b>.</li>
+</ol>
+<h3>B · Dalla cartella Moduli</h3>
+<p>Copia i file <code>.rdmod</code> in questa cartella (visibile in qualsiasi file manager, nessun permesso richiesto) e riavvia l'app:</p>
+<pre>Android/data/org.rackdroid/files/Modules/</pre>
+<h3>Disinstallare</h3>
+<p>
+  Nel gestore <b>Moduli</b> ogni pacchetto installato ha un pulsante <b>Disinstalla</b>.
+  I moduli spariscono <b>subito</b> dalla palette; quelli che avevi già inserito nel rack
+  restano attivi fino al riavvio dell'app (un modulo nativo non può essere rimosso da un
+  motore in esecuzione).
+</p>
+<h3>Come funziona (dietro le quinte)</h3>
+<p>Android vieta di caricare una libreria nativa <code>.so</code> direttamente dalla memoria condivisa (namespace del linker + W^X). Quindi l'app:</p>
+<ol>
+  <li>estrae ogni pacchetto nella memoria privata dell'app (<code>filesDir/user/plugins/&lt;slug&gt;</code>);</li>
+  <li>rende il <code>.so</code> di sola lettura e chiama <code>System.load()</code> di Java (l'unico modo per soddisfare il namespace del linker);</li>
+  <li>passa la libreria già caricata al lato nativo (<code>nativeLoadUserPlugin</code> → <code>dlopen(RTLD_NOLOAD)</code> → registrazione).</li>
+</ol>
+
+<h2 class="page-break">11 · Creare un plugin</h2>
+<p>
+  Un plugin è compatibile con RackDroid se è compilato contro lo <b>stesso ABI del motore</b>
+  <code>rack_engine</code> dell'app (<b>arm64-v8a</b>). Un <code>.so</code> di terze parti o con ABI
+  diverso non verrà caricato (viene saltato).
+</p>
+<h3>Struttura di un .rdmod</h3>
+<p>È un semplice <b>zip</b> con al primo livello:</p>
+<pre>plugin.json          # il manifest del pacchetto (deve avere "slug")
+res/…                # pannelli SVG e altri asset caricati a runtime
+libplugin_&lt;nome&gt;.so   # la libreria nativa, per QUESTO motore RackDroid</pre>
+<h3>Il manifest plugin.json</h3>
+<pre>{
+  "slug": "MioPack",
+  "name": "Il mio pacchetto",
+  "version": "2.0.0",
+  "license": "GPL-3.0-or-later",
+  "brand": "MioBrand",
+  "author": "Nome",
+  "description": "Descrizione del pacchetto",
+  "modules": [
+    {
+      "slug": "MioVCO",
+      "name": "Mio VCO",
+      "description": "Oscillatore controllato in tensione",
+      "tags": ["Oscillator"]
+    }
+  ]
+}</pre>
+<p class="small">Lo <code>slug</code> del plugin e dei moduli non deve contenere <code>/</code>. I <code>tags</code> determinano in quale categoria della palette appare il modulo (es. <code>Oscillator</code>→VCO, <code>Filter</code>→VCF).</p>
+<h3>Compilare la libreria (CMake, contro rack_engine)</h3>
+<p>Il codice del modulo è C++ VCV Rack standard. Il target si aggiunge come libreria condivisa collegata a <code>rack_engine</code>:</p>
+<pre>add_library(plugin_mio SHARED ${MIO_SOURCES})
+target_link_libraries(plugin_mio PUBLIC rack_engine)
+target_compile_options(plugin_mio PRIVATE
+    -I${MIO_DIR}/src -O3 -funsafe-math-optimizations)</pre>
+<p>Costruito con la NDK per <code>arm64-v8a</code> (STL <code>c++_shared</code>), come l'app.</p>
+<h3>Impacchettare</h3>
+<p>Metti insieme il <code>.so</code> (stripato), il <code>plugin.json</code> e la cartella <code>res/</code>, e comprimi in zip:</p>
+<pre>mkdir pack &amp;&amp; cd pack
+cp .../obj/arm64-v8a/libplugin_mio.so .
+cp path/to/mio/plugin.json .
+cp -r path/to/mio/res .
+zip -r ../MioPack.rdmod .</pre>
+<p class="small">Nel repository lo script <code>scripts/make_rdmods.sh</code> automatizza questo per tutti i pacchetti non di base, prendendo il <code>.so</code> dalla cartella di build di CMake e mappando le risorse.</p>
+<div class="callout"><b>ABI:</b> il <code>.so</code> deve essere costruito con la stessa versione del motore <code>rack_engine</code> dell'app installata. Un mismatch = pacchetto saltato. Anche un pacchetto con lo stesso <code>slug</code> di uno già presente (es. un modulo di base) viene saltato.</div>
+
+<h2>12 · Nota su Google Play</h2>
+<p>
+  Distribuire codice nativo che viene eseguito da <b>fuori</b> Google Play viola le
+  policy di Play. Perciò la cartella di side-load e l'installazione da file sono
+  pensate per la build <b>sideload / GitHub</b>. Una build per Play dovrebbe consegnare
+  i pacchetti extra tramite <b>Play asset packs / feature delivery</b> (è Play a servire
+  il <code>.so</code>), riusando lo stesso caricatore “estrai in memoria privata +
+  <code>System.load</code>”.
+</p>
+
+<p class="small" style="margin-top:26px; border-top:1px solid var(--line); padding-top:8px">
+  RackDroid è un port di VCV Rack (GPLv3). Grafica e moduli originali dove indicato.
+  Progetto: github.com/nowheel/xmr-stak-cpu-installer &nbsp;·&nbsp; Manuale generato per la versione 0.1.0.
+</p>
+
+</body>
+</html>
