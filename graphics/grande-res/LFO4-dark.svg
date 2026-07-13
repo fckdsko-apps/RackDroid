@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="10.16mm" height="128.5mm" viewBox="0 0 10.16 128.5">
+<defs><linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A342B"/><stop offset="1" stop-color="#292520"/></linearGradient><linearGradient id="strip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE8C2"/><stop offset="1" stop-color="#C8985C"/></linearGradient><linearGradient id="sheen" x1="0" y1="0" x2="0.65" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.09"/><stop offset="0.4" stop-color="#FFFFFF" stop-opacity="0.02"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient></defs>
+<rect width="10.16" height="128.5" fill="url(#panel)" fill-opacity="0.97"/>
+<rect width="10.16" height="128.5" fill="url(#sheen)"/>
+<rect x="0" y="0" width="10.16" height="2.00" fill="url(#strip)"/>
+<rect x="0" y="2.00" width="10.16" height="0.8" fill="#000000" fill-opacity="0.35"/>
+<rect x="0" y="126.50" width="10.16" height="2.00" fill="#1B1813"/>
+<rect x="0.6" y="0.6" width="8.96" height="127.30" fill="none" stroke="#FFFFFF" stroke-opacity="0.13" stroke-width="1"/>
+<rect x="0" y="0" width="1" height="128.5" fill="#FFFFFF" fill-opacity="0.07"/>
+<rect x="9.16" y="0" width="1" height="128.5" fill="#000000" fill-opacity="0.45"/>
+<text x="5.08" y="5.7825" font-family="sans-serif" font-size="2.2352" fill="#EDE6D8" text-anchor="middle" font-weight="bold">LFO4 DARK</text>
+</svg>

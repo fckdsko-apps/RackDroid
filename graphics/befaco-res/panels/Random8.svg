@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40.299999mm" height="128.5mm" viewBox="0 0 40.299999 128.5">
+<defs><linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A342B"/><stop offset="1" stop-color="#292520"/></linearGradient><linearGradient id="strip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE8C2"/><stop offset="1" stop-color="#C8985C"/></linearGradient><linearGradient id="sheen" x1="0" y1="0" x2="0.65" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.09"/><stop offset="0.4" stop-color="#FFFFFF" stop-opacity="0.02"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient></defs>
+<rect width="40.299999" height="128.5" fill="url(#panel)" fill-opacity="0.97"/>
+<rect width="40.299999" height="128.5" fill="url(#sheen)"/>
+<rect x="0" y="0" width="40.299999" height="2.00" fill="url(#strip)"/>
+<rect x="0" y="2.00" width="40.299999" height="0.8" fill="#000000" fill-opacity="0.35"/>
+<rect x="0" y="126.50" width="40.299999" height="2.00" fill="#1B1813"/>
+<rect x="0.6" y="0.6" width="39.10" height="127.30" fill="none" stroke="#FFFFFF" stroke-opacity="0.13" stroke-width="1"/>
+<rect x="0" y="0" width="1" height="128.5" fill="#FFFFFF" fill-opacity="0.07"/>
+<rect x="39.299999" y="0" width="1" height="128.5" fill="#000000" fill-opacity="0.45"/>
+<text x="20.1499995" y="5.7825" font-family="sans-serif" font-size="6" fill="#EDE6D8" text-anchor="middle" font-weight="bold">RANDOM8</text>
+<text x="42.511189" y="270.5546" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">1</text>
+<text x="42.827919" y="285.24753" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">2</text>
+<text x="42.982063" y="226.38979" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">3</text>
+<text x="41.53574" y="185.80946" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">4</text>
+<text x="70.234833" y="176.17436" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">1</text>
+<text x="77.674683" y="176.93365" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">INPUTS</text>
+<text x="59.645405" y="182.93217" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">Input minijacks. This inputs accept both CV and Audio,in a range of -10v to 10v.They are normalled to 10v, so when nothing is plugged in, you get a fixed voltage</text>
+<text x="70.145988" y="202.07747" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">2</text>
+<text x="77.183815" y="202.92294" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">OUTPUTS</text>
+<text x="60.341938" y="208.63159" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">Minijack Outputs. Here you will get the signal present in the corresponding input,attenuated by each pot. Outputs are mixed in OUT3 and will disconnect from it if a minijack is plugged.</text>
+<text x="70.214317" y="232.22829" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">3</text>
+<text x="77.72963" y="232.92093" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">POTS AND LED METERS</text>
+<text x="61.231747" y="239.85312" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">Pots will set the attenuation level applied to the signal present in each INLED rings will show signal level present in the corresponding output.in CV mode, positive voltages will be shown in Green and negative voltages in redIn Audio Mode, you will get a VU meter. Green leds will go up to 0db, where this is normal Eurorack audio level. Going yellow over this level and red when it goeshigher than 10v..</text>
+<text x="70.390701" y="274.49875" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">4</text>
+<text x="76.406708" y="275.18799" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">LEVEL SELECTOR</text>
+<text x="60.439201" y="281.83374" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">This Switch select the signal input type.Audio: Use this setting if you plan tu use audio. LEDS will be a VU METERCV ATT: CV Mode that expects CV signals and will attenuate it.CV INV: signal will be inverted before getting int othe attenuator.</text>
+</svg>

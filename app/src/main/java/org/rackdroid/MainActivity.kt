@@ -1,0 +1,1574 @@
+package org.rackdroid
+
+import android.Manifest
+import android.app.AlertDialog
+import android.app.Dialog
+import android.app.NativeActivity
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.media.midi.MidiDevice
+import android.media.midi.MidiDeviceInfo
+import android.media.midi.MidiManager
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.ParcelUuid
+import android.provider.OpenableColumns
+import android.text.InputType
+import android.view.Gravity
+import android.view.KeyEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.ImageButton
+import android.widget.ImageView
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.PopupWindow
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
+import androidx.core.content.FileProvider
+import java.io.File
+import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicInteger
+
+/**
+ * Java-side services for the native app (native/port/):
+ *  - runtime permissions
+ *  - clipboard (jni_bridge.cpp)
+ *  - blocking dialogs: message / text prompt / patch file picker (osdialog)
+ *  - MIDI device plumbing: MidiManager devices are opened here and handed to
+ *    the native AMidi driver (amidi_driver.cpp)
+ *
+ * Dialog methods are called from the native glue thread and block it with a
+ * latch while the dialog runs on the UI thread.
+ */
+class MainActivity : NativeActivity() {
+
+	private val uiHandler = Handler(Looper.getMainLooper())
+	private var midiManager: MidiManager? = null
+	private val midiDevices = HashMap<Int, MidiDevice>()
+	private val nextMidiId = AtomicInteger(1)
+
+	override fun onCreate(savedInstanceState: Bundle?) {
+		super.onCreate(savedInstanceState)
+
+		hideSystemBars()
+		jlog("RackDroid ${packageManager.getPackageInfo(packageName, 0).versionName} starting")
+
+		val missing = arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
+			.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+		if (missing.isNotEmpty()) {
+			// No callback handling needed: audio_oboe reopens streams lazily
+			// (output-only until mic granted); the foreground service runs
+			// with or without a visible notification.
+			requestPermissions(missing.toTypedArray(), 1)
+		}
+
+		// Shields the process (engine + audio) from the low-memory killer
+		// while backgrounded.
+		RackService.start(this)
+
+		addMidiButton()
+		initMidi()
+		handleImportIntent(intent)
+
+		// Load any user-installed / side-loaded module packs (after the
+		// native engine has registered the bundled plugins), THEN build the
+		// model list and show the palette so both include the new packs.
+		uiHandler.postDelayed({ runCatching { ModuleInstaller.loadUserPlugins(this) } }, 2800)
+		uiHandler.postDelayed({ runCatching { nativeBrowserRequestBuild() } }, 3400)
+		uiHandler.postDelayed({ runCatching { modulePalette.show() } }, 4000)
+
+		// First launch: walk the user through their first patch. Shown once;
+		// dismissing the wizard sets the flag (see Wizard.dismiss).
+
+		if (!getSharedPreferences("guide", Context.MODE_PRIVATE).getBoolean("wizard_done", false))
+			uiHandler.postDelayed({
+				runCatching { (wizard ?: Wizard(this).also { wizard = it }).show() }
+			}, 2500)
+	}
+
+	/** Native Android top toolbar, covering the tiny canvas MenuBar strip:
+	 *  a full-width row of File/Edit/View/Engine/Library/Help buttons (equal
+	 *  weight, so all six always fit with no scrolling) — each injects a
+	 *  synthetic tap on the real canvas MenuButton via nativeToolbarTap, the
+	 *  same ui::Menu a real tap would open, now correctly shown as a bottom
+	 *  sheet since the capture bridge was fixed — plus a second row with the
+	 *  🎹 Bluetooth-MIDI scanner and ⓘ credits/log buttons.
+	 *
+	 * MUST live in its own window (PopupWindow): NativeActivity takes the
+	 * main window's surface and input queue (takeSurface/takeInputQueue),
+	 * so views added to the main window are never drawn and never get
+	 * touches — an addContentView overlay here is invisible. Dialogs and
+	 * popups are separate windows, which is why they work. */
+	private var buttonPopup: PopupWindow? = null
+
+	// Set by addMidiButton; collapses/expands the top tools card. Called
+	// when a tutorial opens so the card folds to just its glass arrow,
+	// clearing the top for the tutorial step card.
+	private var collapseToolbar: ((Boolean) -> Unit)? = null
+	fun setToolbarCollapsedForTutorial(collapsed: Boolean) {
+		uiHandler.post { runCatching { collapseToolbar?.invoke(collapsed) } }
+	}
+
+	private fun addMidiButton() {
+		val menuRow = LinearLayout(this).apply {
+			orientation = LinearLayout.HORIZONTAL
+			// Translucent: the rack scrolls under a smoked-glass strip (the
+			// popup window also gets blur-behind below, where supported).
+			setBackgroundColor(Color.parseColor("#C21B1815"))
+		}
+		// label -> canvas MenuBar child index (File=0 .. Help=5). "Library"
+		// (index 4) is deliberately absent: it only manages a VCV account /
+		// online library, useless in this port -- but the index mapping must
+		// stay explicit so Help still reaches child 5.
+		val menuLabels = listOf(R.string.menu_file to 0, R.string.menu_edit to 1,
+			R.string.menu_view to 2, R.string.menu_engine to 3, R.string.menu_help to 5)
+		for ((labelRes, i) in menuLabels) {
+			// Flat text buttons with the amber ripple, not the stock grey
+			// Material pills: reads as a real app toolbar.
+			menuRow.addView(TextView(this).apply {
+				text = getString(labelRes).uppercase()
+				// Single line + autosize: localized labels vary a lot in
+				// length ("VISUALIZZA" wrapped at a fixed 12sp).
+				isSingleLine = true
+				androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+					this, 7, 12, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
+				setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
+				setTextColor(Color.parseColor("#EDE6D8"))
+				gravity = Gravity.CENTER
+				background = amberRippleRounded()
+				setPadding(0, dp(12), 0, dp(12))
+				layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+					.apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
+				setOnClickListener { nativeToolbarTap(i) }
+			})
+		}
+		val iconRow = LinearLayout(this).apply {
+			orientation = LinearLayout.HORIZONTAL
+			gravity = Gravity.CENTER_VERTICAL
+			layoutParams = LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+		}
+		val iconTint = android.content.res.ColorStateList.valueOf(Color.parseColor("#E4DCCB"))
+		val amberTint = android.content.res.ColorStateList.valueOf(Color.parseColor("#FFDA9F"))
+		// One consistent set of line icons (vector drawables, uniformly tinted),
+		// each in an equal-weight slot so the row spreads evenly -- replaces the
+		// old grab-bag of mismatched colour emoji. Toggles light up amber.
+		fun iconButton(iconRes: Int, desc: String, onClick: (ImageButton) -> Unit) =
+			ImageButton(this).apply {
+				setImageResource(iconRes)
+				imageTintList = iconTint
+				scaleType = ImageView.ScaleType.FIT_CENTER
+				background = amberRippleRounded()
+				contentDescription = desc
+				minimumWidth = 0; minimumHeight = 0
+				setPadding(dp(7), dp(9), dp(7), dp(9))
+				layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f)
+					.apply { setMargins(dp(1), 0, dp(1), 0) }
+				setOnClickListener { onClick(this) }
+			}
+		val paletteButton = iconButton(R.drawable.ic_tb_modules, getString(R.string.menu_view)) { modulePalette.toggle() }
+		val installButton = iconButton(R.drawable.ic_tb_install, getString(R.string.modules_manager_title)) { showModuleManager() }
+		val undoButton = iconButton(R.drawable.ic_tb_undo, "Undo") { nativeHistoryAction(0) }
+		val redoButton = iconButton(R.drawable.ic_tb_redo, "Redo") { nativeHistoryAction(1) }
+		val midiButton = iconButton(R.drawable.ic_tb_midi, "MIDI") { showBleMidiScanner() }
+		val keyboardButton = iconButton(R.drawable.ic_tb_keyboard, "Keyboard") { toggleVirtualKeyboard() }
+		val creditsButton = iconButton(R.drawable.ic_tb_info, "Info") { showCredits() }
+		val recordButton = iconButton(R.drawable.ic_tb_record, "Record") { toggleRecording(it) }
+		recordButton.imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF6B6B"))
+		// Patch padlocks. Outline lock freezes the layout (module positions +
+		// cables, knobs stay live); the solid lock freezes everything including
+		// parameters. Active = amber + full opacity; inactive dimmed. Persisted.
+		val lockPrefs = getSharedPreferences("locks", Context.MODE_PRIVATE)
+		var layoutLock = lockPrefs.getBoolean("layout", false)
+		var fullLock = lockPrefs.getBoolean("full", false)
+		lateinit var lockButton: ImageButton
+		lateinit var fullLockButton: ImageButton
+		fun applyLocks() {
+			nativeSetLockMode(if (fullLock) 2 else if (layoutLock) 1 else 0)
+			lockPrefs.edit().putBoolean("layout", layoutLock).putBoolean("full", fullLock).apply()
+			val l1 = layoutLock || fullLock
+			lockButton.imageTintList = if (l1) amberTint else iconTint
+			lockButton.alpha = if (l1) 1f else 0.6f
+			fullLockButton.imageTintList = if (fullLock) amberTint else iconTint
+			fullLockButton.alpha = if (fullLock) 1f else 0.6f
+		}
+		lockButton = iconButton(R.drawable.ic_tb_lock_outline, "Lock layout") { layoutLock = !layoutLock; applyLocks() }
+		fullLockButton = iconButton(R.drawable.ic_tb_lock, "Lock all") { fullLock = !fullLock; applyLocks() }
+		applyLocks() // restore persisted state (also styles both buttons)
+		iconRow.addView(paletteButton)
+		iconRow.addView(installButton)
+		iconRow.addView(undoButton)
+		iconRow.addView(redoButton)
+		iconRow.addView(lockButton)
+		iconRow.addView(fullLockButton)
+		iconRow.addView(midiButton)
+		iconRow.addView(keyboardButton)
+		iconRow.addView(recordButton)
+		iconRow.addView(creditsButton)
+		menuRow.setBackgroundColor(Color.TRANSPARENT)
+		val menuDivider = View(this).apply {
+			setBackgroundColor(Color.parseColor("#1AFFFFFF"))
+			layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1))
+				.apply { setMargins(dp(10), dp(3), dp(10), dp(4)) }
+		}
+
+		// Single floating glass card at the TOP (user: tools back on top):
+		// the five menus over the tool icons, one hide handle for both. No
+		// blur-behind -- persistent window, would smear the whole rack (see
+		// the 0.21.2 incident). LayoutTransition animates the collapse.
+		// A reusable rounded glass pill for the handle button.
+		fun glassPill() = GradientDrawable().apply {
+			cornerRadius = dp(18).toFloat()
+			setColor(Color.parseColor("#D9221F1A"))
+			setStroke(dp(1), Color.parseColor("#26FFFFFF"))
+		}
+		val cardBg = GradientDrawable().apply {
+			cornerRadius = dp(20).toFloat()
+			setColor(Color.parseColor("#D9221F1A"))
+			setStroke(dp(1), Color.parseColor("#26FFFFFF"))
+		}
+		lateinit var collapseButton: ImageButton
+		lateinit var card: LinearLayout
+		var collapsed = false
+		// Apply a collapse state (shared by the handle tap and the
+		// tutorial-opened auto-collapse). Idempotent.
+		fun applyCollapsed(c: Boolean) {
+			if (collapsed == c) return
+			collapsed = c
+			val vis = if (collapsed) View.GONE else View.VISIBLE
+			menuRow.visibility = vis
+			menuDivider.visibility = vis
+			iconRow.visibility = vis
+			// Collapsed: only this arrow, as a standalone glass button (the
+			// card's own glass background disappears). Expanded: the full
+			// glass card, arrow flat inside it.
+			card.background = if (collapsed) null else cardBg
+			collapseButton.background = if (collapsed) glassPill() else amberRippleRounded()
+			collapseButton.animate().rotation(if (collapsed) 180f else 0f).setDuration(240L).start()
+		}
+		collapseToolbar = { c -> applyCollapsed(c) }
+		collapseButton = ImageButton(this).apply {
+			setImageResource(R.drawable.ic_tb_chevron)
+			imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CFC7B8"))
+			scaleType = ImageView.ScaleType.FIT_CENTER
+			contentDescription = getString(R.string.menu_view)
+			minimumWidth = 0; minimumHeight = 0
+			setPadding(dp(10), dp(4), dp(10), dp(4))
+			setOnClickListener { applyCollapsed(!collapsed) }
+		}
+		val handleRow = LinearLayout(this).apply {
+			orientation = LinearLayout.HORIZONTAL
+			gravity = Gravity.CENTER_HORIZONTAL
+			addView(collapseButton, LinearLayout.LayoutParams(dp(64), dp(26)))
+		}
+		card = LinearLayout(this).apply {
+			orientation = LinearLayout.VERTICAL
+			background = cardBg
+			clipToOutline = true
+			setPadding(dp(4), dp(2), dp(4), 0)
+			layoutTransition = android.animation.LayoutTransition()
+			addView(menuRow, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+			addView(menuDivider)
+			addView(iconRow)
+			addView(handleRow)
+		}
+		collapseButton.background = amberRippleRounded()
+		val holder = android.widget.FrameLayout(this).apply {
+			setPadding(dp(8), dp(4), dp(8), 0)
+			addView(card)
+		}
+		val topPopup = PopupWindow(holder,
+			ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+		topPopup.isFocusable = false // never steal keys from the canvas
+		buttonPopup = topPopup
+		val decor = window.decorView
+		decor.post { // runs once the decor is attached (valid window token)
+			try {
+				val top = decor.rootWindowInsets?.getInsets(
+					android.view.WindowInsets.Type.systemBars()
+						or android.view.WindowInsets.Type.displayCutout())?.top ?: 0
+				topPopup.showAtLocation(decor, Gravity.TOP or Gravity.START, 0, top)
+				// Entrance: the card drops in from above.
+				card.alpha = 0f
+				card.translationY = -dp(40).toFloat()
+				card.animate().alpha(1f).translationY(0f).setDuration(320L)
+					.setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+				jlog("toolbar shown (top inset $top)")
+			} catch (t: Throwable) {
+				jlog("toolbar failed: ${android.util.Log.getStackTraceString(t)}")
+			}
+		}
+	}
+
+	// ---- Master WAV recording (⏺ toolbar button) ----
+	// The native side taps the oboe output callback into a WAV file under
+	// filesDir/user/recordings/; on stop the file is published to
+	// Documents/RackDroid/ via MediaStore (no permission needed for files
+	// this app contributes) so it's reachable from any file manager.
+	private var recordingFile: File? = null
+
+	private fun toggleRecording(button: ImageButton) {
+		val current = recordingFile
+		if (current == null) {
+			val dir = File(filesDir, "user/recordings")
+			dir.mkdirs()
+			val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+				.format(java.util.Date())
+			val f = File(dir, "rackdroid-$stamp.wav")
+			if (nativeRecordStart(f.absolutePath)) {
+				recordingFile = f
+				button.setImageResource(R.drawable.ic_tb_stop)
+				android.widget.Toast.makeText(this, getString(R.string.toast_recording), android.widget.Toast.LENGTH_SHORT).show()
+			} else {
+				android.widget.Toast.makeText(this, getString(R.string.toast_recording_failed), android.widget.Toast.LENGTH_SHORT).show()
+			}
+		} else {
+			nativeRecordStop()
+			recordingFile = null
+			button.setImageResource(R.drawable.ic_tb_record)
+			Thread {
+				val name = current.name
+				try {
+					val coll = android.provider.MediaStore.Files.getContentUri("external")
+					val values = android.content.ContentValues().apply {
+						put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+						put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "audio/wav")
+						put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Documents/RackDroid/")
+					}
+					val uri = contentResolver.insert(coll, values)
+					if (uri != null) {
+						contentResolver.openOutputStream(uri)?.use { out ->
+							current.inputStream().use { it.copyTo(out) }
+						}
+						runOnUiThread {
+							android.widget.Toast.makeText(this,
+								getString(R.string.toast_saved_to, name), android.widget.Toast.LENGTH_LONG).show()
+						}
+					}
+				} catch (t: Throwable) {
+					jlog("recording export failed: ${android.util.Log.getStackTraceString(t)}")
+				}
+			}.start()
+		}
+	}
+
+	/** Virtual on-screen piano docked at the bottom of the screen, toggled
+	 * by the ⌨ icon. Plays through Rack's built-in "Computer keyboard/mouse"
+	 * MIDI driver (native/port/keyboard_native.cpp), so it works with any
+	 * MIDI-CV module already set to that driver -- including the tutorial
+	 * patch's default -- with no new MIDI routing to configure. Own window
+	 * (PopupWindow), same reason as the toolbar: NativeActivity's main
+	 * window never draws or receives touches for anything added to it
+	 * directly. */
+	private var keyboardPopup: PopupWindow? = null
+	private var pianoView: PianoKeyboardView? = null
+
+	private fun toggleVirtualKeyboard() {
+		val existing = keyboardPopup
+		if (existing != null) {
+			pianoView?.releaseAll()
+			existing.dismiss()
+			keyboardPopup = null
+			pianoView = null
+			return
+		}
+
+		val piano = PianoKeyboardView(this).apply {
+			onPress = { key -> nativeKeyboardPress(key) }
+			onRelease = { key -> nativeKeyboardRelease(key) }
+		}
+		pianoView = piano
+
+		fun octaveButton(label: String, down: Boolean) = Button(this).apply {
+			text = label
+			setOnClickListener {
+				// A shift command (not a note) -- press+release right away,
+				// matching a real, non-sustained key tap.
+				val key = if (down) '`'.code else '1'.code
+				nativeKeyboardPress(key)
+				nativeKeyboardRelease(key)
+			}
+		}
+
+		val row = LinearLayout(this).apply {
+			orientation = LinearLayout.HORIZONTAL
+			setBackgroundColor(Color.parseColor("#1A1D24"))
+			addView(octaveButton("‹", down = true),
+				LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.MATCH_PARENT))
+			addView(piano, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+			addView(octaveButton("›", down = false),
+				LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.MATCH_PARENT))
+		}
+		// Close (✕) button, top-right corner over the keyboard.
+		val closeBtn = ImageButton(this).apply {
+			setImageResource(R.drawable.ic_tb_close)
+			imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#EDE6D8"))
+			scaleType = ImageView.ScaleType.FIT_CENTER
+			contentDescription = getString(android.R.string.cancel)
+			setPadding(dp(6), dp(6), dp(6), dp(6))
+			background = GradientDrawable().apply {
+				shape = GradientDrawable.OVAL
+				setColor(Color.parseColor("#B3000000"))
+			}
+			setOnClickListener {
+				pianoView?.releaseAll()
+				keyboardPopup?.dismiss()
+				keyboardPopup = null
+				pianoView = null
+			}
+		}
+		val keyboardHolder = android.widget.FrameLayout(this).apply {
+			addView(row, android.widget.FrameLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+			addView(closeBtn, android.widget.FrameLayout.LayoutParams(dp(34), dp(34)).apply {
+				gravity = Gravity.TOP or Gravity.END
+				setMargins(0, dp(6), dp(6), 0)
+			})
+		}
+
+		val popup = PopupWindow(keyboardHolder, ViewGroup.LayoutParams.MATCH_PARENT, dp(180))
+		popup.isFocusable = false // never steal keys from the canvas
+		keyboardPopup = popup
+		val decor = window.decorView
+		decor.post {
+			try {
+				val bottom = decor.rootWindowInsets?.getInsets(
+					android.view.WindowInsets.Type.systemBars())?.bottom ?: 0
+				popup.showAtLocation(decor, Gravity.BOTTOM or Gravity.START, 0, bottom)
+				jlog("virtual keyboard shown")
+			} catch (t: Throwable) {
+				jlog("virtual keyboard failed: ${android.util.Log.getStackTraceString(t)}")
+			}
+		}
+	}
+
+	private fun showCredits() {
+		val text = """
+			RackDroid ${packageManager.getPackageInfo(packageName, 0).versionName}
+			An unofficial Android build of the VCV Rack engine.
+
+			LICENSES
+			• Engine & modules (VCV Rack, Fundamental, Bogaudio): GPL-3.0-or-later. Complete source:
+			  github.com/nowheel/xmr-stak-cpu-installer (rack-android/)
+			• Component Library, Core & Fundamental panel graphics: original artwork © RackDroid, GPL-3.0.
+			• Bogaudio module graphics: © Matt Demanett, CC BY-SA 4.0.
+			• Fonts: DejaVu (free), Noto/Share Tech Mono/Nunito/DSEG (OFL).
+
+			Not affiliated with or endorsed by VCV. "VCV" is a trademark of VCV and is not used here.
+		""".trimIndent()
+		AlertDialog.Builder(this)
+			.setTitle("Credits & licenses")
+			.setMessage(text)
+			.setPositiveButton(android.R.string.ok, null)
+			.setNeutralButton("Log") { _, _ -> showLogViewer() }
+			.show()
+	}
+
+	/** Java-side log, mirrored to user/java-log.txt: logcat is unreachable
+	 * without root, so UI-thread errors must land in a file the in-app viewer
+	 * and the Documents export can reach. */
+	private fun jlog(msg: String) {
+		android.util.Log.i("rackdroid.java", msg)
+		try {
+			val f = File(filesDir, "user/java-log.txt")
+			f.parentFile?.mkdirs()
+			if (f.length() > 256 * 1024) f.delete()
+			val ts = java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.US)
+				.format(java.util.Date())
+			f.appendText("[$ts] $msg\n")
+		} catch (_: Throwable) {}
+	}
+
+	/** Copies both logs where any file manager can read them
+	 * (Documents/RackDroid/), for when even the in-app viewer is unreachable.
+	 * MediaStore needs no permission for files this app contributes. */
+	private fun exportLogs() {
+		for (name in listOf("log.txt", "java-log.txt")) {
+			try {
+				val src = File(filesDir, "user/$name")
+				if (!src.exists()) continue
+				val coll = android.provider.MediaStore.Files.getContentUri("external")
+				val cols = android.provider.MediaStore.MediaColumns.RELATIVE_PATH
+				val disp = android.provider.MediaStore.MediaColumns.DISPLAY_NAME
+				contentResolver.delete(coll, "$cols=? AND $disp=?",
+					arrayOf("Documents/RackDroid/", name))
+				val values = android.content.ContentValues().apply {
+					put(disp, name)
+					put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+					put(cols, "Documents/RackDroid/")
+				}
+				val uri = contentResolver.insert(coll, values) ?: continue
+				contentResolver.openOutputStream(uri)?.use { out ->
+					src.inputStream().use { it.copyTo(out) }
+				}
+			} catch (t: Throwable) {
+				android.util.Log.e("rackdroid.java", "log export failed: $name", t)
+			}
+		}
+	}
+
+	override fun onPause() {
+		super.onPause()
+		exportLogs()
+		// Otherwise a note held when the app backgrounds -- finger lifting
+		// off-screen never delivers a touch-up event -- would sustain
+		// forever.
+		pianoView?.releaseAll()
+	}
+
+	/** On-device log viewer: tails of user/java-log.txt (UI thread) and Rack's
+	 * user/log.txt (includes the rackdroid.menu traces). Termux/logcat can't
+	 * read other apps' logs, so this is the diagnosis channel on-device. */
+	private fun showLogViewer() {
+		val javaLog = File(filesDir, "user/java-log.txt")
+		val nativeLog = File(filesDir, "user/log.txt")
+		val text = buildString {
+			append("== java ==\n")
+			append(if (javaLog.exists())
+				javaLog.readLines().takeLast(60).joinToString("\n") else "(empty)")
+			append("\n\n== native (log.txt) ==\n")
+			append(if (nativeLog.exists())
+				nativeLog.readLines().takeLast(120).joinToString("\n") else "(no file)")
+		}
+		val tv = TextView(this).apply {
+			typeface = android.graphics.Typeface.MONOSPACE
+			textSize = 10f
+			setTextIsSelectable(true)
+			setPadding(dp(12), dp(12), dp(12), dp(12))
+			this.text = text
+		}
+		val scroll = ScrollView(this).apply { addView(tv) }
+		AlertDialog.Builder(this)
+			.setTitle("Log (tail)")
+			.setView(scroll)
+			.setPositiveButton(android.R.string.ok, null)
+			.setNeutralButton("Copy") { _, _ -> clipboardSet(text) }
+			.show()
+		scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+	}
+
+	override fun onNewIntent(intent: Intent) {
+		super.onNewIntent(intent)
+		handleImportIntent(intent)
+	}
+
+	/** Copies a .vcv opened/shared from another app into the patches dir. */
+	private fun handleImportIntent(intent: Intent?) {
+		val uri: Uri = when (intent?.action) {
+			Intent.ACTION_VIEW -> intent.data
+			Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+			else -> null
+		} ?: return
+		try {
+			var name = queryDisplayName(uri) ?: "imported.vcv"
+			if (!name.endsWith(".vcv")) name += ".vcv"
+			val dir = File(filesDir, "user/patches")
+			dir.mkdirs()
+			val dest = File(dir, name)
+			contentResolver.openInputStream(uri)?.use { input ->
+				dest.outputStream().use { input.copyTo(it) }
+			}
+			uiHandler.post {
+				Toast.makeText(this, getString(R.string.toast_patch_imported, dest.name), Toast.LENGTH_LONG).show()
+			}
+		} catch (e: Exception) {
+			uiHandler.post {
+				Toast.makeText(this, getString(R.string.toast_import_failed, e.message), Toast.LENGTH_LONG).show()
+			}
+		}
+	}
+
+	private fun queryDisplayName(uri: Uri): String? {
+		contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+			val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+			if (idx >= 0 && cursor.moveToFirst())
+				return cursor.getString(idx)
+		}
+		return uri.lastPathSegment
+	}
+
+	private val REQ_PICK_RDMOD = 4711
+	private var moduleManagerDialog: AlertDialog? = null
+
+	/** 📥 toolbar button: the module manager. Lists every installed .rdmod pack
+	 * with an uninstall button, plus an "install from file" action that opens
+	 * the system picker. Rebuilt in place after install/uninstall. */
+	private fun showModuleManager() {
+		val col = LinearLayout(this).apply {
+			orientation = LinearLayout.VERTICAL
+			setPadding(dp(20), dp(18), dp(20), dp(20))
+		}
+		col.addView(TextView(this).apply {
+			text = getString(R.string.modules_manager_title)
+			setTextColor(Color.parseColor("#FFDA9F"))
+			textSize = 17f
+			setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
+			setPadding(0, 0, 0, dp(12))
+		})
+		// Install-from-file action.
+		col.addView(Button(this).apply {
+			text = getString(R.string.install_from_file)
+			isAllCaps = false
+			setTextColor(Color.parseColor("#17140F"))
+			background = GradientDrawable().apply {
+				cornerRadius = dp(14).toFloat(); setColor(Color.parseColor("#FFDA9F"))
+			}
+			setOnClickListener { moduleManagerDialog?.dismiss(); pickModulePacks() }
+		})
+
+		val packs = ModuleInstaller.installedPacks(this)
+		if (packs.isEmpty()) {
+			col.addView(TextView(this).apply {
+				text = getString(R.string.no_modules_installed)
+				setTextColor(Color.parseColor("#9C9486"))
+				textSize = 14f
+				setPadding(0, dp(16), 0, 0)
+			})
+		} else {
+			col.addView(TextView(this).apply {
+				text = getString(R.string.modules_installed_header, packs.size)
+				setTextColor(Color.parseColor("#9C9486"))
+				textSize = 12f
+				letterSpacing = 0.08f
+				setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
+				setPadding(0, dp(16), 0, dp(6))
+			})
+			for (pack in packs) {
+				col.addView(LinearLayout(this).apply {
+					orientation = LinearLayout.HORIZONTAL
+					gravity = Gravity.CENTER_VERTICAL
+					setPadding(0, dp(8), 0, dp(8))
+					addView(TextView(this@MainActivity).apply {
+						text = pack.slug
+						setTextColor(Color.parseColor("#EDE6D8"))
+						textSize = 15f
+						setTypeface(AppFont.get(this@MainActivity))
+						layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+					})
+					addView(TextView(this@MainActivity).apply {
+						text = "%.1f MB".format(pack.sizeBytes / 1048576.0)
+						setTextColor(Color.parseColor("#8C857A"))
+						textSize = 12f
+						setPadding(0, 0, dp(12), 0)
+					})
+					addView(Button(this@MainActivity).apply {
+						text = getString(R.string.uninstall)
+						isAllCaps = false
+						setTextColor(Color.parseColor("#FF9E9E"))
+						minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+						setPadding(dp(14), dp(8), dp(14), dp(8))
+						background = GradientDrawable().apply {
+							cornerRadius = dp(12).toFloat()
+							setStroke(dp(1), Color.parseColor("#4DFF9E9E"))
+							setColor(Color.parseColor("#1AFF9E9E"))
+						}
+						setOnClickListener { confirmUninstall(pack.slug) }
+					})
+				})
+			}
+		}
+
+		val scroll = ScrollView(this).apply { addView(col); isVerticalScrollBarEnabled = false }
+		val dlg = AlertDialog.Builder(this).create()
+		dlg.setView(scroll)
+		trackTopWindow(dlg)
+		dlg.window?.apply {
+			setBackgroundDrawable(GradientDrawable().apply {
+				cornerRadius = dp(24).toFloat(); setColor(glassCardColor())
+				setStroke(dp(1), Color.parseColor("#2EFFFFFF"))
+			})
+			setDimAmount(0.4f)
+		}
+		glassify(dlg.window)
+		moduleManagerDialog = dlg
+		dlg.show()
+	}
+
+	private fun confirmUninstall(slug: String) {
+		AlertDialog.Builder(this)
+			.setTitle(getString(R.string.uninstall_title, slug))
+			.setMessage(getString(R.string.uninstall_message))
+			.setNegativeButton(android.R.string.cancel, null)
+			.setPositiveButton(R.string.uninstall) { _, _ ->
+				val ok = ModuleInstaller.uninstall(this, slug)
+				if (ok) {
+					// Drop it from the live registry so its modules leave the
+					// palette immediately, then refresh the palette snapshot.
+					runCatching { nativeBrowserUnloadPlugin(slug) }
+					runCatching { modulePalette.reload() }
+				}
+				Toast.makeText(this,
+					getString(if (ok) R.string.uninstalled_restart else R.string.install_failed),
+					Toast.LENGTH_LONG).show()
+				moduleManagerDialog?.dismiss()
+				showModuleManager() // rebuild the list without the removed pack
+			}
+			.show()
+	}
+
+	/** Pick .rdmod pack file(s) from anywhere on the device (Downloads, etc.)
+	 * with the system file picker. onActivityResult copies them into the
+	 * Modules folder and loads them live -- no restart, no storage permission
+	 * (the picker grants per-file read access). */
+	private fun pickModulePacks() {
+		val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+			addCategory(Intent.CATEGORY_OPENABLE)
+			// .rdmod has no registered MIME type; accept anything, filter by name.
+			type = "*/*"
+			putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+		}
+		try {
+			startActivityForResult(intent, REQ_PICK_RDMOD)
+		} catch (t: Throwable) {
+			Toast.makeText(this, getString(R.string.install_failed), Toast.LENGTH_LONG).show()
+		}
+	}
+
+	@Deprecated("Deprecated in Java")
+	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+		super.onActivityResult(requestCode, resultCode, data)
+		if (requestCode != REQ_PICK_RDMOD || resultCode != RESULT_OK || data == null) return
+		val uris = ArrayList<Uri>()
+		data.clipData?.let { clip -> for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri) }
+		data.data?.let { uris.add(it) }
+		if (uris.isEmpty()) return
+		Toast.makeText(this, getString(R.string.installing_modules), Toast.LENGTH_SHORT).show()
+		// Copy off the UI thread (a pack can be 10+ MB); load back on it, so the
+		// native registration path matches the startup loader exactly.
+		Thread {
+			val copied = uris.count { uri ->
+				runCatching {
+					var name = queryDisplayName(uri) ?: "pack.rdmod"
+					if (!name.endsWith(".rdmod") && !name.endsWith(".zip")) name += ".rdmod"
+					val dest = File(ModuleInstaller.modulesDir(this), name)
+					contentResolver.openInputStream(uri)?.use { input ->
+						dest.outputStream().use { input.copyTo(it) }
+					}
+					true
+				}.getOrDefault(false)
+			}
+			uiHandler.post {
+				if (copied > 0) {
+					// loadUserPlugins imports+loads the new packs and toasts the
+					// count; already-installed slugs are skipped harmlessly.
+					ModuleInstaller.loadUserPlugins(this)
+					runCatching { nativeBrowserRequestBuild() }
+					runCatching { modulePalette.reload() }
+				} else {
+					Toast.makeText(this, getString(R.string.install_failed), Toast.LENGTH_LONG).show()
+				}
+			}
+		}.start()
+	}
+
+	/** Called from native when a synthetic Help row is selected:
+	 * 0 = guide sheet, 1 = step-by-step wizard. */
+	fun showHelpFromNative(which: Int) {
+		uiHandler.post {
+			runCatching {
+				when (which) {
+					0 -> GuideSheet(this).show()
+					else -> TutorialLibrarySheet(this).show()
+				}
+			}
+		}
+	}
+
+	private var wizard: Wizard? = null
+	private var activeTutorial: Wizard? = null
+
+	/** Bottom module palette (🧩): type chips + draggable thumbnails. */
+	private val modulePalette by lazy {
+		ModulePalette(this,
+			getModelsJson = { nativeBrowserModelsJson() },
+			requestBuild = { runCatching { nativeBrowserRequestBuild() } },
+			chooseAt = { key, x, y -> runCatching { nativeBrowserChooseAt(key, x, y) } })
+	}
+
+	/** Start (or switch to) a tutorial from the library: only one floating
+	 * card at a time. */
+	fun startTutorial(t: Tutorial) {
+		wizard?.close()
+		activeTutorial?.close()
+		val w = Wizard(this, t.title, t.steps, doneFlag = null)
+		activeTutorial = w
+		w.show()
+	}
+
+	// ---- Help-on-top window tracking ----
+	// The wizard is a PopupWindow attached to a window's decor; any Dialog
+	// shown later (module browser, menu sheet, guide) stacks ABOVE it. Every
+	// help-aware dialog registers here; on attach/detach the wizard popup is
+	// re-anchored to the topmost decor so the tutorial stays visible while
+	// the user follows its instructions into the browser or the menus.
+	private val helpTopWindows = ArrayList<View>()
+
+	fun trackTopWindow(dialog: Dialog) {
+		val decor = dialog.window?.decorView ?: return
+		decor.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+			override fun onViewAttachedToWindow(v: View) { helpTopWindows.add(v); reanchorWizards() }
+			override fun onViewDetachedFromWindow(v: View) { helpTopWindows.remove(v); reanchorWizards() }
+		})
+	}
+
+	fun wizardAnchor(): View = helpTopWindows.lastOrNull() ?: window.decorView
+
+	private fun reanchorWizards() {
+		uiHandler.post {
+			runCatching {
+				val anchor = wizardAnchor()
+				wizard?.reanchor(anchor)
+				activeTutorial?.reanchor(anchor)
+			}
+		}
+	}
+
+	/** Called from native (menu_native.cpp processShare) with the path of
+	 * the .vcv it just archived under user/share/. */
+	fun sharePatchFromNative(path: String) {
+		uiHandler.post { runCatching { sharePatch(File(path)) } }
+	}
+
+	private fun sharePatch(file: File) {
+		val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+		val send = Intent(Intent.ACTION_SEND)
+			.setType("application/octet-stream")
+			.putExtra(Intent.EXTRA_STREAM, uri)
+			.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+		startActivity(Intent.createChooser(send, file.name))
+	}
+
+	override fun onDestroy() {
+		if (recordingFile != null) {
+			// Finalize the WAV header so an in-flight recording stays playable.
+			try { nativeRecordStop() } catch (_: Throwable) {}
+			recordingFile = null
+		}
+		buttonPopup?.dismiss()
+		buttonPopup = null
+		RackService.stop(this)
+		super.onDestroy()
+	}
+
+	/** Immersive fullscreen: without this the Android status bar overlaps
+	 * Rack's menu bar (File/Edit/View...) and swallows its touches. System
+	 * bars reappear transiently with an edge swipe. */
+	private fun hideSystemBars() {
+		window.setDecorFitsSystemWindows(false)
+		window.insetsController?.let {
+			it.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+			it.systemBarsBehavior =
+				android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+		}
+	}
+
+	override fun onWindowFocusChanged(hasFocus: Boolean) {
+		super.onWindowFocusChanged(hasFocus)
+		// Bars sticky-reappear after dialogs/app switches: re-hide.
+		if (hasFocus)
+			hideSystemBars()
+	}
+
+	// ---- Clipboard (called from native, any thread) ----
+
+	fun clipboardSet(text: String) {
+		uiHandler.post {
+			val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+			cm.setPrimaryClip(ClipData.newPlainText("RackDroid", text))
+		}
+	}
+
+	fun clipboardGet(): String {
+		var result = ""
+		val latch = CountDownLatch(1)
+		uiHandler.post {
+			try {
+				val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+				result = cm.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString() ?: ""
+			} finally {
+				latch.countDown()
+			}
+		}
+		latch.await()
+		return result
+	}
+
+	// ---- Async dialogs (called from the native glue thread) ----
+	// The native caller does NOT block on a latch: it keeps pumping its
+	// event loop and receives the outcome via nativeDialogInt/String
+	// (jni_bridge.cpp). Blocking the glue thread starved NativeActivity's
+	// input queue and triggered input-dispatch ANRs.
+
+	/** osdialog levels: 0=info 1=warning 2=error; buttons: 0=ok 1=ok/cancel 2=yes/no
+	 *  The dismiss listener also fires after a button click; `answered`
+	 *  guards ensure the native side sees exactly one result. */
+	fun dialogMessageAsync(level: Int, buttons: Int, message: String) {
+		uiHandler.post {
+			var answered = false
+			fun answer(r: Int) { if (!answered) { answered = true; nativeDialogInt(r) } }
+			val b = AlertDialog.Builder(this)
+				.setMessage(message)
+				.setCancelable(false)
+			val positive = if (buttons == 2) getString(android.R.string.yes) else getString(android.R.string.ok)
+			b.setPositiveButton(positive) { _, _ -> answer(1) }
+			if (buttons != 0) {
+				val negative = if (buttons == 2) getString(android.R.string.no) else getString(android.R.string.cancel)
+				b.setNegativeButton(negative) { _, _ -> answer(0) }
+			}
+			b.setOnDismissListener { answer(0) }
+			b.show()
+		}
+	}
+
+	fun dialogPromptAsync(title: String, text: String) {
+		uiHandler.post {
+			val edit = EditText(this)
+			edit.inputType = InputType.TYPE_CLASS_TEXT
+			edit.setText(text)
+			edit.setSelectAllOnFocus(true)
+			var answered = false
+			AlertDialog.Builder(this)
+				.setTitle(title)
+				.setView(edit)
+				.setPositiveButton(android.R.string.ok) { _, _ ->
+					answered = true; nativeDialogString(edit.text.toString())
+				}
+				.setNegativeButton(android.R.string.cancel) { _, _ ->
+					answered = true; nativeDialogString(null)
+				}
+				.setOnDismissListener { if (!answered) { answered = true; nativeDialogString(null) } }
+				.show()
+			edit.requestFocus()
+		}
+	}
+
+	/** save=false: single-choice list of .vcv files in dir. save=true: filename prompt. */
+	fun dialogFileAsync(save: Boolean, dir: String, filename: String) {
+		if (save) {
+			uiHandler.post {
+				val edit = EditText(this)
+				edit.inputType = InputType.TYPE_CLASS_TEXT
+				edit.setText(filename.ifEmpty { "patch.vcv" })
+				edit.setSelectAllOnFocus(true)
+				var answered = false
+				AlertDialog.Builder(this)
+					.setTitle("Save patch")
+					.setView(edit)
+					.setPositiveButton(android.R.string.ok) { _, _ ->
+						answered = true
+						var name = edit.text.toString()
+						if (name.isEmpty()) {
+							nativeDialogString(null)
+						} else {
+							if (!name.endsWith(".vcv")) name += ".vcv"
+							nativeDialogString(File(dir, name).absolutePath)
+						}
+					}
+					.setNegativeButton(android.R.string.cancel) { _, _ ->
+						answered = true; nativeDialogString(null)
+					}
+					.setOnDismissListener { if (!answered) { answered = true; nativeDialogString(null) } }
+					.show()
+				edit.requestFocus()
+			}
+			return
+		}
+
+		val files = File(dir).listFiles { f -> f.isFile && f.name.endsWith(".vcv") }
+			?.sortedBy { it.name } ?: emptyList()
+		if (files.isEmpty()) {
+			uiHandler.post {
+				android.widget.Toast.makeText(this, getString(R.string.toast_no_patches, dir), android.widget.Toast.LENGTH_SHORT).show()
+			}
+			nativeDialogString(null)
+			return
+		}
+		uiHandler.post {
+			var answered = false
+			val dialog = AlertDialog.Builder(this)
+				.setTitle("Open patch  (long-press to share)")
+				.setItems(files.map { it.name }.toTypedArray()) { _, which ->
+					answered = true; nativeDialogString(files[which].absolutePath)
+				}
+				.setNegativeButton(android.R.string.cancel) { _, _ ->
+					answered = true; nativeDialogString(null)
+				}
+				.setOnDismissListener { if (!answered) { answered = true; nativeDialogString(null) } }
+				.create()
+			dialog.show()
+			dialog.listView?.setOnItemLongClickListener { _, _, position, _ ->
+				sharePatch(files[position])
+				true
+			}
+		}
+	}
+
+	// ---- Native Android menus (bottom sheet) ----
+	// Flags must match menu_native.cpp
+	private val ROW_DISABLED = 1
+	private val ROW_LABEL = 4
+	private val ROW_SEPARATOR = 8
+	private val ROW_BACK = 16
+	private val ROW_SHARE = 32
+	private val ROW_GUIDE = 64
+	private val ROW_WIZARD = 128
+	private val ROW_WIZARD_PRO = 256
+	private val ROW_SLIDER_TENSION = 512
+	private val ROW_SLIDER_OPACITY = 1024
+	// Rack's own fixed, non-localized markers (ui/common.hpp) for a
+	// submenu's current-value display and a checkbox's checked state.
+	private val RIGHT_ARROW = "▸"
+	private val CHECKMARK = "✔"
+
+	private var menuDialog: Dialog? = null
+
+	private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+	/** Glassmorphism for sheet/dialog windows: blur what's behind (the GL
+	 * rack) and let a translucent warm-dark card sit on top -- the look of
+	 * the reference design. Cross-window blur can be disabled system-wide
+	 * (battery saver, developer setting); isCrossWindowBlurEnabled picks a
+	 * nearly-opaque fallback so the card never turns to unreadable mud. */
+	fun glassify(window: android.view.Window?, radiusDp: Int = 48) {
+		window ?: return
+		if (windowManager.isCrossWindowBlurEnabled) {
+			window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+			window.attributes = window.attributes.apply { blurBehindRadius = dp(radiusDp) }
+		}
+	}
+
+	fun glassCardColor(): Int = Color.parseColor(
+		if (windowManager.isCrossWindowBlurEnabled) "#CC221F1A" else "#F5221F1A")
+
+	/** Dismisses menuDialog, if any, without telling native (its dismissal
+	 * was either native-initiated already, or is about to be replaced by a
+	 * new sheet). Nulling the listener -- instead of a suppress-flag held
+	 * only across the dismiss() call -- is what makes this safe: Dialog's
+	 * onDismiss can be posted to the message queue rather than firing
+	 * synchronously, so a flag reset immediately after dismiss() can race
+	 * it and let a stale dismiss signal through. That signal, arriving
+	 * after a *different*, newly-captured menu has already reset its own
+	 * shown/active state, is exactly what tripped the "did not show"
+	 * fallback (menu_native.cpp) and permanently disabled native menus for
+	 * the rest of the session -- reported live as "the original menus
+	 * showing under the android ones" once every subsequent menu fell back
+	 * to canvas rendering. Nulling the listener has no such window: once
+	 * cleared, that dialog instance can never call back again, regardless
+	 * of when Android actually tears it down. */
+	private fun closeMenuDialogSilently() {
+		menuDialog?.setOnDismissListener(null)
+		menuDialog?.dismiss()
+		menuDialog = null
+	}
+
+	/** Called from native (jni_bridge) to show a menu as a bottom sheet. */
+	fun showNativeMenu(labels: Array<String>, rights: Array<String>, flags: IntArray) {
+		uiHandler.post {
+			try {
+				jlog("showNativeMenu: ${labels.size} rows")
+				closeMenuDialogSilently()
+				menuDialog = buildMenuSheet(labels, rights, flags).also { it.show() }
+				nativeMenuShown() // tell native the sheet is up (hide canvas)
+				jlog("showNativeMenu: sheet up")
+			} catch (t: Throwable) {
+				jlog("showNativeMenu FAILED: ${android.util.Log.getStackTraceString(t)}")
+				// Fall back to the canvas menu; never crash.
+				runCatching { nativeMenuDismiss() }
+			}
+		}
+	}
+
+	fun dismissNativeMenu() {
+		uiHandler.post { closeMenuDialogSilently() }
+	}
+
+	/** Called from native (browser_native.cpp) when Rack's own module
+	 * browser opens; the canvas widget is already hidden by the time this
+	 * arrives. No payload: ModuleBrowserSheet pulls the model list itself
+	 * via nativeBrowserModelsJson (cached natively, built once). */
+	fun showNativeBrowser() {
+		uiHandler.post {
+			try {
+				jlog("showNativeBrowser")
+				ModuleBrowserSheet(
+					activity = this,
+					getModelsJson = { nativeBrowserModelsJson() },
+					chooseModel = { key -> nativeBrowserChoose(key) },
+					setFavorite = { key, fav -> nativeBrowserSetFavorite(key, fav) },
+				).show()
+			} catch (t: Throwable) {
+				jlog("showNativeBrowser FAILED: ${android.util.Log.getStackTraceString(t)}")
+			}
+		}
+	}
+
+	/** A ScrollView that lets the user swipe the whole sheet DOWN to dismiss it
+	 * (standard bottom-sheet gesture). The drag only engages when the content
+	 * is already scrolled to the top, so normal list scrolling still works. */
+	private inner class SwipeDismissScrollView(val onDismiss: () -> Unit)
+		: ScrollView(this@MainActivity) {
+		private var startRawY = 0f
+		private var dragging = false
+		private val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+
+		override fun onInterceptTouchEvent(ev: android.view.MotionEvent): Boolean {
+			when (ev.actionMasked) {
+				android.view.MotionEvent.ACTION_DOWN -> { startRawY = ev.rawY; dragging = false }
+				android.view.MotionEvent.ACTION_MOVE ->
+					if (scrollY == 0 && ev.rawY - startRawY > slop) { dragging = true; return true }
+			}
+			return super.onInterceptTouchEvent(ev)
+		}
+
+		override fun onTouchEvent(ev: android.view.MotionEvent): Boolean {
+			when (ev.actionMasked) {
+				android.view.MotionEvent.ACTION_DOWN -> { startRawY = ev.rawY; return true }
+				android.view.MotionEvent.ACTION_MOVE -> if (dragging || scrollY == 0) {
+					dragging = true
+					translationY = (ev.rawY - startRawY).coerceAtLeast(0f)
+					return true
+				}
+				android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL ->
+					if (dragging) {
+						dragging = false
+						if (translationY > height * 0.22f) {
+							animate().translationY(height.toFloat()).setDuration(180L)
+								.withEndAction { onDismiss() }.start()
+						} else {
+							animate().translationY(0f).setDuration(160L)
+								.setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+						}
+						return true
+					}
+			}
+			return super.onTouchEvent(ev)
+		}
+	}
+
+	private fun buildMenuSheet(labels: Array<String>, rights: Array<String>, flags: IntArray): Dialog {
+		val col = LinearLayout(this).apply {
+			orientation = LinearLayout.VERTICAL
+			// Rounded-top glass card with a grab handle: translucent over
+			// the blurred rack (glassify below), drawn by hand.
+			background = GradientDrawable().apply {
+				setColor(glassCardColor())
+				cornerRadii = floatArrayOf(
+					dp(28).toFloat(), dp(28).toFloat(), dp(28).toFloat(), dp(28).toFloat(),
+					0f, 0f, 0f, 0f)
+				// Liquid-glass rim: a whisper of white along the edge.
+				setStroke(dp(1), Color.parseColor("#2EFFFFFF"))
+			}
+			setPadding(dp(8), 0, dp(8), dp(14))
+		}
+		col.addView(View(this).apply {
+			background = GradientDrawable().apply {
+				setColor(Color.parseColor("#4E483F"))
+				cornerRadius = dp(2).toFloat()
+			}
+			layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).apply {
+				gravity = Gravity.CENTER_HORIZONTAL
+				topMargin = dp(10); bottomMargin = dp(8)
+			}
+		})
+
+		// AlertDialog is the same path used by the working save/open dialogs.
+		val dlg = AlertDialog.Builder(this).create()
+
+		for (i in labels.indices) {
+			val f = flags[i]
+			when {
+				f and ROW_SEPARATOR != 0 -> col.addView(View(this).apply {
+					setBackgroundColor(Color.parseColor("#14FFFFFF"))
+					layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1))
+						.apply { topMargin = dp(7); bottomMargin = dp(7); leftMargin = dp(12); rightMargin = dp(12) }
+				})
+				f and ROW_LABEL != 0 -> col.addView(TextView(this).apply {
+					text = labels[i].uppercase()
+					setTextColor(Color.parseColor("#FFDA9F"))
+					textSize = 11f
+					letterSpacing = 0.1f
+					setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
+					setPadding(dp(16), dp(12), dp(16), dp(4))
+				})
+				f and ROW_SLIDER_TENSION != 0 -> col.addView(sliderRow(
+					getString(R.string.cable_tension), nativeGetCableTension()) { nativeSetCableTension(it) })
+				f and ROW_SLIDER_OPACITY != 0 -> col.addView(sliderRow(
+					getString(R.string.cable_opacity), nativeGetCableOpacity()) { nativeSetCableOpacity(it) })
+				else -> col.addView(menuRow(labels[i], rights[i], f, i))
+			}
+		}
+
+		val scroll = SwipeDismissScrollView({ dlg.dismiss() }).apply {
+			addView(col)
+			isVerticalScrollBarEnabled = false
+		}
+		dlg.setView(scroll)
+		trackTopWindow(dlg)
+		// Staggered entrance: rows drift up and fade in one after another.
+		dlg.setOnShowListener {
+			for (i in 0 until col.childCount) {
+				val v = col.getChildAt(i)
+				v.alpha = 0f
+				v.translationY = dp(16).toFloat()
+				v.animate().alpha(1f).translationY(0f)
+					.setStartDelay((i * 14).toLong()).setDuration(190L)
+					.setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+			}
+		}
+		// Only reached for a genuine user dismissal (tap outside, back):
+		// every programmatic close goes through closeMenuDialogSilently(),
+		// which detaches this listener first.
+		dlg.setOnDismissListener { nativeMenuDismiss() }
+		// Anchor as a bottom sheet, full width; transparent window so the
+		// card's rounded corners actually show. All of this must happen
+		// BEFORE show(): styling from an OnShowListener let the dialog's
+		// default light background paint for a frame or two (reported as a
+		// white menu flashing open), and the default fade animation read
+		// as lag -- the keyboard's quick slide-up matches a bottom sheet.
+		dlg.window?.apply {
+			setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+			setGravity(Gravity.BOTTOM)
+			setDimAmount(0.3f) // lighter: the blur already separates layers
+			attributes = attributes.apply {
+				width = ViewGroup.LayoutParams.MATCH_PARENT
+				height = ViewGroup.LayoutParams.WRAP_CONTENT
+				windowAnimations = android.R.style.Animation_InputMethod
+			}
+		}
+		glassify(dlg.window)
+		return dlg
+	}
+
+	/** Desktop keyboard shortcuts ("Ctrl+N", "F11", "Backspace/Delete") are
+	 * meaningless on a device with no physical keyboard -- strip them.
+	 * Right-side text carrying real information (a submenu's current value,
+	 * e.g. "60 Hz ▸", or a checkbox's checked state, "✔") must stay, and
+	 * both are safe to recognize by Rack's own fixed, non-localized marker
+	 * characters (ui/common.hpp RIGHT_ARROW/CHECKMARK_STRING): a shortcut
+	 * string built by widget::getKeyCommandName() never contains either. */
+	private fun displayRightText(right: String): String {
+		if (right.contains(RIGHT_ARROW)) return right // value (+ arrow): keep as-is
+		return if (right.contains(CHECKMARK)) CHECKMARK else "" // drop the shortcut, keep the check
+	}
+
+	/** A titled SeekBar row (0..100%) for a global cable setting. `initial` is
+	 * the native 0..1 value; `onSet` writes the new 0..1 value back live. */
+	private fun sliderRow(label: String, initial: Float, onSet: (Float) -> Unit): View {
+		val amber = android.content.res.ColorStateList.valueOf(Color.parseColor("#FFDA9F"))
+		val pct = Math.round(initial * 100).coerceIn(0, 100)
+		val valueLabel = TextView(this).apply {
+			setTextColor(Color.parseColor("#FFDA9F"))
+			textSize = 13f
+			setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
+			text = "$pct%"
+		}
+		val head = LinearLayout(this).apply {
+			orientation = LinearLayout.HORIZONTAL
+			gravity = Gravity.CENTER_VERTICAL
+			addView(TextView(this@MainActivity).apply {
+				text = label
+				setTextColor(Color.parseColor("#EDE6D8"))
+				textSize = 15f
+				setTypeface(AppFont.get(this@MainActivity))
+				layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+			})
+			addView(valueLabel)
+		}
+		val bar = android.widget.SeekBar(this).apply {
+			max = 100
+			progress = pct
+			progressTintList = amber
+			thumbTintList = amber
+			setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+				override fun onProgressChanged(sb: android.widget.SeekBar, p: Int, fromUser: Boolean) {
+					valueLabel.text = "$p%"
+					if (fromUser) onSet(p / 100f)
+				}
+				override fun onStartTrackingTouch(sb: android.widget.SeekBar) {}
+				override fun onStopTrackingTouch(sb: android.widget.SeekBar) {}
+			})
+		}
+		return LinearLayout(this).apply {
+			orientation = LinearLayout.VERTICAL
+			setPadding(dp(16), dp(6), dp(16), dp(8))
+			addView(head)
+			addView(bar)
+		}
+	}
+
+	private fun menuRow(label: String, right: String, flags: Int, index: Int): View {
+		val disabled = flags and ROW_DISABLED != 0
+		val back = flags and ROW_BACK != 0
+
+		val row = LinearLayout(this).apply {
+			orientation = LinearLayout.HORIZONTAL
+			gravity = Gravity.CENTER_VERTICAL
+			minimumHeight = dp(50)
+			setPadding(dp(16), dp(11), dp(14), dp(11))
+			layoutParams = LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+			if (!disabled) background = amberRippleRounded()
+		}
+		val left = TextView(this).apply {
+			text = when {
+				back -> "‹   " + getString(R.string.menu_back)
+				flags and ROW_SHARE != 0 -> getString(R.string.menu_share_patch)
+				flags and ROW_GUIDE != 0 -> getString(R.string.menu_guide)
+				flags and ROW_WIZARD != 0 -> getString(R.string.menu_wizard)
+				flags and ROW_WIZARD_PRO != 0 -> getString(R.string.menu_wizard_pro)
+				else -> label
+			}
+			setTextColor(when {
+				disabled -> Color.parseColor("#6A645A")
+				back -> Color.parseColor("#FFDA9F")
+				else -> Color.parseColor("#EDE6D8")
+			})
+			textSize = 16f
+			setTypeface(AppFont.get(this@MainActivity), if (back) Typeface.BOLD else Typeface.NORMAL)
+			layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+		}
+		row.addView(left)
+		val shownRight = displayRightText(right)
+		if (shownRight.isNotEmpty()) {
+			// Split a submenu's "value ▸" so the value reads quiet grey and
+			// the chevron gets the muted modern "›"; a bare ✔ turns amber.
+			val isCheck = shownRight == CHECKMARK
+			val value = shownRight.removeSuffix(RIGHT_ARROW).trim()
+			if (value.isNotEmpty() && !isCheck) row.addView(TextView(this).apply {
+				text = value
+				typeface = AppFont.get(this@MainActivity)
+				setTextColor(Color.parseColor("#9A9284"))
+				textSize = 14f
+				setPadding(dp(12), 0, 0, 0)
+			})
+			row.addView(TextView(this).apply {
+				text = if (isCheck) CHECKMARK else "›"
+				setTextColor(Color.parseColor(if (isCheck) "#FFDA9F" else "#756E62"))
+				textSize = if (isCheck) 15f else 19f
+				setPadding(dp(10), 0, dp(2), if (isCheck) 0 else dp(2))
+			})
+		}
+		if (!disabled) row.setOnClickListener {
+			nativeMenuSelect(index)
+			closeMenuDialogSilently()
+		}
+		return row
+	}
+
+	/** Amber-tinted ripple clipped to a rounded pill: the pressed state that
+	 * matches the app accent, replacing the stock grey edge-to-edge ripple. */
+	private fun amberRippleRounded(): android.graphics.drawable.Drawable {
+		val mask = GradientDrawable().apply {
+			cornerRadius = dp(12).toFloat()
+			setColor(Color.WHITE)
+		}
+		return android.graphics.drawable.RippleDrawable(
+			android.content.res.ColorStateList.valueOf(Color.parseColor("#33FFDA9F")), null, mask)
+	}
+
+	private external fun nativeMenuSelect(index: Int)
+	private external fun nativeMenuDismiss()
+	private external fun nativeMenuShown()
+	private external fun nativeBackPressed()
+	private external fun nativeToolbarTap(index: Int)
+	private external fun nativeBrowserModelsJson(): String
+	private external fun nativeBrowserChoose(key: String)
+	private external fun nativeBrowserSetFavorite(key: String, favorite: Boolean)
+	private external fun nativeBrowserChooseAt(key: String, x: Float, y: Float)
+	private external fun nativeBrowserRequestBuild()
+	private external fun nativeBrowserUnloadPlugin(slug: String)
+	private external fun nativeLoadUserPlugin(dir: String, soname: String): Boolean
+
+	/** Called by ModuleInstaller after Java System.load()'s a pack's .so. */
+	fun loadUserPluginNative(dir: String, soname: String): Boolean =
+		runCatching { nativeLoadUserPlugin(dir, soname) }.getOrDefault(false)
+	private external fun nativeKeyboardPress(key: Int)
+	private external fun nativeKeyboardRelease(key: Int)
+	private external fun nativeDialogInt(result: Int)
+	private external fun nativeDialogString(s: String?)
+	private external fun nativeRecordStart(path: String): Boolean
+	private external fun nativeRecordStop()
+	private external fun nativeHistoryAction(action: Int)
+	private external fun nativeSetLockMode(mode: Int)
+	private external fun nativeGetCableTension(): Float
+	private external fun nativeSetCableTension(v: Float)
+	private external fun nativeGetCableOpacity(): Float
+	private external fun nativeSetCableOpacity(v: Float)
+
+	/** A native Dialog (menu/browser sheet) already consumes back on its own
+	 * window before this is ever called -- this only fires when the canvas
+	 * itself has something open (e.g. the module browser), which otherwise
+	 * exits the whole Activity since NativeActivity's default handling
+	 * treats an unconsumed back as "finish". Always consume: closing
+	 * whatever's open, never leaving via back, is safer than losing a patch
+	 * to an accidental tap.
+	 */
+	override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+		if (keyCode == KeyEvent.KEYCODE_BACK) {
+			nativeBackPressed()
+			return true
+		}
+		return super.onKeyDown(keyCode, event)
+	}
+
+	// ---- MIDI (MidiManager -> native AMidi driver) ----
+
+	private fun initMidi() {
+		if (!packageManager.hasSystemFeature(PackageManager.FEATURE_MIDI))
+			return
+		val mm = getSystemService(Context.MIDI_SERVICE) as MidiManager
+		midiManager = mm
+		for (info in mm.devices)
+			openMidiDevice(info)
+		mm.registerDeviceCallback(object : MidiManager.DeviceCallback() {
+			override fun onDeviceAdded(info: MidiDeviceInfo) = openMidiDevice(info)
+			override fun onDeviceRemoved(info: MidiDeviceInfo) {
+				val toRemove = midiDevices.filterValues { it.info.id == info.id }
+				for ((id, dev) in toRemove) {
+					midiDevices.remove(id)
+					nativeMidiDeviceRemoved(id)
+					runCatching { dev.close() }
+				}
+			}
+		}, uiHandler)
+	}
+
+	private fun openMidiDevice(info: MidiDeviceInfo) {
+		val mm = midiManager ?: return
+		mm.openDevice(info, { device -> if (device != null) registerOpenedDevice(device) }, uiHandler)
+	}
+
+	/** Registers an opened MidiDevice (USB or BLE) with the native driver. */
+	private fun registerOpenedDevice(device: MidiDevice) {
+		val info = device.info
+		val id = nextMidiId.getAndIncrement()
+		midiDevices[id] = device
+		val props = info.properties
+		val name = props.getString(MidiDeviceInfo.PROPERTY_NAME)
+			?: props.getString(MidiDeviceInfo.PROPERTY_PRODUCT) ?: "MIDI device $id"
+		nativeMidiDeviceAdded(id, name, device, info.inputPortCount, info.outputPortCount)
+		uiHandler.post { Toast.makeText(this, getString(R.string.toast_midi_connected, name), Toast.LENGTH_SHORT).show() }
+	}
+
+	// ---- Bluetooth LE MIDI ----
+
+	private val midiServiceUuid = ParcelUuid(
+		UUID.fromString("03B80E5A-EDE8-4B33-A751-6CE34EC4C700"))
+	private var bleScanner: BluetoothLeScanner? = null
+	private var bleCallback: ScanCallback? = null
+
+	private fun showBleMidiScanner() {
+		val need = arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+			.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+		if (need.isNotEmpty()) {
+			requestPermissions(need.toTypedArray(), 2)
+			return
+		}
+		val adapter = (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+		if (adapter == null || !adapter.isEnabled) {
+			Toast.makeText(this, getString(R.string.toast_enable_bluetooth), Toast.LENGTH_LONG).show()
+			return
+		}
+		val scanner = adapter.bluetoothLeScanner ?: return
+		bleScanner = scanner
+
+		val found = LinkedHashMap<String, BluetoothDevice>()
+		val names = ArrayList<String>()
+		val adapterList = android.widget.ArrayAdapter(this,
+			android.R.layout.simple_list_item_1, names)
+
+		val dialog = AlertDialog.Builder(this)
+			.setTitle("Bluetooth MIDI  (scanning…)")
+			.setAdapter(adapterList) { _, which ->
+				stopBleScan()
+				connectBleDevice(found.values.toList()[which])
+			}
+			.setNegativeButton("Close") { _, _ -> stopBleScan() }
+			.setOnDismissListener { stopBleScan() }
+			.create()
+		dialog.show()
+
+		bleCallback = object : ScanCallback() {
+			@Suppress("MissingPermission")
+			override fun onScanResult(callbackType: Int, result: ScanResult) {
+				val dev = result.device ?: return
+				val addr = dev.address ?: return
+				if (found.put(addr, dev) == null) {
+					names.add(dev.name ?: addr)
+					adapterList.notifyDataSetChanged()
+				}
+			}
+			override fun onScanFailed(errorCode: Int) {
+				uiHandler.post { Toast.makeText(this@MainActivity,
+					getString(R.string.toast_ble_scan_failed, errorCode), Toast.LENGTH_LONG).show() }
+			}
+		}
+		val filter = ScanFilter.Builder().setServiceUuid(midiServiceUuid).build()
+		val settings = ScanSettings.Builder()
+			.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
+		try {
+			scanner.startScan(listOf(filter), settings, bleCallback!!)
+		} catch (e: SecurityException) {
+			Toast.makeText(this, "Bluetooth permission denied", Toast.LENGTH_LONG).show()
+		}
+		// Auto-stop after 15s to save battery.
+		uiHandler.postDelayed({ stopBleScan() }, 15000)
+	}
+
+	private fun stopBleScan() {
+		val cb = bleCallback ?: return
+		try {
+			bleScanner?.stopScan(cb)
+		} catch (_: SecurityException) {}
+		bleCallback = null
+	}
+
+	private fun connectBleDevice(device: BluetoothDevice) {
+		val mm = midiManager ?: (getSystemService(Context.MIDI_SERVICE) as MidiManager).also { midiManager = it }
+		Toast.makeText(this, "Connecting…", Toast.LENGTH_SHORT).show()
+		mm.openBluetoothDevice(device, { opened ->
+			if (opened != null) registerOpenedDevice(opened)
+			else uiHandler.post { Toast.makeText(this, "BLE MIDI connection failed", Toast.LENGTH_LONG).show() }
+		}, uiHandler)
+	}
+
+	override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+		super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+		if (requestCode == 2 && grantResults.all { it == PackageManager.PERMISSION_GRANTED })
+			showBleMidiScanner()
+	}
+
+	private external fun nativeMidiDeviceAdded(id: Int, name: String, device: MidiDevice, inputPorts: Int, outputPorts: Int)
+	private external fun nativeMidiDeviceRemoved(id: Int)
+
+	companion object {
+		init {
+			// Load rack_engine explicitly so the JVM registers it for JNI
+			// method resolution: the native menu callbacks (nativeMenuSelect/
+			// Dismiss) live there. Loading only rackdroid would pull it in as
+			// a linker dependency but NOT register it for external methods.
+			System.loadLibrary("rack_engine")
+			// rackdroid carries the MIDI callbacks and the app entry point.
+			System.loadLibrary("rackdroid")
+		}
+	}
+}

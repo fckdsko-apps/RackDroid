@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="9.5999994mm" height="8.3138437mm" viewBox="0 0 9.5999994 8.3138437">
+<defs><linearGradient id="prim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A39A8A"/><stop offset="1" stop-color="#3E382E"/></linearGradient><linearGradient id="pface" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8A8173"/><stop offset="1" stop-color="#544E42"/></linearGradient><radialGradient id="phole" cx="0.5" cy="0.4" r="0.7"><stop offset="0" stop-color="#211E18"/><stop offset="1" stop-color="#0C0A08"/></radialGradient></defs>
+<circle cx="4.7999997" cy="4.35" r="3.9490757574999997" fill="#000000" fill-opacity="0.35"/>
+<circle cx="4.7999997" cy="4.15692185" r="3.9490757574999997" fill="url(#prim)"/>
+<circle cx="4.7999997" cy="4.15692185" r="3.2382421211499994" fill="url(#pface)"/>
+<circle cx="4.7999997" cy="4.15692185" r="2.0535193939" fill="url(#phole)"/>
+<circle cx="4.7999997" cy="4.15692185" r="1.1057412121" fill="#0A0806"/>
+</svg>

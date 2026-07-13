@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+	<!-- Audio input for the Oboe input stream; the app degrades to
+	     output-only if the user denies it. -->
+	<uses-permission android:name="android.permission.RECORD_AUDIO" />
+	<!-- Foreground service keeping engine+audio alive in background -->
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+	<!-- Bluetooth LE MIDI scanning/connection (API 31+ runtime permissions) -->
+	<uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+		android:usesPermissionFlags="neverForLocation" />
+	<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+	<uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
+	<uses-feature android:glEsVersion="0x00030000" android:required="true" />
+	<uses-feature android:name="android.hardware.audio.low_latency" android:required="false" />
+	<uses-feature android:name="android.hardware.audio.pro" android:required="false" />
+
+	<application
+		android:label="@string/app_name"
+		android:icon="@mipmap/ic_launcher"
+		android:hasCode="true"
+		android:allowBackup="true">
+
+		<activity
+			android:name=".MainActivity"
+			android:exported="true"
+			android:launchMode="singleTask"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density">
+
+			<!-- native_app_glue entry: app/native/port/main_android.cpp -->
+			<meta-data
+				android:name="android.app.lib_name"
+				android:value="rackdroid" />
+
+			<intent-filter>
+				<action android:name="android.intent.action.MAIN" />
+				<category android:name="android.intent.category.LAUNCHER" />
+			</intent-filter>
+			<!-- Import .vcv patches opened or shared from other apps -->
+			<intent-filter>
+				<action android:name="android.intent.action.VIEW" />
+				<category android:name="android.intent.category.DEFAULT" />
+				<data android:scheme="content" android:mimeType="application/octet-stream" />
+			</intent-filter>
+			<intent-filter>
+				<action android:name="android.intent.action.SEND" />
+				<category android:name="android.intent.category.DEFAULT" />
+				<data android:mimeType="application/octet-stream" />
+			</intent-filter>
+		</activity>
+
+		<provider
+			android:name="androidx.core.content.FileProvider"
+			android:authorities="${applicationId}.fileprovider"
+			android:exported="false"
+			android:grantUriPermissions="true">
+			<meta-data
+				android:name="android.support.FILE_PROVIDER_PATHS"
+				android:resource="@xml/file_paths" />
+		</provider>
+
+		<service
+			android:name=".RackService"
+			android:exported="false"
+			android:foregroundServiceType="mediaPlayback" />
+	</application>
+
+</manifest>

@@ -1,0 +1,384 @@
+/* rack::audio driver backed by Google Oboe (AAudio/OpenSL under the hood).
+ *
+ * Replaces src/rtaudio.cpp on Android. One logical device ("Default") maps to
+ * the system default output + input. The output stream is the clock: Rack's
+ * audio ports are driven from its data callback, which is how the desktop
+ * RtAudio driver behaves as well. Input is a second stream read non-blocking
+ * inside the output callback (standard Oboe full-duplex pattern); if the input
+ * stream can't be opened (e.g. RECORD_AUDIO permission not granted), the
+ * device degrades to output-only.
+ */
+#include "audio_oboe.hpp"
+
+#include <vector>
+#include <mutex>
+#include <atomic>
+#include <thread>
+#include <cstdio>
+#include <cstring>
+#include <cmath>
+
+#include <jni.h>
+#include <android/log.h>
+
+#include <oboe/Oboe.h>
+
+#include <audio.hpp>
+#include <system.hpp>
+#include <context.hpp>
+#include <engine/Engine.hpp>
+#include <common.hpp>
+
+
+// ---- Master WAV recorder ------------------------------------------------
+// The audio callback taps the final output buffer into a single-producer/
+// single-consumer ring; a writer thread drains it to a 16-bit PCM WAV.
+// File I/O never happens on the audio thread; on ring overflow (writer
+// stalled) frames are dropped rather than blocking the callback.
+
+namespace {
+
+struct WavRecorder {
+	static const size_t RING_FLOATS = 1 << 20; // ~5.5s stereo @48k
+	std::vector<float> ring;
+	std::atomic<size_t> head{0}; // producer (audio thread)
+	std::atomic<size_t> tail{0}; // consumer (writer thread)
+	std::atomic<bool> active{false};
+	std::thread writer;
+	FILE* file = NULL;
+	uint32_t dataBytes = 0;
+	int sampleRate = 48000;
+	int channels = 2;
+
+	bool start(const std::string& path, int sr, int ch) {
+		if (active)
+			return false;
+		file = std::fopen(path.c_str(), "wb");
+		if (!file)
+			return false;
+		sampleRate = sr;
+		channels = ch;
+		dataBytes = 0;
+		writeHeader(); // placeholder sizes, fixed on stop()
+		ring.assign(RING_FLOATS, 0.f);
+		head = tail = 0;
+		active = true;
+		writer = std::thread([this] { run(); });
+		return true;
+	}
+
+	void stop() {
+		if (!active)
+			return;
+		active = false;
+		if (writer.joinable())
+			writer.join();
+		// Patch RIFF/data sizes now that the length is known.
+		std::fseek(file, 4, SEEK_SET);
+		uint32_t riff = 36 + dataBytes;
+		std::fwrite(&riff, 4, 1, file);
+		std::fseek(file, 40, SEEK_SET);
+		std::fwrite(&dataBytes, 4, 1, file);
+		std::fclose(file);
+		file = NULL;
+	}
+
+	void writeHeader() {
+		uint16_t fmt = 1, ch = channels, bits = 16;
+		uint32_t sr = sampleRate;
+		uint32_t byteRate = sr * ch * bits / 8;
+		uint16_t blockAlign = ch * bits / 8;
+		uint32_t zero = 0;
+		std::fwrite("RIFF", 1, 4, file);
+		std::fwrite(&zero, 4, 1, file);
+		std::fwrite("WAVEfmt ", 1, 8, file);
+		uint32_t fmtSize = 16;
+		std::fwrite(&fmtSize, 4, 1, file);
+		std::fwrite(&fmt, 2, 1, file);
+		std::fwrite(&ch, 2, 1, file);
+		std::fwrite(&sr, 4, 1, file);
+		std::fwrite(&byteRate, 4, 1, file);
+		std::fwrite(&blockAlign, 2, 1, file);
+		std::fwrite(&bits, 2, 1, file);
+		std::fwrite("data", 1, 4, file);
+		std::fwrite(&zero, 4, 1, file);
+	}
+
+	/** Audio thread: push interleaved floats; drops on overflow. */
+	void push(const float* samples, size_t n) {
+		if (!active)
+			return;
+		size_t h = head.load(std::memory_order_relaxed);
+		size_t t = tail.load(std::memory_order_acquire);
+		size_t freeSpace = RING_FLOATS - (h - t);
+		if (n > freeSpace)
+			n = freeSpace;
+		for (size_t i = 0; i < n; i++)
+			ring[(h + i) % RING_FLOATS] = samples[i];
+		head.store(h + n, std::memory_order_release);
+	}
+
+	void run() {
+		std::vector<int16_t> chunk;
+		while (active || tail.load() != head.load()) {
+			size_t h = head.load(std::memory_order_acquire);
+			size_t t = tail.load(std::memory_order_relaxed);
+			if (t == h) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(20));
+				continue;
+			}
+			size_t n = h - t;
+			chunk.resize(n);
+			for (size_t i = 0; i < n; i++) {
+				float v = ring[(t + i) % RING_FLOATS];
+				v = std::fmax(-1.f, std::fmin(1.f, v));
+				chunk[i] = (int16_t) (v * 32767.f);
+			}
+			std::fwrite(chunk.data(), 2, n, file);
+			dataBytes += n * 2;
+			tail.store(t + n, std::memory_order_release);
+		}
+	}
+};
+
+WavRecorder gRecorder;
+
+} // namespace
+
+
+namespace rackdroid {
+
+
+static const int NUM_OUTPUTS = 2;
+static const int NUM_INPUTS = 2;
+static const int DEFAULT_SAMPLE_RATE = 48000;
+static const int DEFAULT_BLOCK_SIZE = 256;
+
+
+struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::AudioStreamErrorCallback {
+	std::shared_ptr<oboe::AudioStream> outputStream;
+	std::shared_ptr<oboe::AudioStream> inputStream;
+	float sampleRate = DEFAULT_SAMPLE_RATE;
+	int blockSize = DEFAULT_BLOCK_SIZE;
+	std::vector<float> inputBuffer;
+	/** Guards stream open/close against the data callback. */
+	std::mutex streamMutex;
+
+	OboeDevice() {
+		openStreams();
+	}
+
+	~OboeDevice() override {
+		closeStreams();
+	}
+
+	void openStreams() {
+		std::lock_guard<std::mutex> lock(streamMutex);
+
+		oboe::AudioStreamBuilder outBuilder;
+		outBuilder.setDirection(oboe::Direction::Output)
+			->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+			->setSharingMode(oboe::SharingMode::Exclusive)
+			->setFormat(oboe::AudioFormat::Float)
+			->setChannelCount(NUM_OUTPUTS)
+			->setSampleRate((int) sampleRate)
+			->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
+			->setFramesPerDataCallback(blockSize)
+			->setDataCallback(this)
+			->setErrorCallback(this);
+
+		oboe::Result result = outBuilder.openStream(outputStream);
+		if (result != oboe::Result::OK) {
+			WARN("Oboe: could not open output stream: %s", oboe::convertToText(result));
+			return;
+		}
+		// The stream may have been opened with a different rate than requested.
+		sampleRate = outputStream->getSampleRate();
+
+		oboe::AudioStreamBuilder inBuilder;
+		inBuilder.setDirection(oboe::Direction::Input)
+			->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+			->setFormat(oboe::AudioFormat::Float)
+			->setChannelCount(NUM_INPUTS)
+			->setSampleRate(outputStream->getSampleRate());
+
+		result = inBuilder.openStream(inputStream);
+		if (result != oboe::Result::OK) {
+			WARN("Oboe: no input stream (%s), running output-only", oboe::convertToText(result));
+			inputStream.reset();
+		}
+
+		inputBuffer.resize(outputStream->getBufferCapacityInFrames() * NUM_INPUTS);
+
+		if (inputStream)
+			inputStream->requestStart();
+		outputStream->requestStart();
+		INFO("Oboe: stream started, sampleRate=%g burst=%d", sampleRate, outputStream->getFramesPerBurst());
+		onStartStream();
+	}
+
+	void closeStreams() {
+		std::lock_guard<std::mutex> lock(streamMutex);
+		if (outputStream) {
+			outputStream->stop();
+			outputStream->close();
+			outputStream.reset();
+			onStopStream();
+		}
+		if (inputStream) {
+			inputStream->stop();
+			inputStream->close();
+			inputStream.reset();
+		}
+	}
+
+	// rack::audio::Device
+
+	std::string getName() override {
+		return "Default";
+	}
+	int getNumInputs() override {
+		return inputStream ? NUM_INPUTS : 0;
+	}
+	int getNumOutputs() override {
+		return NUM_OUTPUTS;
+	}
+
+	std::set<float> getSampleRates() override {
+		return {44100.f, 48000.f};
+	}
+	float getSampleRate() override {
+		return sampleRate;
+	}
+	void setSampleRate(float sr) override {
+		if (sr == sampleRate)
+			return;
+		closeStreams();
+		sampleRate = sr;
+		openStreams();
+	}
+
+	std::set<int> getBlockSizes() override {
+		return {64, 128, 256, 512, 1024};
+	}
+	int getBlockSize() override {
+		return blockSize;
+	}
+	void setBlockSize(int bs) override {
+		if (bs == blockSize)
+			return;
+		closeStreams();
+		blockSize = bs;
+		openStreams();
+	}
+
+	// oboe::AudioStreamDataCallback
+
+	oboe::DataCallbackResult onAudioReady(oboe::AudioStream* stream, void* audioData, int32_t numFrames) override {
+		float* output = (float*) audioData;
+
+		const float* input = NULL;
+		if (inputStream) {
+			if ((int) inputBuffer.size() < numFrames * NUM_INPUTS)
+				inputBuffer.resize(numFrames * NUM_INPUTS);
+			// Non-blocking read; on underrun the missing frames stay zeroed.
+			auto readResult = inputStream->read(inputBuffer.data(), numFrames, 0);
+			int framesRead = readResult ? readResult.value() : 0;
+			if (framesRead < numFrames) {
+				std::fill(inputBuffer.begin() + framesRead * NUM_INPUTS,
+					inputBuffer.begin() + numFrames * NUM_INPUTS, 0.f);
+			}
+			input = inputBuffer.data();
+		}
+
+		// Drives Engine::stepBlock() through the subscribed audio Ports.
+		processBuffer(input, NUM_INPUTS, output, stream->getChannelCount(), numFrames);
+		gRecorder.push(output, (size_t) numFrames * stream->getChannelCount());
+
+		return oboe::DataCallbackResult::Continue;
+	}
+
+	// oboe::AudioStreamErrorCallback
+
+	void onErrorAfterClose(oboe::AudioStream* stream, oboe::Result error) override {
+		// Device disconnected (headphones unplugged, route change): reopen.
+		WARN("Oboe: stream error %s, reopening", oboe::convertToText(error));
+		closeStreams();
+		openStreams();
+	}
+};
+
+
+struct OboeDriver : rack::audio::Driver {
+	OboeDevice* device = NULL;
+
+	std::string getName() override {
+		return "Android (Oboe)";
+	}
+	std::vector<int> getDeviceIds() override {
+		return {0};
+	}
+	int getDefaultDeviceId() override {
+		return 0;
+	}
+	std::string getDeviceName(int deviceId) override {
+		return (deviceId == 0) ? "Default" : "";
+	}
+	int getDeviceNumInputs(int deviceId) override {
+		return (deviceId == 0) ? NUM_INPUTS : 0;
+	}
+	int getDeviceNumOutputs(int deviceId) override {
+		return (deviceId == 0) ? NUM_OUTPUTS : 0;
+	}
+
+	rack::audio::Device* subscribe(int deviceId, rack::audio::Port* port) override {
+		if (deviceId != 0)
+			return NULL;
+		if (!device)
+			device = new OboeDevice;
+		device->subscribe(port);
+		return device;
+	}
+
+	void unsubscribe(int deviceId, rack::audio::Port* port) override {
+		if (deviceId != 0 || !device)
+			return;
+		device->unsubscribe(port);
+		if (device->subscribed.empty()) {
+			delete device;
+			device = NULL;
+		}
+	}
+};
+
+
+void oboeInit() {
+	rack::audio::addDriver(OBOE_DRIVER_ID, new OboeDriver);
+}
+
+
+// ---- JNI: master recording toggle (MainActivity's ⏺ button) ----
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_org_rackdroid_MainActivity_nativeRecordStart(JNIEnv* env, jobject thiz, jstring jPath) {
+	const char* chars = env->GetStringUTFChars(jPath, NULL);
+	std::string path = chars ? chars : "";
+	env->ReleaseStringUTFChars(jPath, chars);
+	// The stream's actual rate lives in the device; 48k is the default and
+	// the only rate the port opens in practice unless the user changed it.
+	int sr = DEFAULT_SAMPLE_RATE;
+	if (APP && APP->engine)
+		sr = (int) APP->engine->getSampleRate();
+	bool ok = gRecorder.start(path, sr, NUM_OUTPUTS);
+	__android_log_print(ANDROID_LOG_INFO, "rackdroid", "record start %s: %d", path.c_str(), ok);
+	return ok;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeRecordStop(JNIEnv* env, jobject thiz) {
+	gRecorder.stop();
+	__android_log_print(ANDROID_LOG_INFO, "rackdroid", "record stop");
+}
+
+
+} // namespace rackdroid

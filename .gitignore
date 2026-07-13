@@ -1,0 +1,13 @@
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+.cxx/
+*.iml
+captures/
+.externalNativeBuild/
+.kotlin/
+build-host/
+ui_smoke_frame.png
+__pycache__/

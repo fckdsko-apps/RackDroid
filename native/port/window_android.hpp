@@ -1,0 +1,27 @@
+#pragma once
+
+struct ANativeWindow;
+
+namespace rackdroid {
+
+/** Hands the NativeActivity surface to the next Window creation.
+`density` is DisplayMetrics density (e.g. 2.75 for 440 dpi). */
+void windowSetPendingSurface(ANativeWindow* win, float density);
+
+/** Swaps the EGL surface under a live Window (rotation, background/foreground).
+The EGL context and all GL resources survive. */
+void windowSurfaceChanged(ANativeWindow* win);
+void windowSurfaceLost();
+bool windowHasSurface();
+
+bool windowShouldClose();
+
+/** Sets the modifier state reported by Window::getMods(). Used by touch_input
+to emulate Ctrl+scroll (pinch zoom). */
+void windowSetMods(int mods);
+
+/** Marks user interaction: keeps the frame rate at full speed (it drops to
+half after a few idle seconds to save battery). */
+void windowNoteInteraction();
+
+} // namespace rackdroid

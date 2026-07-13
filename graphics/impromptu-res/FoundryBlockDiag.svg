@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="535.0" height="529.0" viewBox="0 0 535.0 529.0">
+<defs><linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A342B"/><stop offset="1" stop-color="#292520"/></linearGradient><linearGradient id="strip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE8C2"/><stop offset="1" stop-color="#C8985C"/></linearGradient><linearGradient id="sheen" x1="0" y1="0" x2="0.65" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.09"/><stop offset="0.4" stop-color="#FFFFFF" stop-opacity="0.02"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient></defs>
+<rect width="535.0" height="529.0" fill="url(#panel)" fill-opacity="0.97"/>
+<rect width="535.0" height="529.0" fill="url(#sheen)"/>
+<rect x="0" y="0" width="535.0" height="7.41" fill="url(#strip)"/>
+<rect x="0" y="7.41" width="535.0" height="0.8" fill="#000000" fill-opacity="0.35"/>
+<rect x="0" y="521.59" width="535.0" height="7.41" fill="#1B1813"/>
+<rect x="0.6" y="0.6" width="533.80" height="527.80" fill="none" stroke="#FFFFFF" stroke-opacity="0.13" stroke-width="1"/>
+<rect x="0" y="0" width="1" height="529.0" fill="#FFFFFF" fill-opacity="0.07"/>
+<rect x="534.0" y="0" width="1" height="529.0" fill="#000000" fill-opacity="0.45"/>
+<text x="267.5" y="23.805" font-family="sans-serif" font-size="6" fill="#EDE6D8" text-anchor="middle" font-weight="bold">FOUNDRYBLOCKDIAG</text>
+<text x="67.261589" y="29.744335" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">32</text>
+<text x="61.766823" y="29.744427" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">31</text>
+<text x="56.305229" y="28.979713" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">...</text>
+<text x="4.5615826" y="14.006427" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">STEP :</text>
+<text x="4.5615435" y="35.289764" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">SEQUENCE :</text>
+<text x="36.308144" y="36.613007" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">LENGTH, RUNMODE,</text>
+<text x="48.661598" y="53.601685" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">...</text>
+<text x="4.4145155" y="54.266357" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">SEQUENCES :</text>
+<text x="65.499313" y="54.366302" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">64</text>
+<text x="60.004555" y="54.366394" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">63</text>
+<text x="4.553916" y="70.494972" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">PHRASE :</text>
+<text x="68.130287" y="82.574776" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">...</text>
+<text x="4.498065" y="87.429497" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">SONG :</text>
+<text x="90.747551" y="83.339394" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">99</text>
+<text x="85.252785" y="83.339485" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">98</text>
+<text x="36.195145" y="90.288857" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">BEGIN-POS, END-POS, RUNMODE,</text>
+<text x="36.230892" y="94.169891" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">CLOCK-RESOLUTION, CLOCK-DELAY</text>
+<text x="3.4397521" y="132.72363" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">COPY/PASTE BUFFERS : 1 SEQUENCE</text>
+<text x="33.152225" y="136.56999" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">1 SONG</text>
+<text x="126.07047" y="6.2738457" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">TRACK A</text>
+<text x="126.07047" y="104.76503" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">TRACK B</text>
+<text x="28.072395" y="104.64555" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">...</text>
+<text x="126.07047" y="114.29014" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">TRACK C</text>
+<text x="28.072392" y="114.1707" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">...</text>
+<text x="126.07047" y="123.84337" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">TRACK D</text>
+<text x="28.072397" y="123.7239" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">...</text>
+<text x="55.966625" y="132.72629" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">COPY SOURCE : ACTIVE TRACK</text>
+<text x="55.965828" y="136.0986" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">PASTE DESTINATION : ACTIVE TRACK OR ALL TRACKS</text>
+<text x="96.212791" y="28.545044" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">TRANSPOSE (ALL 32 STEPS)</text>
+<text x="96.398026" y="32.278305" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">ROTATE (STEP 1 TO LENGTH)</text>
+<text x="96.364716" y="36.04184" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">COPY / PASTE* (4, 8, END)</text>
+<text x="79.355927" y="71.226608" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">SONG OPERATIONS : COPY** / PASTE (4, 8, END)</text>
+<text x="80.650734" y="40.591225" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">* LENGTH, RUNMODE, TRANSPOSE AND ROTATE</text>
+<text x="104.81203" y="77.350304" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">** CLOCK-RESOLUTION</text>
+<text x="84.392174" y="22.664932" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">SEQUENCE OPERATIONS :</text>
+<text x="36.217072" y="8.1412678" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">CV, SLIDE, SLIDE-RATIO,</text>
+<text x="36.217072" y="11.964038" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">GATE, GATEP, PROBABILITY, GATE-TYPE,</text>
+<text x="36.070053" y="15.874891" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">TIED,</text>
+<text x="36.283096" y="40.335121" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">TRANSPOSE-AMOUNT</text>
+<text x="36.288418" y="68.154869" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">SEQUENCE#,</text>
+<text x="36.258591" y="72.124672" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">REPETITION-COUNT</text>
+<text x="36.098289" y="19.672348" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">CV2</text>
+<text x="104.96436" y="81.321541" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">AND DELAY NOT COPIED</text>
+<text x="82.623215" y="44.268879" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">ONLY PASTED WHEN ALL 32 STEPS SELECTED</text>
+<text x="36.283024" y="43.992752" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">ROTATE-AMOUNT</text>
+</svg>

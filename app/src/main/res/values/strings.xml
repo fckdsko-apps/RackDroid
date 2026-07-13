@@ -1,0 +1,437 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<!-- "RackDroid" is a working title. Do NOT ship under a name/logo using
+	     the "VCV" trademark; see README.md (Licensing). -->
+	<string name="app_name">RackDroid</string>
+
+	<!-- Toolbar menu buttons (mirror Rack's MenuBar entries) -->
+	<string name="menu_file">File</string>
+	<string name="menu_edit">Edit</string>
+	<string name="menu_view">View</string>
+	<string name="menu_engine">Engine</string>
+	<string name="menu_help">Help</string>
+	<string name="menu_back">Back</string>
+	<string name="menu_share_patch">Share patch…</string>
+
+	<!-- Module browser -->
+	<string name="browser_search_hint">Search modules</string>
+	<string name="browser_module_count">%1$d modules</string>
+	<string name="browser_favorites">★ Favorites</string>
+
+	<!-- Toasts / dialogs -->
+	<string name="toast_recording">Recording…</string>
+	<string name="toast_recording_failed">Recording failed to start</string>
+	<string name="toast_saved_to">Saved to Documents/RackDroid/%1$s</string>
+	<string name="toast_patch_imported">Patch imported: %1$s (File ▸ Open)</string>
+	<string name="toast_import_failed">Import failed: %1$s</string>
+	<string name="toast_no_patches">No patches in %1$s</string>
+	<string name="toast_midi_connected">MIDI connected: %1$s</string>
+	<string name="toast_enable_bluetooth">Enable Bluetooth first</string>
+	<string name="toast_ble_scan_failed">BLE scan failed (%1$d)</string>
+	<string name="dialog_edit_text">Edit text</string>
+	<string name="share_patch_chooser">Share patch</string>
+
+	<!-- Help menu extras -->
+	<string name="menu_guide">Guide</string>
+	<string name="menu_wizard">Tutorials (30)</string>
+
+	<!-- In-app guide -->
+	<string name="guide_title">RackDroid Guide</string>
+	<string name="guide_s1_t">The rack</string>
+	<string name="guide_s1_b">RackDroid is a modular synthesizer: you place modules on a rack, connect them with cables, and everything makes sound in real time. The essentials are built in, with many more packs available on demand.</string>
+	<string name="guide_s2_t">Getting around</string>
+	<string name="guide_s2_b">Scroll the rack with two fingers. Pinch to zoom. View ▸ Zoom to fit modules frames your whole patch.</string>
+	<string name="guide_s3_t">Adding modules</string>
+	<string name="guide_s3_b">Long-press any empty rack space to open the module browser. Type to search, filter by brand or tag, and tap a tile to place it. Hold a tile for 3 seconds for details. Tap ★ to keep favorites.</string>
+	<string name="guide_s4_t">Knobs and switches</string>
+	<string name="guide_s4_b">Drag a knob up or down to turn it. Long-press a knob to open its menu and type an exact value.</string>
+	<string name="guide_s5_t">Cables</string>
+	<string name="guide_s5_b">Drag from any port to another port to create a cable. Drag a plug away to move or remove it. Outputs can feed many inputs.</string>
+	<string name="guide_s6_t">Sound and recording</string>
+	<string name="guide_s6_b">The Audio 2 module is already connected to your speakers — anything you patch into its TO inputs plays. Tap ⏺ to record the master output as WAV into Documents/RackDroid.</string>
+	<string name="guide_s7_t">Keyboards and MIDI</string>
+	<string name="guide_s7_b">⌨ opens an on-screen piano (add a MIDI to CV module to use it for pitch/gate). 🎹 scans for Bluetooth MIDI controllers; USB controllers also work.</string>
+	<string name="guide_s8_t">Padlocks</string>
+	<string name="guide_s8_b">🔒 freezes modules and cables in place while knobs stay live — great for performing. 🔐 freezes everything, parameters included. Two-finger navigation always works.</string>
+	<string name="guide_s9_t">Saving and sharing</string>
+	<string name="guide_s9_b">File ▸ Save stores your patch. File ▸ Share patch… sends the current patch as a .vcv file to any app. Opening a .vcv file from another app imports it.</string>
+	<string name="guide_s10_t">Undo and language</string>
+	<string name="guide_s10_b">↶ and ↷ undo and redo any change. Help ▸ Language changes the language of the module menus.</string>
+
+	<!-- Step-by-step wizard -->
+	<string name="wizard_title">First patch</string>
+	<string name="wizard_step_of">Step %1$d of %2$d</string>
+	<string name="wizard_next">Next</string>
+	<string name="wizard_prev">Back</string>
+	<string name="wizard_done">Finish</string>
+	<string name="wizard_s0">Welcome! Let\'s build your first sound in six short steps. You can keep using the rack while this card is open.</string>
+	<string name="wizard_s1">Open the module browser: long-press any EMPTY spot on the rack (the dark perforated background).</string>
+	<string name="wizard_s2">Type VCO in the search box and tap the first tile. That places an oscillator — the source of your sound.</string>
+	<string name="wizard_s3">Now search for Audio and add "Audio 2" the same way (skip if it\'s already in the rack). It sends sound to your speakers.</string>
+	<string name="wizard_s4">Connect them: drag from the VCO\'s SAW output down at the bottom to a TO input on Audio 2. A cable appears.</string>
+	<string name="wizard_s5">You should hear a steady tone! Drag the VCO\'s FREQ knob up and down to change the pitch.</string>
+	<string name="wizard_s6">Use the LEVEL knob on Audio 2 for volume. To stop the sound, drag the plug away from the port.</string>
+	<string name="wizard_s7">Done! Save with File ▸ Save. The full guide is in Help ▸ Guide. Have fun!</string>
+
+	<!-- Tutorial Pro: 30 steps, full subtractive voice with the WHY -->
+	<string name="menu_wizard_pro">Pro tutorial (30 steps)</string>
+	<string name="wizard_pro_title">Subtractive synth, explained</string>
+	<string name="wizard_pro_s00">Welcome to the Pro tutorial! In 30 steps we\'ll build a complete synth voice — sequencer, oscillator, filter, envelope, amplifier, modulation — and explain WHY every cable goes where it goes.</string>
+	<string name="wizard_pro_s01">The big idea: audio flows left to right (source ▸ tone shaping ▸ volume ▸ speakers), while CONTROL VOLTAGES (CV) automate knobs. Every cable carries one or the other.</string>
+	<string name="wizard_pro_s02">Find some empty rack space (two-finger scroll). We\'ll build there so nothing else gets in the way.</string>
+	<string name="wizard_pro_s03">Add a VCO (long-press empty space, search VCO). The Voltage Controlled Oscillator generates the raw wave — it\'s the vibrating string of the synth. Alone it\'s just a steady buzz.</string>
+	<string name="wizard_pro_s04">Look at its outputs: SIN is a pure tone, TRI is mellow, SAW is bright and rich in harmonics, SQR is hollow. We\'ll use SAW — all those harmonics give the filter something to carve.</string>
+	<string name="wizard_pro_s05">Add a VCF. The Voltage Controlled Filter is the chisel: a low-pass filter lets lows through and cuts highs. Subtractive synthesis = start rich, carve away.</string>
+	<string name="wizard_pro_s06">Connect VCO SAW ▸ VCF IN. Why: the raw wave must pass THROUGH the filter to be shaped. Audio chain, link one.</string>
+	<string name="wizard_pro_s07">Listen in: connect VCF LOWPASS ▸ Audio 2 TO (temporarily). You\'ll hear a steady tone.</string>
+	<string name="wizard_pro_s08">Drag the VCF\'s CUTOFF knob. Down = darker (harmonics removed), up = brighter. That knob is the single most expressive control on a synth.</string>
+	<string name="wizard_pro_s09">Now RESONANCE: it boosts the band right at the cutoff. High values whistle — that\'s the classic \"acid\" character.</string>
+	<string name="wizard_pro_s10">Problem: the tone never stops. Real notes start and end. For that we need a volume gate — a VCA — and something to drive it — an envelope.</string>
+	<string name="wizard_pro_s11">Add a VCA. The Voltage Controlled Amplifier is a volume knob turned by voltage: no CV in, no sound out. That\'s exactly what we want — silence between notes.</string>
+	<string name="wizard_pro_s12">Re-route: disconnect VCF LOWPASS from Audio 2 (drag the plug away) and connect VCF LOWPASS ▸ VCA IN instead. Why: volume control belongs AFTER tone shaping.</string>
+	<string name="wizard_pro_s13">Connect VCA OUT ▸ Audio 2 TO. Chain complete: VCO ▸ VCF ▸ VCA ▸ speakers. It\'s silent now — the VCA is waiting for its control voltage.</string>
+	<string name="wizard_pro_s14">Add an ADSR. It draws the volume shape of a note: Attack (fade-in time), Decay (fall after the peak), Sustain (held level), Release (fade-out after you let go).</string>
+	<string name="wizard_pro_s15">Connect ADSR ENV ▸ VCA CV. Why: the envelope\'s curve becomes the note\'s loudness curve. Percussive or pad-like — it\'s all in these four knobs.</string>
+	<string name="wizard_pro_s16">The ADSR needs to know WHEN a note happens: that\'s the GATE input. We could press a key… or let a sequencer play for us.</string>
+	<string name="wizard_pro_s17">Add a SEQ 3. A step sequencer loops through steps, sending a voltage (the pitch) and a trigger (the rhythm) for each one. It\'s your robot performer.</string>
+	<string name="wizard_pro_s18">Connect SEQ 3 TRIG ▸ ADSR GATE. Why: every step \"presses the key\" for you, firing one envelope per step.</string>
+	<string name="wizard_pro_s19">Connect SEQ 3 CV (row 1) ▸ VCO V/OCT. Why: pitch in modular is a voltage — 1 volt = 1 octave. The row-1 knobs literally become your melody.</string>
+	<string name="wizard_pro_s20">Press RUN on the SEQ 3. It cycles! If you hear nothing, raise the ADSR\'s SUSTAIN and shorten ATTACK.</string>
+	<string name="wizard_pro_s21">Tune the melody: drag the row-1 CV knobs — each one is a step\'s note. TEMPO sets the speed, STEPS how many before the loop restarts.</string>
+	<string name="wizard_pro_s22">Shape the groove on the ADSR: short Attack + short Decay + low Sustain = plucky; long Attack + high Sustain = pad. Try both.</string>
+	<string name="wizard_pro_s23">Time for motion. Add an LFO — an oscillator too slow to hear, used as a CV. Its whole job is wiggling other modules\' knobs for you.</string>
+	<string name="wizard_pro_s24">Connect LFO TRI ▸ VCF CUTOFF (the CV input next to the knob). Why: the cutoff now sweeps up and down by itself — the classic wobble.</string>
+	<string name="wizard_pro_s25">Control the depth: the small knob beside the VCF\'s CUTOFF CV input scales how much the LFO moves it. CV inputs almost always have one — attenuators are your friends.</string>
+	<string name="wizard_pro_s26">The LFO\'s FREQ sets wobble speed. Slow = tide, fast = growl. Notice you\'re now \"playing\" three modules at once without touching the audio path.</string>
+	<string name="wizard_pro_s27">Experiment: move the LFO cable from VCF CUTOFF to VCO FM — now it wiggles PITCH (vibrato) instead of brightness. Same CV, different destination, different effect. That\'s the whole modular idea.</string>
+	<string name="wizard_pro_s28">Add a Scope and connect VCA OUT ▸ Scope IN. Watch the waveform breathe as you tweak: seeing the envelope and the filter at work makes everything click.</string>
+	<string name="wizard_pro_s29">Done — a full subtractive voice! Save it (File ▸ Save), share it (File ▸ Share patch…). Next ideas: a second detuned VCO into the same VCF, or swap the VCO for Macro Oscillator 2. Have fun!</string>
+
+	<!-- Guide library: topic titles/subtitles + sections -->
+	<string name="guide_t1_title">Getting started</string>
+	<string name="guide_t1_sub">The rack, gestures, saving — all the basics</string>
+
+	<string name="guide_t2_title">Finding modules</string>
+	<string name="guide_t2_sub">Search, filters, favorites, module info</string>
+	<string name="guide_t2_s1_t">The browser</string>
+	<string name="guide_t2_s1_b">Long-press empty rack space to open it. Type any part of a name, brand or tag; the chips filter by brand (white = active) and by function tag. Extra packs you install appear here too.</string>
+	<string name="guide_t2_s2_t">Tiles</string>
+	<string name="guide_t2_s2_b">Tap a tile to place the module where you long-pressed. Hold a tile for 3 seconds for its description, tags and license. Tap the ☆ on a tile to mark a favorite, then use the ★ Favorites chip to see only those.</string>
+	<string name="guide_t2_s3_t">Managing modules on the rack</string>
+	<string name="guide_t2_s3_b">Drag a module by its panel to move it. Long-press a module to open its context menu: presets, randomize, duplicate, delete. ↶ undoes anything.</string>
+
+	<string name="guide_t3_title">Cables and signals</string>
+	<string name="guide_t3_sub">Audio vs CV, V/Oct, gates and triggers</string>
+	<string name="guide_t3_s1_t">Two kinds of signal, one kind of cable</string>
+	<string name="guide_t3_s1_b">Everything is a voltage. AUDIO signals (roughly ±5V) are what you hear; CONTROL VOLTAGES (CV) move parameters instead. Any output can drive any input — that freedom is the point of modular.</string>
+	<string name="guide_t3_s2_t">Pitch and rhythm conventions</string>
+	<string name="guide_t3_s2_b">Pitch: 1 volt = 1 octave (the V/OCT inputs). Rhythm: a GATE is high while a note is held; a TRIGGER is a short pulse that fires an event — envelopes, drums, sequencer steps.</string>
+	<string name="guide_t3_s3_t">Patching</string>
+	<string name="guide_t3_s3_b">Drag from a port to a port to connect. Drag a plug away to move or remove the cable. One output can feed many inputs; an input accepts one cable.</string>
+	<string name="guide_t3_s4_t">Cable colors</string>
+	<string name="guide_t3_s4_b">View ▸ Cable colors lets you set the rotation of colors — handy to tell pitch, gate and audio runs apart in a dense patch.</string>
+
+	<string name="guide_t4_title">Oscillators</string>
+	<string name="guide_t4_sub">VCO vs LFO, waveforms, detune and FM</string>
+	<string name="guide_t4_s1_t">VCO and LFO</string>
+	<string name="guide_t4_s1_b">Both make waves. A VCO runs at audio rate — you hear it. An LFO runs below hearing range — you use it as CV to move knobs (vibrato, wobble, tremolo).</string>
+	<string name="guide_t4_s2_t">Waveforms</string>
+	<string name="guide_t4_s2_b">SIN: pure, no harmonics. TRI: soft. SAW: bright, every harmonic — the filter\'s favorite food. SQR: hollow, odd harmonics only; its PW (pulse width) changes the color.</string>
+	<string name="guide_t4_s3_t">Fat sounds</string>
+	<string name="guide_t4_s3_b">Two VCOs on the same V/OCT, one slightly detuned (FINE knob): instant width. FM input: modulate pitch with an LFO for vibrato, or with another VCO at audio rate for metallic timbres.</string>
+
+	<string name="guide_t5_title">Filters</string>
+	<string name="guide_t5_sub">Cutoff, resonance, and where they sit</string>
+	<string name="guide_t5_s1_t">The chisel</string>
+	<string name="guide_t5_s1_b">A filter removes harmonics. LOWPASS keeps lows (the classic synth sound); HIGHPASS keeps highs (thin, telephone-like). CUTOFF sets where the cut begins.</string>
+	<string name="guide_t5_s2_t">Resonance and drive</string>
+	<string name="guide_t5_s2_b">RESONANCE boosts the band at the cutoff: from subtle emphasis to whistling self-oscillation. DRIVE pushes the input harder for saturation and grit.</string>
+	<string name="guide_t5_s3_t">Placement and movement</string>
+	<string name="guide_t5_s3_b">The filter sits between source and VCA: VCO ▸ VCF ▸ VCA. Its magic is movement — patch an LFO or an envelope into the CUTOFF CV input and dose it with the little attenuator knob.</string>
+
+	<string name="guide_t6_title">Envelopes and dynamics</string>
+	<string name="guide_t6_sub">ADSR, VCA, plucks and pads</string>
+	<string name="guide_t6_s1_t">Why notes need envelopes</string>
+	<string name="guide_t6_s1_b">Oscillators never stop. The VCA is a voltage-controlled volume knob (silent by default); the ADSR draws the shape that opens and closes it for every note.</string>
+	<string name="guide_t6_s2_t">The four stages</string>
+	<string name="guide_t6_s2_b">Attack: fade-in time. Decay: fall after the peak. Sustain: the held LEVEL (not a time!). Release: fade-out after the gate ends. The GATE input starts and ends the cycle.</string>
+	<string name="guide_t6_s3_t">Recipes</string>
+	<string name="guide_t6_s3_b">Pluck: A=0, short D, S=0. Pad: long A, high S, long R. Send the same envelope to the filter\'s CUTOFF CV as well and brightness follows loudness — very natural.</string>
+
+	<string name="guide_t7_title">Drums</string>
+	<string name="guide_t7_sub">The RackDroid Drums voices, triggering, mixing</string>
+	<string name="guide_t7_s1_t">The pack</string>
+	<string name="guide_t7_s1_b">RackDroid Drums has 14 analog-style voices: 808 (deep, round), 909 (punchy, clicky), 606 (thin, boxy), 707 (mid-forward) and a 505 tom. All synthesized, all tunable.</string>
+	<string name="guide_t7_s2_t">Triggering</string>
+	<string name="guide_t7_s2_b">Every voice fires on a TRIG pulse — from a sequencer\'s gate/trig outputs, a MIDI drum pad, or gate modules. The hi-hats have CH and OH inputs: the closed hat chokes the open one, like the real machines.</string>
+	<string name="guide_t7_s3_t">Shaping and mixing</string>
+	<string name="guide_t7_s3_b">TUNE and DECAY reshape each voice a lot — an 808 kick with long decay is a bassline. Sum the voices with a mixer (e.g. VCA Mix) before Audio, and leave headroom: drums peak hard.</string>
+
+	<string name="guide_t8_title">MIDI and keyboards</string>
+	<string name="guide_t8_sub">On-screen keys, Bluetooth and USB controllers</string>
+	<string name="guide_t8_s1_t">MIDI to CV</string>
+	<string name="guide_t8_s1_b">Modular speaks voltages, controllers speak MIDI. The MIDI to CV module translates: V/OCT for pitch, GATE for key-down, plus velocity, mod wheel and pitch bend outputs.</string>
+	<string name="guide_t8_s2_t">Connecting controllers</string>
+	<string name="guide_t8_s2_b">🎹 in the toolbar scans for Bluetooth MIDI devices. USB controllers plugged via OTG appear as MIDI devices too. Pick the device inside the MIDI to CV panel display.</string>
+	<string name="guide_t8_s3_t">The on-screen keyboard</string>
+	<string name="guide_t8_s3_b">⌨ opens a piano strip that sends MIDI to the same MIDI to CV module — perfect for testing a patch without hardware.</string>
+
+	<string name="guide_t9_title">Mixing and recording</string>
+	<string name="guide_t9_sub">Levels, WAV recording, sharing patches</string>
+	<string name="guide_t9_s1_t">Getting to the speakers</string>
+	<string name="guide_t9_s1_b">Audio 2\'s TO inputs are your master bus; its LEVEL knob is the final volume. With several voices, sum them in a mixer (VCA Mix) first and balance there.</string>
+	<string name="guide_t9_s2_t">Recording</string>
+	<string name="guide_t9_s2_b">⏺ in the toolbar records the master output as a WAV into Documents/RackDroid — tap again to stop. What you hear is what you get.</string>
+	<string name="guide_t9_s3_t">Sharing and importing</string>
+	<string name="guide_t9_s3_b">File ▸ Share patch… sends the current patch as a .vcv to any app. Opening a .vcv from another app imports it (File ▸ Open to load it). Long-press a file in File ▸ Open to share it.</string>
+
+	<string name="guide_t10_title">Performance and live use</string>
+	<string name="guide_t10_sub">Padlocks, engine settings, battery</string>
+	<string name="guide_t10_s1_t">Padlocks on stage</string>
+	<string name="guide_t10_s1_b">🔒 freezes module positions and cables but keeps knobs live — tweak without fear of dragging a module. 🔐 freezes everything for hands-off playback. Both persist across sessions.</string>
+	<string name="guide_t10_s2_t">Engine settings</string>
+	<string name="guide_t10_s2_b">Engine ▸ Threads spreads big patches over CPU cores. Engine ▸ Sample rate trades quality for headroom. Performance meters show each module\'s cost — find the heavy one.</string>
+	<string name="guide_t10_s3_t">Battery and heat</string>
+	<string name="guide_t10_s3_b">View ▸ Frame rate lowers UI redraws (audio is unaffected). Smaller patches, fewer reverbs and lower frame rates all run cooler on long sessions.</string>
+
+	<!-- Tutorial library -->
+	<string name="tut_library_title">Tutorials</string>
+	<string name="tut_steps_count">%1$d steps</string>
+	<string name="tut_basic_sub">Your first sound in six steps</string>
+	<string name="tut_pro_sub">The full subtractive voice, explained</string>
+	<string name="tutlevel_1">Level 1 — Foundations</string>
+	<string name="tutlevel_2">Level 2 — Modulation</string>
+	<string name="tutlevel_3">Level 3 — Rhythm and sequencing</string>
+	<string name="tutlevel_4">Level 4 — Effects</string>
+	<string name="tutlevel_5">Level 5 — Advanced voices</string>
+
+	<string name="t03_title">Mixing two sources</string>
+	<string name="t03_sub">Two VCOs into VC Mixer, balanced</string>
+	<string name="t03_s0">We’ll blend two sounds into one output. Add a VC Mixer: four channels with level knobs and a master.</string>
+	<string name="t03_s1">Add two VCOs (or reuse ones you have). Give them different pitches with their FREQ knobs.</string>
+	<string name="t03_s2">Connect VCO 1 SAW ▸ mixer CH 1, and VCO 2 SAW ▸ CH 2.</string>
+	<string name="t03_s3">Connect the mixer MIX output ▸ Audio 2 TO.</string>
+	<string name="t03_s4">Balance with the CH 1 and CH 2 knobs; the big knob is the master volume.</string>
+	<string name="t03_s5">Every patch with more than one voice ends in a mixer — it’s the mixing desk of your rack.</string>
+	<string name="t04_title">Seeing signals with Scope</string>
+	<string name="t04_sub">Watch waves, envelopes and LFOs</string>
+	<string name="t04_s0">The Scope draws voltages over time — the fastest way to UNDERSTAND what a module does. Add one.</string>
+	<string name="t04_s1">Connect a VCO SAW ▸ Scope IN 1. There’s the sawtooth, tooth by tooth.</string>
+	<string name="t04_s2">Turn the VCO FREQ down very low: watch the wave slow until you can follow it.</string>
+	<string name="t04_s3">Now patch an LFO TRI ▸ IN 2: two signals at once. The TIME knob zooms in and out.</string>
+	<string name="t04_s4">Habit to build: when something sounds wrong, scope it — you’ll SEE the problem.</string>
+	<string name="t05_title">Save, template, share</string>
+	<string name="t05_sub">Never lose a patch again</string>
+	<string name="t05_s0">File ▸ Save stores the patch; Save as gives it a name. The autosave also protects you from crashes.</string>
+	<string name="t05_s1">File ▸ Overwrite template makes the CURRENT patch your File ▸ New starting point. Build your ideal default rack once.</string>
+	<string name="t05_s2">File ▸ Share patch… sends the current patch as a .vcv file to any app — chat, mail, drive.</string>
+	<string name="t05_s3">Receiving one? Open the .vcv from the other app and it lands in File ▸ Open.</string>
+	<string name="t05_s4">In File ▸ Open, long-press any saved patch to share it directly.</string>
+	<string name="t06_title">Vibrato</string>
+	<string name="t06_sub">A slow LFO wiggling the pitch</string>
+	<string name="t06_s0">Vibrato = pitch gently wobbling. We need a VCO making sound (patch SAW ▸ Audio 2 if needed).</string>
+	<string name="t06_s1">Add an LFO. Its TRI output is a smooth up-and-down voltage — perfect for vibrato.</string>
+	<string name="t06_s2">Connect LFO TRI ▸ VCO FM. The FM input adds the LFO to the pitch.</string>
+	<string name="t06_s3">Too much! Turn the VCO’s FM attenuator (small knob) way down: vibrato is subtle, ±20 cents.</string>
+	<string name="t06_s4">Set the LFO FREQ around 5–6 Hz — the speed of a violinist’s hand.</string>
+	<string name="t06_s5">Golden rule: modulation depth (attenuator) and speed (LFO rate) are two different controls. Learn to reach for the right one.</string>
+	<string name="t07_title">Tremolo</string>
+	<string name="t07_sub">LFO on the VCA: pulsing volume</string>
+	<string name="t07_s0">Tremolo = volume pulsing. Chain a voice through a VCA: source ▸ VCA IN, VCA OUT ▸ Audio 2.</string>
+	<string name="t07_s1">Add an LFO and connect its TRI ▸ VCA CV.</string>
+	<string name="t07_s2">Nothing? An LFO swings negative too: the VCA closes half the time. Raise the VCA LEVEL and lower the LFO amount for a gentler pulse.</string>
+	<string name="t07_s3">LFO FREQ sets the character: 2 Hz is a slow wave, 8 Hz a flutter.</string>
+	<string name="t07_s4">Try the SQR output instead of TRI: hard on/off gating — a completely different effect from the same module.</string>
+	<string name="t08_title">PWM: living squares</string>
+	<string name="t08_sub">Pulse width modulation, the classic shimmer</string>
+	<string name="t08_s0">Listen to a VCO’s SQR output: hollow and static. We’ll bring it alive.</string>
+	<string name="t08_s1">The PW knob changes the square’s shape from thin pulse to fat square. Hear the color shift.</string>
+	<string name="t08_s2">Now automate it: LFO TRI ▸ VCO PW input.</string>
+	<string name="t08_s3">Slow LFO (0.5 Hz), moderate depth: the classic PWM shimmer — one oscillator that sounds like two.</string>
+	<string name="t08_s4">PWM + filter + envelope is 80% of classic synth pads. You now own the trick.</string>
+	<string name="t09_title">Auto filter sweep</string>
+	<string name="t09_sub">LFO on the cutoff, dosed right</string>
+	<string name="t09_s0">Run a SAW through a VCF into Audio (VCO SAW ▸ VCF IN, LOWPASS ▸ Audio 2).</string>
+	<string name="t09_s1">Patch LFO TRI ▸ VCF CUTOFF CV.</string>
+	<string name="t09_s2">Use the attenuator beside the CUTOFF CV input to set sweep width, and the CUTOFF knob for the center.</string>
+	<string name="t09_s3">Add RESONANCE: the sweep starts to sing.</string>
+	<string name="t09_s4">Swap the LFO wave: TRI breathes, SQR chops, SAW ramps. Same patch, three effects.</string>
+	<string name="t10_title">Sample &amp; Hold</string>
+	<string name="t10_sub">Random voltages, stepped like R2-D2</string>
+	<string name="t10_s0">S&amp;H takes a snapshot of a signal at every trigger: from noise it makes random steps. Add Noise and S&amp;H (SHASR).</string>
+	<string name="t10_s1">Connect Noise WHITE ▸ S&amp;H IN.</string>
+	<string name="t10_s2">Add an LFO; its SQR ▸ S&amp;H TRIG is the snapshot clock.</string>
+	<string name="t10_s3">Send S&amp;H OUT ▸ VCO V/OCT, with the VCO audible.</string>
+	<string name="t10_s4">Random melody! LFO FREQ sets the tempo of the madness.</string>
+	<string name="t10_s5">It’s chaos for now — the next tutorial tames it into a scale.</string>
+	<string name="t11_title">Quantizer: chaos to music</string>
+	<string name="t11_sub">Snap any CV to a scale</string>
+	<string name="t11_s0">A quantizer rounds any voltage to the nearest allowed note. Add one.</string>
+	<string name="t11_s1">Insert it in the S&amp;H line: S&amp;H OUT ▸ Quantizer IN, Quantizer OUT ▸ VCO V/OCT.</string>
+	<string name="t11_s2">On the quantizer’s little keyboard, disable notes until only a scale remains (try a minor pentatonic).</string>
+	<string name="t11_s3">Same random source — now it’s music. This is THE trick behind generative patches.</string>
+	<string name="t11_s4">Quantize anything: LFOs become arpeggios, envelopes become glissandi in key.</string>
+	<string name="t12_title">First 808 beat</string>
+	<string name="t12_sub">Kick and snare from the sequencer</string>
+	<string name="t12_s0">Add BD-808 and SD-808, and a SEQ 3 as the brain.</string>
+	<string name="t12_s1">Each SEQ 3 step has its own TRIG output at the bottom. Step outs 1 and 5 ▸ BD-808 TRIG (kick on the downbeats).</string>
+	<string name="t12_s2">Step outs 3 and 7 ▸ SD-808 TRIG: the backbeat.</string>
+	<string name="t12_s3">Mix both AUDIO outs into a mixer ▸ Audio 2, then press RUN.</string>
+	<string name="t12_s4">Boom–clap! TEMPO sets the speed. Welcome to drum programming.</string>
+	<string name="t12_s5">Tune the drums: BD TUNE/DECAY make it huge; SD SNAPPY adds crack.</string>
+	<string name="t13_title">Hi-hat groove</string>
+	<string name="t13_sub">Closed chokes open, like the real thing</string>
+	<string name="t13_s0">Add HH-808. It has TWO trigger inputs: CH (closed) and OH (open) — one voice, two articulations.</string>
+	<string name="t13_s1">From SEQ 3, patch the even step outs ▸ CH: straight eighth notes.</string>
+	<string name="t13_s2">Move ONE of them to OH instead: that step rings open.</string>
+	<string name="t13_s3">Hear the choke: the next closed hit cuts the open tail — the classic “tss-t”.</string>
+	<string name="t13_s4">O.DECAY sets how long the open hat rings. Longer = lazier groove.</string>
+	<string name="t13_s5">Mix it under kick and snare — hats sit QUIETER than you think.</string>
+	<string name="t14_title">Acid bassline</string>
+	<string name="t14_sub">SEQ3 CV into a squelchy filter</string>
+	<string name="t14_s0">The recipe: SEQ 3 ▸ VCO ▸ VCF (high resonance) ▸ VCA ▸ Audio.</string>
+	<string name="t14_s1">SEQ 3 CV row 1 ▸ VCO V/OCT; SEQ 3 TRIG ▸ ADSR GATE; ADSR ENV ▸ VCA CV.</string>
+	<string name="t14_s2">Keep notes LOW: bass lives below 200 Hz. Program a simple loop with the row-1 knobs.</string>
+	<string name="t14_s3">Now the acid: RESONANCE up high, CUTOFF low, and ADSR ENV also ▸ VCF CUTOFF CV.</string>
+	<string name="t14_s4">Short envelope (A=0, D short): every note goes “mwip”. Sweep CUTOFF while it plays — that’s the 303 magic.</string>
+	<string name="t14_s5">Small TEMPO and TUNE changes completely change the groove. Play with it — this patch rewards tweaking.</string>
+	<string name="t15_title">An LFO as clock</string>
+	<string name="t15_sub">Square waves drive sequencers</string>
+	<string name="t15_s0">Any square wave is a clock. LFO SQR ▸ SEQ 3 CLOCK input.</string>
+	<string name="t15_s1">Now the LFO FREQ is your tempo — and it accepts CV, so tempo itself can be modulated…</string>
+	<string name="t15_s2">Two sequencers from ONE clock stay locked together forever. That’s why external clocks matter.</string>
+	<string name="t15_s3">The SEQ 3 RESET input restarts the pattern: patch a slower LFO SQR there for phrase-length loops.</string>
+	<string name="t15_s4">Rule of thumb: one master clock per patch, everything else follows it.</string>
+	<string name="t16_title">Pattern variations</string>
+	<string name="t16_sub">STEPS and RESET, fills for free</string>
+	<string name="t16_s0">A running SEQ 3 loop gets boring. The STEPS knob changes the loop length live: try 6 instead of 8.</string>
+	<string name="t16_s1">Odd lengths (5, 7) against 4/4 drums create rolling polyrhythms — instant interest.</string>
+	<string name="t16_s2">The RESET input yanks the pattern back to step 1. Patch a slow LFO SQR there.</string>
+	<string name="t16_s3">Now the phrase restarts every few bars — a free “arrangement”.</string>
+	<string name="t16_s4">Live trick: twist STEPS for a moment and back — an instant fill.</string>
+	<string name="t17_title">Full 909 kit</string>
+	<string name="t17_sub">Kick, snare, hats and a cowbell, mixed</string>
+	<string name="t17_s0">Add BD-909, SD-909, HH-909 and CB-707: a full kit, brighter and punchier than the 808.</string>
+	<string name="t17_s1">Distribute SEQ 3 step outs: kick on 1/5, snare on 3/7, hats on the evens, cowbell wherever it makes you smile.</string>
+	<string name="t17_s2">All AUDIO outs ▸ mixer channels ▸ Audio 2. One knob per drum.</string>
+	<string name="t17_s3">Balance: kick loudest, snare just under, hats way down, cowbell to taste.</string>
+	<string name="t17_s4">PUNCH on the BD-909 and TONE on the SD-909 are the character knobs — sculpt your kit.</string>
+	<string name="t17_s5">Record it: ⏺ in the toolbar captures your beat as WAV.</string>
+	<string name="t17_s6">From here: swap voices for their 808/606 cousins and hear the eras change.</string>
+	<string name="t18_title">Echo</string>
+	<string name="t18_sub">The Delay module, from slapback to dub</string>
+	<string name="t18_s0">Insert a Delay AFTER your voice: source ▸ Delay IN, Delay OUT ▸ Audio 2.</string>
+	<string name="t18_s1">TIME sets the gap between repeats, FDBK how many repeats, MIX the dry/wet blend.</string>
+	<string name="t18_s2">Slapback: TIME ~80 ms, low feedback — instant rockabilly space.</string>
+	<string name="t18_s3">Dub: long TIME, high feedback, and ride the knobs WHILE it repeats.</string>
+	<string name="t18_s4">Feedback near max self-oscillates into infinite loops — an instrument in itself.</string>
+	<string name="t18_s5">Delay on drums (just the snare send!) is a mixing classic.</string>
+	<string name="t19_title">Fake reverb from a delay</string>
+	<string name="t19_sub">Dense echoes sound like a room</string>
+	<string name="t19_s0">Real reverb needs an extra pack, but a Delay set to dense short echoes fakes a lush space. Add a Delay after your voice (voice ▸ Delay IN, Delay OUT ▸ Audio 2).</string>
+	<string name="t19_s1">Set TIME very short (~60–100 ms) and FDBK high: the repeats blur into a wash the ear reads as a room.</string>
+	<string name="t19_s2">MIX is dry/wet: low for a subtle tail, high for a cavern.</string>
+	<string name="t19_s3">Add a SECOND Delay after the first with a slightly different TIME: the two dense trails overlap into a smoother, richer reverb.</string>
+	<string name="t19_s4">Want a real plate/spring reverb? Install the Valley or Befaco pack (.rdmod, Modules folder). But now you know reverb is just clever echoes.</string>
+	<string name="t20_title">Flanger from a delay</string>
+	<string name="t20_sub">A very short modulated delay</string>
+	<string name="t20_s0">A flanger is a VERY short delay (1–10 ms) whose time wobbles, mixed with the dry — the classic jet-plane sweep. Add a Delay: voice ▸ IN, OUT ▸ Audio, MIX 50%.</string>
+	<string name="t20_s1">TIME as short as it goes. LFO TRI ▸ Delay TIME CV, small depth, slow rate (0.3 Hz).</string>
+	<string name="t20_s2">The comb notches sweep up and down: a metallic whoosh.</string>
+	<string name="t20_s3">Raise FDBK for a sharper, more resonant flange — full airplane territory.</string>
+	<string name="t20_s4">Chorus (next idea) and flanger are the same trick at different delay times. You now own both.</string>
+	<string name="t21_title">Chorus from a delay</string>
+	<string name="t21_sub">Short modulated delay = width</string>
+	<string name="t21_s0">Chorus is a ~20 ms delay whose time wobbles. Patch voice ▸ Delay, TIME very short, MIX 50%.</string>
+	<string name="t21_s1">LFO TRI ▸ Delay TIME CV, depth low, rate slow (0.3 Hz).</string>
+	<string name="t21_s2">The pitch wobbles slightly against the dry: that beating IS the chorus.</string>
+	<string name="t21_s3">More depth → seasick vibrato-tape; faster → underwater. Find your spot.</string>
+	<string name="t21_s4">You just built an EFFECT from raw parts — that’s the modular super-power.</string>
+	<string name="t21_s5">Feedback adds flanger territory. Explore the edge.</string>
+	<string name="t22_title">Drive and distortion</string>
+	<string name="t22_sub">Heat from the filter’s DRIVE</string>
+	<string name="t22_s0">The VCF’s DRIVE pushes the signal into saturation before filtering. Voice ▸ VCF, raise DRIVE.</string>
+	<string name="t22_s1">Compensate volume down at the VCA — distortion gets loud fast.</string>
+	<string name="t22_s2">Sweep CUTOFF with high drive: the harmonics scream where a clean filter whispers.</string>
+	<string name="t22_s3">On the 808 kick, drive = instant techno weight.</string>
+	<string name="t22_s4">Saturation before the filter and after it sound DIFFERENT. Try both orders.</string>
+	<string name="t23_title">Stereo motion</string>
+	<string name="t23_sub">Auto-pan with two VCAs and 8vert</string>
+	<string name="t23_s0">Audio 2’s TO 1/TO 2 are LEFT and RIGHT. Split your voice into two VCAs: one per side.</string>
+	<string name="t23_s1">LFO TRI ▸ VCA-left CV.</string>
+	<string name="t23_s2">Add 8vert (a CV inverter): same LFO ▸ 8vert, its knob at −1, output ▸ VCA-right CV.</string>
+	<string name="t23_s3">When the left opens, the right closes: the sound flies between your ears.</string>
+	<string name="t23_s4">Slow LFO = gentle drift; audio-rate = rotary madness.</string>
+	<string name="t23_s5">8vert flips ANY CV — one of the humblest, most useful modules in the case.</string>
+	<string name="t24_title">Sidechain ducking</string>
+	<string name="t24_sub">The pad breathes with the kick</string>
+	<string name="t24_s0">The pumping EDM effect: everything ducks when the kick hits. Route a pad/voice through a VCA.</string>
+	<string name="t24_s1">Patch the kick’s trigger ALSO to an ADSR GATE (A=0, D~150 ms, S=0).</string>
+	<string name="t24_s2">Invert it with 8vert (knob at −1) and into the VCA CV. Raise the VCA base LEVEL.</string>
+	<string name="t24_s3">Every kick now pushes the pad down; it swells back between hits.</string>
+	<string name="t24_s4">Deeper D = longer duck. That “breathing” is half of modern dance music.</string>
+	<string name="t24_s5">Same trick on the hats or the reverb return = a mix that grooves by itself.</string>
+	<string name="t25_title">Two detuned VCOs</string>
+	<string name="t25_sub">The oldest fattening trick</string>
+	<string name="t25_s0">Two VCOs, same V/OCT source (mult the cable or stack from the output).</string>
+	<string name="t25_s1">Both SAWs into a mixer, then filter → VCA as usual.</string>
+	<string name="t25_s2">Detune VCO 2 with FINE, just a hair: the beating between them is the fatness.</string>
+	<string name="t25_s3">Too much detune = honky-tonk; too little = flanging. The sweet spot breathes slowly.</string>
+	<string name="t25_s4">Add Octave before VCO 2’s V/OCT to shift it −1 octave: instant sub-bass layer.</string>
+	<string name="t25_s5">This is “supersaw” thinking with just two oscillators. Stack more if the CPU smiles.</string>
+	<string name="t26_title">Audio-rate FM</string>
+	<string name="t26_sub">Bells and metal from two sines</string>
+	<string name="t26_s0">FM at LFO speed is vibrato; at AUDIO speed it creates new harmonics. Two VCOs: carrier (heard) and modulator (not).</string>
+	<string name="t26_s1">Carrier SIN ▸ Audio. Modulator SIN ▸ carrier FM. Raise the FM attenuator slowly.</string>
+	<string name="t26_s2">The tone grows sidebands: clangs, bells, metal. The RATIO of the two pitches decides the flavor.</string>
+	<string name="t26_s3">Tune the modulator to a harmonic ratio (octave, fifth): musical bells. Detune it: inharmonic gongs.</string>
+	<string name="t26_s4">Envelope on the FM amount (via a VCA in the modulation path) = strike-then-mellow, like a real bell.</string>
+	<string name="t26_s5">Congratulations — that’s the heart of the DX7, patched by hand.</string>
+	<string name="t27_title">Hard sync</string>
+	<string name="t27_sub">Sync one VCO to another</string>
+	<string name="t27_s0">Hard sync forces one oscillator to restart every cycle of another — aggressive, vowel-like timbres. Add two VCOs.</string>
+	<string name="t27_s1">VCO 1 (the master) SQR ▸ VCO 2 SYNC. VCO 2 is the one you HEAR: VCO 2 ▸ Audio (via filter/VCA if you like).</string>
+	<string name="t27_s2">VCO 1 sets the note you play: sequence or key its V/OCT.</string>
+	<string name="t27_s3">Now sweep VCO 2 FREQ: the timbre morphs and screams while the pitch stays put — that\'s the sync sound.</string>
+	<string name="t27_s4">Modulate VCO 2 FREQ with an LFO or envelope for the classic sync-sweep lead.</string>
+	<string name="t27_s5">Sequence VCO 1\'s pitch to play a melody while VCO 2 sweeps: an instant expressive lead.</string>
+	<string name="t28_title">Plucked string (Karplus–Strong)</string>
+	<string name="t28_sub">A string from noise + delay</string>
+	<string name="t28_s0">Build a plucked string from scratch: a burst of noise trapped in a short delay loop. Add Noise and a Delay.</string>
+	<string name="t28_s1">Noise ▸ Delay IN; Delay OUT ▸ Audio. (We\'ll shorten the noise to a burst next.)</string>
+	<string name="t28_s2">Set Delay TIME very short — the delay length sets the PITCH (shorter = higher). FDBK high so it rings.</string>
+	<string name="t28_s3">Put a low-pass VCF in the loop (Delay OUT ▸ VCF ▸ back in) so each repeat is darker — that\'s the string decaying.</string>
+	<string name="t28_s4">Pluck it: gate the noise with a VCA + short envelope so only a brief burst enters — each trigger plucks the string.</string>
+	<string name="t28_s5">Feed a drum trigger or sequencer gate to pluck rhythmically: rhythm becomes melody.</string>
+	<string name="t29_title">Generative patch</string>
+	<string name="t29_sub">It plays itself</string>
+	<string name="t29_s0">A generative patch makes music without you touching it. Build a basic voice (VCO ▸ VCF ▸ VCA ▸ Audio) or reuse one.</string>
+	<string name="t29_s1">Add an LFO and a Sample &amp; Hold (SHASR). A slow LFO SQR clocks the S&amp;H; feed its IN from another LFO (or Noise).</string>
+	<string name="t29_s2">Add a Quantizer: S&amp;H OUT ▸ Quantizer ▸ VCO V/OCT — random-but-in-key notes on every clock. Disable notes to pick a scale.</string>
+	<string name="t29_s3">A second slow LFO ▸ VCF CUTOFF so the timbre drifts on its own.</string>
+	<string name="t29_s4">Add drums clocked by the same LFO for evolving rhythm — no two bars the same.</string>
+	<string name="t29_s5">Lock the patch (🔒), press play, and just listen. Change ONE knob every minute.</string>
+	<string name="t30_title">Ambient drone</string>
+	<string name="t30_sub">Slow everything, echoes for space</string>
+	<string name="t30_s0">Recipe: two detuned VCOs ▸ filter ▸ VCA ▸ a dense Delay (our fake reverb) ▸ Audio. No sequencer.</string>
+	<string name="t30_s1">Very slow LFO (0.05 Hz!) ▸ CUTOFF CV, tiny amount: the tone changes over MINUTES.</string>
+	<string name="t30_s2">A second slow LFO ▸ VCO 2 FM (hair-thin): the beating drifts.</string>
+	<string name="t30_s3">The Delay: short TIME, very high FDBK, generous MIX — dense echoes become an endless wash (see the fake-reverb tutorial).</string>
+	<string name="t30_s4">Lock the patch (🔒), lower the lights, let it run. Every few minutes, ONE knob, ONE millimeter.</string>
+	<string name="t30_s5">Record 10 minutes (⏺). Somewhere in there is your album intro.</string>
+	<string name="t30_s6">Drone teaches the deepest lesson: modular is about listening, not playing.</string>
+	<string name="modules_loaded">Loaded %1$d extra module pack(s)</string>
+	<string name="installing_modules">Installing modules…</string>
+	<string name="install_failed">Could not install modules</string>
+	<string name="cable_tension">Cable tension</string>
+	<string name="cable_opacity">Cable opacity</string>
+	<string name="modules_manager_title">Modules</string>
+	<string name="install_from_file">＋ Install from file…</string>
+	<string name="no_modules_installed">No extra packs installed yet. Tap “Install from file” to add a .rdmod.</string>
+	<string name="modules_installed_header">INSTALLED (%1$d)</string>
+	<string name="uninstall">Uninstall</string>
+	<string name="uninstall_title">Uninstall %1$s?</string>
+	<string name="uninstall_message">Its modules leave the palette right away. Any you already placed keep working until you restart.</string>
+	<string name="uninstalled_restart">Uninstalled — modules removed from the palette</string>
+	<string name="module_no_description">No description available for this module. The tags above hint at what it does.</string>
+</resources>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220.0" height="193.0" viewBox="0 0 220.0 193.0">
+<defs><linearGradient id="panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A342B"/><stop offset="1" stop-color="#292520"/></linearGradient><linearGradient id="strip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE8C2"/><stop offset="1" stop-color="#C8985C"/></linearGradient><linearGradient id="sheen" x1="0" y1="0" x2="0.65" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.09"/><stop offset="0.4" stop-color="#FFFFFF" stop-opacity="0.02"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient></defs>
+<rect width="220.0" height="193.0" fill="url(#panel)" fill-opacity="0.97"/>
+<rect width="220.0" height="193.0" fill="url(#sheen)"/>
+<rect x="0" y="0" width="220.0" height="2.70" fill="url(#strip)"/>
+<rect x="0" y="2.70" width="220.0" height="0.8" fill="#000000" fill-opacity="0.35"/>
+<rect x="0" y="190.30" width="220.0" height="2.70" fill="#1B1813"/>
+<rect x="0.6" y="0.6" width="218.80" height="191.80" fill="none" stroke="#FFFFFF" stroke-opacity="0.13" stroke-width="1"/>
+<rect x="0" y="0" width="1" height="193.0" fill="#FFFFFF" fill-opacity="0.07"/>
+<rect x="219.0" y="0" width="1" height="193.0" fill="#000000" fill-opacity="0.45"/>
+<text x="110.0" y="8.685" font-family="sans-serif" font-size="6" fill="#EDE6D8" text-anchor="middle" font-weight="bold">ADVANCEDGATEDETAILS</text>
+<text x="3.1753566" y="3.4343557" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">PULSES PER STEPS (PPS) - REQUIREMENTS</text>
+<text x="19.675114" y="8.1206694" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">MULTIPLES OF 6</text>
+<text x="49.741993" y="40.792263" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">ALL</text>
+<text x="27.327574" y="40.803177" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">ALL</text>
+<text x="5.1611581" y="40.808167" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">M4</text>
+<text x="30.834166" y="45.749863" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">M4: MULTIPLES OF 4</text>
+<text x="4.5611744" y="45.629848" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">MULTIPLES OF 2</text>
+<text x="34.87706" y="40.808243" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">M4</text>
+<text x="42.438755" y="40.808243" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">M4</text>
+<text x="20.053728" y="40.808243" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">M4</text>
+<text x="9.7465" y="49.709198" font-family="sans-serif" font-size="3.5" fill="#EDE6D8" text-anchor="middle">* CLOCK PULSE WIDTH IF PPS = 1</text>
+</svg>

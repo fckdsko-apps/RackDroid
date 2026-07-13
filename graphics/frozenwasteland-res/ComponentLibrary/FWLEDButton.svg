@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="12.0" height="12.0" viewBox="0 0 12.0 12.0">
+<defs><linearGradient id="bbez" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6C6457"/><stop offset="1" stop-color="#3B362D"/></linearGradient><linearGradient id="bface" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A4438"/><stop offset="1" stop-color="#2E2922"/></linearGradient></defs>
+<rect x="0.5999999999999996" y="0.5999999999999996" width="10.8" height="10.8" rx="1.89" fill="url(#bbez)"/>
+<rect x="1.572" y="1.572" width="8.856" height="8.856" rx="1.5120000000000002" fill="url(#bface)"/>
+<rect x="2.65" y="2.33" width="6.70" height="1.62" rx="0.81" fill="#FFFFFF" fill-opacity="0.06"/>
+</svg>
