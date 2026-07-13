@@ -48,11 +48,11 @@ Formato del pacchetto, meccanismo di caricamento nativo e istruzioni per
 
 ## Build
 
-Progetto Gradle alla radice del repo (arm64-v8a, `minSdk 33`).
+Progetto Gradle alla radice del repo (arm64-v8a, `minSdk 33`). I sorgenti
+`third_party/` (Rack v2.6.4, Oboe, tutti i plugin) sono **vendorizzati nel
+repo**: un clone pulito compila così com'è, senza init di submodule.
 
 ```sh
-./scripts/setup.sh          # sorgenti third_party (Rack v2.6.4, Oboe, dep dei plugin)
-
 export JAVA_HOME=~/jdk21; export ANDROID_HOME=~/android-sdk
 gradle assembleRelease -PdevKeystore    # gradle 8.7+, oppure apri in Android Studio
 ```

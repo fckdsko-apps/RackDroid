@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   sodipodi:docname="HairPickMaster.svg"
+   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
+   id="svg11003"
+   version="1.1"
+   viewBox="0 0 55.562501 100.54167"
+   height="380"
+   width="210">
+  <defs
+     id="defs10997">
+    <linearGradient
+       id="linearGradient4682"
+       inkscape:collect="always">
+      <stop
+         id="stop3387"
+         offset="0"
+         style="stop-color:#0c1622;stop-opacity:1" />
+      <stop
+         id="stop3388"
+         offset=".3"
+         style="stop-color:#161625;stop-opacity:1" />
+      <stop
+         id="stop3389"
+         offset="1"
+         style="stop-color:#081f35;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient
+       gradientTransform="matrix(1.0745659,0,0,1,-2.6261843,0)"
+       gradientUnits="userSpaceOnUse"
+       y2="50.163956"
+       x2="35.23983"
+       y1="150.85843"
+       x1="35.219627"
+       id="linearGradient4684"
+       xlink:href="#linearGradient4682"
+       inkscape:collect="always" />
+  </defs>
+  <sodipodi:namedview
+     inkscape:document-rotation="0"
+     units="px"
+     inkscape:window-maximized="1"
+     inkscape:window-y="-6"
+     inkscape:window-x="-6"
+     inkscape:window-height="1058"
+     inkscape:window-width="1920"
+     fit-margin-bottom="0"
+     fit-margin-right="0"
+     fit-margin-left="0"
+     fit-margin-top="0"
+     showgrid="false"
+     inkscape:current-layer="layer1"
+     inkscape:document-units="px"
+     inkscape:cy="197.55861"
+     inkscape:cx="33.42505"
+     inkscape:zoom="2"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base" />
+  <metadata
+     id="metadata11000">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     transform="translate(-35.146312,-50.389004)"
+     id="layer1"
+     inkscape:groupmode="layer"
+     inkscape:label="Layer 1">
+    <path
+       inkscape:export-ydpi="150.22649"
+       inkscape:export-xdpi="150.22649"
+       inkscape:export-filename="/home/vortico/pics/tmp/LFOs.png"
+       style="fill:url(#linearGradient4684);fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:0.32608852"
+       d="M 35.219628,50.462323 H 90.490184 V 150.85843 H 35.219628 Z m 0,0"
+       id="path33493"
+       inkscape:connector-curvature="0" />
+    <text
+       id="text5097"
+       y="64.822968"
+       x="25.318932"
+       style="font-style:normal;font-weight:normal;font-size:3.52778px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       xml:space="preserve" />
+    <text
+       id="text136"
+       y="54.283745"
+       x="62.861427"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         id="tspan1059"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.88056px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="54.283745"
+         x="62.861427"
+         sodipodi:role="line">HAIR PICK</tspan></text>
+    <text
+       id="text299"
+       y="124.70341"
+       x="44.832237"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;fill:#dddddd;fill-opacity:1;stroke-width:0.264583"
+         y="124.70341"
+         x="44.832237"
+         id="tspan297"
+         sodipodi:role="line">FEEDBACK TYPE</tspan></text>
+    <text
+       id="text373"
+       y="146.53029"
+       x="66.102577"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Consolas;-inkscape-font-specification:'Consolas Bold';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       xml:space="preserve" />
+    <flowRoot
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:13.3333px;line-height:1.25;font-family:Consolas;-inkscape-font-specification:'Consolas Bold';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none"
+       id="flowRoot250"
+       xml:space="preserve"><flowRegion
+         id="flowRegion252"><rect
+           y="118.90082"
+           x="78.1353"
+           height="16.970562"
+           width="3.1819806"
+           id="rect254" /></flowRegion><flowPara
+         id="flowPara256" /></flowRoot>
+    <text
+       id="text3885-7"
+       y="149.95268"
+       x="48.115833"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Consolas;-inkscape-font-specification:'Consolas Bold';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#00a3f2;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Bradley Gratis';-inkscape-font-specification:'Bradley Gratis';text-align:start;text-anchor:start;fill:#00a3f2;fill-opacity:1;stroke-width:0.264583"
+         y="149.95268"
+         x="48.115833"
+         id="tspan3883-0"
+         sodipodi:role="line">FROZEN WASTELAND</tspan></text>
+    <text
+       id="text6637"
+       y="98.741608"
+       x="61.075478"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Consolas;-inkscape-font-specification:'Consolas Bold';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       xml:space="preserve" />
+    <flowRoot
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:13.3333px;line-height:1.25;font-family:Consolas;-inkscape-font-specification:'Consolas Bold';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none"
+       id="flowRoot1051"
+       xml:space="preserve"><flowRegion
+         id="flowRegion1053"><rect
+           y="28.037596"
+           x="-26.693281"
+           height="149.02275"
+           width="233.87556"
+           id="rect1055" /></flowRegion><flowPara
+         id="flowPara1057" /></flowRoot>
+    <rect
+       y="136.28542"
+       x="63.853733"
+       height="10.318491"
+       width="14.022657"
+       id="rect22843"
+       style="opacity:0.981;fill:#0e365d;fill-opacity:1;stroke:#000000;stroke-width:0.264842;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text307-7"
+       y="138.97736"
+       x="71.10775"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="138.97736"
+         x="71.10775"
+         id="tspan305-4"
+         sodipodi:role="line">OUT</tspan></text>
+    <text
+       id="text307-7-9"
+       y="138.93414"
+       x="54.431416"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="138.93414"
+         x="54.431416"
+         id="tspan305-4-3"
+         sodipodi:role="line">IN</tspan></text>
+    <text
+       id="text299-5"
+       y="102.7589"
+       x="38.160446"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:start;text-anchor:start;fill:#dddddd;fill-opacity:1;stroke-width:0.264583"
+         y="102.7589"
+         x="38.160446"
+         id="tspan297-8"
+         sodipodi:role="line">EDGE LEVEL</tspan></text>
+    <flowRoot
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:13.3333px;line-height:1.25;font-family:Consolas;-inkscape-font-specification:'Consolas Bold';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#ffffff;fill-opacity:1;stroke:none"
+       id="flowRoot1227"
+       xml:space="preserve"><flowRegion
+         id="flowRegion1229"><rect
+           y="110.59232"
+           x="-114.5513"
+           height="30.405592"
+           width="73.539108"
+           id="rect1231" /></flowRegion><flowPara
+         id="flowPara1233" /></flowRoot>
+    <flowRoot
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:13.3333px;line-height:1.25;font-family:Consolas;-inkscape-font-specification:'Consolas Bold';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none"
+       id="flowRoot5298"
+       xml:space="preserve"><flowRegion
+         id="flowRegion5300"><rect
+           y="19.729092"
+           x="83.438599"
+           height="43.133514"
+           width="171.82695"
+           id="rect5302" /></flowRegion><flowPara
+         id="flowPara5304" /></flowRoot>
+    <text
+       id="text299-5-6"
+       y="102.66361"
+       x="56.802635"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:start;text-anchor:start;fill:#dddddd;fill-opacity:1;stroke-width:0.264583"
+         y="102.66361"
+         x="56.802635"
+         id="tspan297-8-0"
+         sodipodi:role="line">TENT LEVEL</tspan></text>
+    <text
+       id="text299-5-6-7"
+       y="102.85069"
+       x="76.381798"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:start;text-anchor:start;fill:#dddddd;fill-opacity:1;stroke-width:0.264583"
+         y="102.85069"
+         x="76.381798"
+         id="tspan297-8-0-8"
+         sodipodi:role="line">TENT TAP</tspan></text>
+    <flowRoot
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:13.3333px;line-height:1.25;font-family:Consolas;-inkscape-font-specification:'Consolas Bold';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none"
+       id="flowRoot1643"
+       xml:space="preserve"><flowRegion
+         id="flowRegion1645"><rect
+           y="147.36186"
+           x="-27.223612"
+           height="33.23402"
+           width="232.63814"
+           id="rect1647" /></flowRegion><flowPara
+         id="flowPara1649" /></flowRoot>
+    <text
+       id="text299-8"
+       y="124.67791"
+       x="77.742683"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="124.67791"
+         x="77.742683"
+         id="tspan297-2"
+         sodipodi:role="line">FEEDBACK AMOUNT</tspan></text>
+    <text
+       id="text299-0"
+       y="80.318687"
+       x="45.229649"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="80.318687"
+         x="45.229649"
+         id="tspan297-3"
+         sodipodi:role="line">COMB PATTERN</tspan></text>
+    <text
+       id="text299-0-0"
+       y="80.062744"
+       x="81.381325"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="80.062744"
+         x="81.381325"
+         id="tspan297-3-0"
+         sodipodi:role="line">TAP COUNT</tspan></text>
+    <text
+       id="text299-0-8"
+       y="58.055984"
+       x="51.61272"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="58.055984"
+         x="51.61272"
+         id="tspan297-3-03"
+         sodipodi:role="line">DIVISION</tspan></text>
+    <text
+       id="text299-0-8-9"
+       y="58.056011"
+       x="81.266342"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;fill:#dddddd;fill-opacity:1;stroke-width:0.264583"
+         y="58.056011"
+         x="81.266342"
+         id="tspan297-3-03-8"
+         sodipodi:role="line">SIZE</tspan></text>
+    <text
+       id="text299-0-8-2"
+       y="58.055889"
+       x="41.255386"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="58.055889"
+         x="41.255386"
+         id="tspan297-3-03-83"
+         sodipodi:role="line">CLOCK</tspan></text>
+    <text
+       id="text299-0-8-2-0"
+       y="69.141899"
+       x="41.415394"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="69.141899"
+         x="41.415394"
+         id="tspan297-3-03-83-2"
+         sodipodi:role="line">V/OCT</tspan></text>
+    <text
+       id="text299-0-8-2-0-5"
+       y="74.344948"
+       x="63.952667"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52778px;line-height:1.25;font-family:Quarca;-inkscape-font-specification:Quarca;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#dddddd;fill-opacity:1;stroke:none;stroke-width:0.264583;"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.82222px;font-family:Quarca;-inkscape-font-specification:Quarca;stroke-width:0.264583;fill:#dddddd;fill-opacity:1;"
+         y="74.344948"
+         x="63.952667"
+         id="tspan297-3-03-83-2-6"
+         sodipodi:role="line">SIZE OUT</tspan></text>
+    <rect
+       y="58.987965"
+       x="57.371311"
+       height="9.3927088"
+       width="17.197916"
+       id="rect1673-4"
+       style="opacity:0.981;fill:#b1b1b1;fill-opacity:1;stroke:none;stroke-width:1.11632049;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="59.532349"
+       x="57.951801"
+       height="8.3254461"
+       width="16.089626"
+       id="rect1673"
+       style="opacity:0.981;fill:#323232;fill-opacity:1;stroke:none;stroke-width:1.01655829;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="81.609848"
+       x="50.889019"
+       height="7.4083333"
+       width="21.695833"
+       id="rect1673-6-2"
+       style="opacity:0.981;fill:#b1b1b1;fill-opacity:1;stroke:none;stroke-width:0.64051104;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="82.134377"
+       x="51.406525"
+       height="6.3610001"
+       width="20.637501"
+       id="rect1673-6"
+       style="opacity:0.981;fill:#323232;fill-opacity:1;stroke:none;stroke-width:0.57885456;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="92.193169"
+       x="49.169228"
+       height="7.4083333"
+       width="27.516666"
+       id="rect1673-6-4-6"
+       style="opacity:0.981;fill:#b1b1b1;fill-opacity:1;stroke:none;stroke-width:0.72133392;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="92.789886"
+       x="49.698395"
+       height="6.3610001"
+       width="26.458334"
+       id="rect1673-6-4"
+       style="opacity:0.981;fill:#323232;fill-opacity:1;stroke:none;stroke-width:0.6554237;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="126.32442"
+       x="50.227562"
+       height="7.4083333"
+       width="21.166666"
+       id="rect1673-6-0-5"
+       style="opacity:0.981;fill:#b1b1b1;fill-opacity:1;stroke:none;stroke-width:0.63265175;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="126.84595"
+       x="50.808582"
+       height="6.3610001"
+       width="20.108334"
+       id="rect1673-6-0"
+       style="opacity:0.981;fill:#323232;fill-opacity:1;stroke:none;stroke-width:0.57138515;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+  </g>
+</svg>

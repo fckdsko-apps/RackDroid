@@ -1,0 +1,1129 @@
+#include "Autinn.hpp"
+#include "Autinn-dsp.hpp"
+#include <cmath>
+#include <string>
+
+/*
+
+    Autinn VCV Rack Plugin
+    Copyright (C) 2021  Nikolai V. Chr.
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+**/
+
+#define ACCENT_ENVELOPE_VCA_OFFSET 0.6f // source: largely doubled, but keeping to 160% so not to reach 12V. If OCS input is higher than 7V it can result in hard clipping of accented notes.
+#define ATTACK_VCA 0.003f // various sources. Used for VCA as declicker.
+#define ATTACK_VCF 0.0f // various sources. Used for VCF.
+#define ATTACK_VCF_ACCENT 0.050f //   Accent attack time when resonance is at 1.0 or higher.
+#define PEAK_ACCENT_SUSTAIN 0.000f // Only for debugging
+#define DECAY_VCF_ACCENT 0.200f //
+#define DECAY_VCF_MIN 0.200f // from NAM and other sources
+#define DECAY_VCF_MAX 2.000f // from NAM and other sources
+#define DECAY_VCA_SECS 2.500f // http://www.ladyada.net:3s devilfish_say:2s devilfishManual:3-4s (note that when Roland said a number it was to when it had reached 10%, not 0%)
+#define DECAY_VCA_ACCENT 1.000f //
+#define DECAY_VCA_NOTE_END 0.008f // just a declicker
+#define DECAY_VCA_EXP true // exp or linear VCA decay
+#define DECAY_VCF_EXP true  // exp or linear VCF decay
+#define CUTOFF_ENVELOPE_BIAS 0.3137f // Portion of VCF envelope that is negative.
+#define CUTOFF_RANGE_FOR_ENVELOPE 4500.0f // ENV MOD range
+#define CUTOFF_ENVMOD_MIN 100.0f // Zero sweep makes no sense
+#define CUTOFF_ENVMOD_OCT 5.0f // 303 was 5
+#define CUTOFF_KNOB_MIN 40.0f // Multiple sources: 300.
+#define CUTOFF_KNOB_MAX 4500.0f// multiple sources: 2400
+#define CUTOFF_MIN 16.0f // Min absolute that can be asked of the filter.
+#define CUTOFF_MAX 18000.0f // Max absolute that can be asked of the filter.
+#define CUTOFF_MAX_STACKING 3.0f // Max normalized value that stacked VCF envelope will go up to
+#define SATURATION_VOLT 12.0f // Not used, users should show discipline and not input too high OSC tone voltages.
+#define ACCENT_KNOB_MINIMUM 0.25f // makes no sense to have it at 0.0 then what is the point of accent..
+#define RESONANCE_MAX 1.25f
+#define INPUT_TO_CAPACITOR 0.05f
+#define VCV_TO_MOOG 0.18f
+#define EXPECTED_PEAK_INPUT 7.0f // Do not input larger OSC tones, or accented notes might start hard clipping.
+
+#define FILTER_ENV_0_ATTACK 0
+#define FILTER_ENV_1_PEAK 1
+#define FILTER_ENV_2_DECAY 2
+#define FILTER_ENV_3_OFF 3
+
+#define VCA_ENV_0_ATTACK 0
+#define VCA_ENV_1_PEAK 1 // only used in accented notes
+#define VCA_ENV_2_DECAY 2
+#define VCA_ENV_3_END 3
+#define VCA_ENV_4_OFF 4
+
+static constexpr int oversample2 = 2;
+static constexpr int oversample4 = 4;
+
+static const float LOG2_CUTOFF_RANGE = std::log2(CUTOFF_KNOB_MAX / CUTOFF_KNOB_MIN);
+
+struct Bass : Module {
+	enum ParamIds {
+		CUTOFF_PARAM,
+		ENVMOD_PARAM,
+		RESONANCE_PARAM,
+		ACCENT_PARAM,
+		ENV_DECAY_PARAM,
+		CV_CUTOFF_PARAM,
+		CV_RESONANCE_PARAM,
+		CV_DECAY_PARAM,
+		CV_ENVMOD_PARAM,
+		BUTTON_PARAM,
+//		DECAY2_PARAM,
+//		DECAY3_PARAM,
+		NUM_PARAMS
+	};
+	enum InputIds {
+		NOTE_GATE_INPUT,
+		ACCENT_GATE_INPUT,
+		OSC_INPUT,
+		CV_CUTOFF_INPUT,
+		CV_RESONANCE_INPUT,
+		CV_DECAY_INPUT,
+		CV_ENVMOD_INPUT,
+		NUM_INPUTS
+	};
+	enum OutputIds {
+		BASS_OUTPUT,
+		NUM_OUTPUTS
+	};
+	enum LightIds {
+		A_LIGHT,
+		B_LIGHT,
+		C_LIGHT,
+		D_LIGHT,
+		E_LIGHT,
+		A2_LIGHT,
+		B2_LIGHT,
+		C2_LIGHT,
+		D2_LIGHT,
+		GATE_LIGHT,
+		TRIG_LIGHT,
+		GAIN_LIGHT,
+		NUM_LIGHTS
+	};
+
+	float V_t = 0.026f*2.0f;
+	float inv_Vt = 1.0f / V_t;
+	float x = 0.0f;
+	float Gres = 1.0f;
+	float input_cutoff = 0.0f;
+	float F_s = 0.0f;
+	float g = 0.0f; // tuning parameter
+	double y_a = 0.0;
+	double y_b = 0.0;
+	double y_c = 0.0;
+	double y_d = 0.0;
+	float W_a = 0.0f;
+	float W_b = 0.0f;
+	float W_c = 0.0f;
+
+	double y_a_prev = 0.0;
+	double y_b_prev = 0.0;
+	double y_c_prev = 0.0;
+	double y_d_prev = 0.0;
+	double y_d_prev_prev = 0.0;
+
+	float W_a_prev = 0.0f;
+	float W_b_prev = 0.0f;
+	float W_c_prev = 0.0f;
+
+	//dsp::Upsampler<oversample, 8> upsampler = dsp::Upsampler<oversample, 8>(0.9f);
+	//dsp::Decimator<oversample, 8> decimator = dsp::Decimator<oversample, 8>(0.9f);
+	dsp::Upsampler<oversample2, 10> upsampler2;
+	dsp::Decimator<oversample2, 10> decimator2;
+	dsp::Upsampler<oversample4, 10> upsampler4;
+	dsp::Decimator<oversample4, 10> decimator4;
+
+	const float minimum = 0.0001f;
+	const float LOG_MINIMUM = std::log(minimum); // ln(minimum)
+	bool accentBool = false;
+
+	unsigned number_vca = 1;
+	unsigned mode_vca = VCA_ENV_4_OFF;
+	unsigned target_vca = 0;
+	float current_vca = minimum;
+	float factor_vca = 0.0f;
+
+	float inv_target_vca = 0.0f;     // for CPU speed
+	float inv_target_cutoff = 0.0f;  // for CPU speed
+
+	int number_cutoff = 1;//must not be unsigned as used in minus operation where it might get below 0
+	unsigned mode_cutoff = FILTER_ENV_3_OFF;
+	int target_cutoff = 0;
+	float current_cutoff = minimum;
+	float factor_cutoff = 0.0f;
+	float cutoff_env_prev = 0.0f;
+
+	dsp::SchmittTrigger schmittGate;
+	dsp::SchmittTrigger schmittButton;
+	DCBlocker dcBlocker;
+	float lastSampleTime = 1.0f/44100.0f;
+	bool gate_prev = false;
+
+	int lightDivider = 256;
+
+	//float tim = 0.0f;
+	bool gateInputType = true;
+	
+	// Json saved options ==============
+	float priority = 1.0f;// If 1.0f then will compensate for passband lowering at high resonances. If 0.0f then its just the raw filter.
+	int current_oversample = 2;// 2 for minimal anti-aliasing or 4 for better if you can spare the CPU time.
+	bool tunedResonance = false;// If true then resonance power will be tuned to equal power no matter the cutoff. However for this module it sounds best to have this false.
+	bool firstPoleOneOctHigher = false;// For more accurate physical sim of TB-303 filter. However a 24dB transistor filter sounds better than what 303 had, so keeping it at false.
+	bool useOctaveEnvMod = true;// for backwards compat of ENVMOD type.
+	// =================================
+	
+	float accentAttackBase = 0.0f;
+	float accentAttackPeak = 0.0f;
+
+	long int noteSteps = 0;
+	
+	
+	//int counter = 17;
+	//int fast_counter = 0;
+
+	//std::cerr <<     "Start Bass Test\n";
+
+	Bass() {
+		//configParam (int paramId, float minValue, float maxValue, float defaultValue, string label="", string unit="", float displayBase=0.f, float displayMultiplier=1.f, float displayOffset=0.f)
+		config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
+		configParam(Bass::CUTOFF_PARAM, 0.0f, 1.0f, 0.25f, "Cutoff"," Hz",CUTOFF_KNOB_MAX/CUTOFF_KNOB_MIN, CUTOFF_KNOB_MIN);
+		configParam<Param4Digits>(Bass::RESONANCE_PARAM, 0.0f, RESONANCE_MAX, 0.85f, "Resonance", "%", 0.0f, 100.0f);
+		configParam(Bass::ENV_DECAY_PARAM, DECAY_VCF_MIN, DECAY_VCF_MAX, (DECAY_VCF_MIN+DECAY_VCF_MAX)*0.5f, "Decay", " ms", 0.0f, 1000.0f);
+		configParam(Bass::ENVMOD_PARAM, 0.0f, 1.0f, 0.25f, "Sweep range", " Oct", 0.0f, CUTOFF_ENVMOD_OCT, 0.0f)
+			->displayPrecision = 3;
+		configParam<Param3Digits>(Bass::ACCENT_PARAM, ACCENT_KNOB_MINIMUM, 1.0f, 0.75f, "Accent", "%", 0.0f, 100.0f);
+		configParam(Bass::CV_CUTOFF_PARAM, 0.0f, 0.2f, 0.0f, "Cutoff CV", "%", 0.0f, 500.0f);
+		configParam(Bass::CV_RESONANCE_PARAM, 0.0f, RESONANCE_MAX/5.0f, 0.0f, "Resonance CV", "%", 0.0f, 100.0f*1.0f/(RESONANCE_MAX/5.0f));
+		configParam(Bass::CV_DECAY_PARAM, 0.0f, (DECAY_VCF_MAX-DECAY_VCF_MIN)*0.2f, 0.0f, "Decay CV", "%", 0.0f, 100.0f*1.0f/((DECAY_VCF_MAX-DECAY_VCF_MIN)*0.2f));
+		configParam(Bass::CV_ENVMOD_PARAM, 0.0f, 0.2f, 0.0f, "EnvMod CV", "%", 0.0f, 500.0f);
+		configButton(Bass::BUTTON_PARAM, "Toggle Gate or Trigger");
+		//configParam(Bass::DECAY2_PARAM, 0.003, 0.050, 0.003, "");
+		//configParam(Bass::DECAY3_PARAM, 0.200, 0.500, 0.350, "");
+
+		//configSwitch(Bass::BUTTON_PARAM, 0, 1, 0, "Toggle Gate or Trigger", {"Gate", "Trigger"});
+
+		configBypass(Bass::OSC_INPUT, Bass::BASS_OUTPUT);
+
+		configInput(Bass::NOTE_GATE_INPUT, "Gate/Trigger");
+		configInput(Bass::ACCENT_GATE_INPUT, "Accent Gate");
+		configInput(Bass::OSC_INPUT, "Oscillator tone");
+		configInput(Bass::CV_CUTOFF_INPUT, "Cutoff CV");
+		configInput(Bass::CV_RESONANCE_INPUT, "Resonance CV");
+		configInput(Bass::CV_DECAY_INPUT, "Decay CV");
+		configInput(Bass::CV_ENVMOD_INPUT, "ENVMOD CV");
+
+		configOutput(Bass::BASS_OUTPUT, "Audio");
+
+		configLight(Bass::A_LIGHT, "VCA ENV Attack Phase");
+		configLight(Bass::B_LIGHT, "VCA ENV Sustain Phase (not used)");
+		configLight(Bass::C_LIGHT, "VCA ENV Decay Phase");
+		configLight(Bass::D_LIGHT, "VCA ENV Ended Phase");
+		configLight(Bass::E_LIGHT, "Accent active");
+		configLight(Bass::A2_LIGHT, "Filter ENV Attack Phase");
+		configLight(Bass::B2_LIGHT, "Filter ENV Sustain Phase (not used)");
+		configLight(Bass::C2_LIGHT, "Filter ENV Decay Phase");
+		configLight(Bass::D2_LIGHT, "Filter ENV Ended Phase");
+		configLight(Bass::GATE_LIGHT, "Input function as gate");
+		configLight(Bass::TRIG_LIGHT, "Input function as trigger");
+		configLight(Bass::GAIN_LIGHT, "Warning that oscillator input has too big magnitude (7+ Voltage)");
+
+		dcBlocker.cutoff_hz = 5.0f;// TODO: could maybe be up to 15.0f for analog authenticity.
+		dcBlocker.setSampleTime(lastSampleTime);
+	}
+
+	float vca_env(bool gateRising, float resonance,float knob_accent, float dt);
+	float vca_env_acc(bool gateRising, float resonance,float knob_accent, float dt);
+	float filter_env(bool gateRising,float knob_env_decay, float accent, float r, float knob_accent, float dt);
+	float acid_filter(float in, float r, float F_c, int oversample_protected, float dt);
+	static float attackCurve(float x, unsigned target);
+	static float accentAttackCurve(float x);
+	static float accentAttackCurveInverse(float y);
+	static float toExp(float x, float min, float max);
+	float accent_env(bool gateRising, bool accent, float knob_accent, float dt);
+	void setEnvMod(bool envmod_oct);
+	void process(const ProcessArgs &args) override;
+
+	json_t *dataToJson() override {
+		json_t *root = json_object();
+		json_object_set_new(root, "gateInput", json_boolean(gateInputType));
+		json_object_set_new(root, "oversample", json_integer(current_oversample));
+		json_object_set_new(root, "envmod_oct", json_boolean(useOctaveEnvMod));
+		//json_object_set_new(root, "Gcomp", json_real((double) priority));
+		return root;
+	}
+
+	void dataFromJson(json_t *rootJ) override {
+		json_t *ext = json_object_get(rootJ, "gateInput");
+		if (ext)
+			gateInputType = json_boolean_value(ext);
+		json_t *ext3 = json_object_get(rootJ, "oversample");
+		if (ext3) {
+			current_oversample = json_integer_value(ext3);
+			if (current_oversample != 2 and current_oversample != 4) {
+				current_oversample = 4;
+			}
+		}
+		json_t *ext_env = json_object_get(rootJ, "envmod_oct");
+		if (ext_env) {
+			// Tag found: Load the saved state
+			setEnvMod(json_boolean_value(ext_env));
+		} else {
+			// Tag not found: This is an old patch.
+			// Force Legacy (Hz) mode to preserve the old sound.
+			setEnvMod(false);
+		}
+		//json_t *ext2 = json_object_get(rootJ, "Gcomp");
+		//if (ext2)
+		//	priority = (float) json_number_value(ext2);
+	}
+
+	void onReset(const ResetEvent& e) override {
+		priority = 1.0f;
+		gateInputType = true;
+		setEnvMod(true);
+		schmittGate.reset();
+		schmittButton.reset();
+		dcBlocker.reset();
+		Module::onReset(e);
+	}
+
+	void onRandomize(const RandomizeEvent& e) override {
+		Module::onRandomize(e);
+		gateInputType = bool(random::uniform() < 0.5f);// min + (rand() % static_cast<int>(max - min + 1)) [including min and max]
+	}
+};
+
+/*
+
+TODO:
+
+declick attack only [done]
+no sustain, only decay [done]
+decay stopped when note released? [added toggle button]
+more envmod lowers cutoff env (gimmick circuit) [done]
+at max envmod acc notes are not higher pitched [done, but removed again]
+the accented doubling of cutoff_env is slewed (max voltage change/time), the more resonance the more slew (devil fish say its the acc env on top of vca that is slewed) [faked]
+env building on unfinished decay is the acc filter env. (devil fish) [done]
+vca decay and attack is fixed [done]
+Make more params for a Bass+ module:
+- vca decay
+- attacks
+- accent decay
+Make first filter pole's cutoff be 1 octave higher like in the TB-303 (use the float g2) Maybe means increasing the max resonance again. https://www.kvraudio.com/forum/viewtopic.php?f=33&t=257220
+- Tried it, did not sound super, this needs to be done proper if done, and all filter tunings redone.
+Consider an option for oversampling like Flora has. [done]
+Proper slew on accent env on top of VCA [done]
+Stacking is only VCF not VCA [done]
+Filter env goes negative and gimmick circuit [done]
+Accent is gate and can be done at any time [atm. can be done during attack phase]
+
+From devilfish manual:  (devilfish was a modified TB-303 that has more knobs and greater range on the knobs)
+======================
+slide: 60 ms   (df 60-360 ms)
+attack non-accent: 3ms with 4ms delay (df 0.3-30 ms, 0.5ms delay)
+vca decay: 3-4 s (df 16-3000 ms)
+vcf decay: 200-2000 ms   (df 30-3000 ms)
+vcf decay accent: 200 ms (df 30-3000 ms)
+cutoff max: 5Khz minus 1 octave so about D#7 = 2489hz (df 5 Khz)
+decay non-accent: 16 ms – 8 ms of normal volume and 8 ms of linear decay (df exp decay)
+
+Questions
+=========
+Was there any sustain on VCA or VCF? What happens when the note gate closes? [found out]
+What was VCF attack for accent? And was it linear, exp or something else? [soft, not linear]
+What was ENV MOD range? Was it absolute or a fraction of current cutoff setting. [It was number of octaves depending on knob. Fixed Hz atm.]
+Was the slide really at beginning of next note and 60ms? [Yes, and gate stayed open so note 2 would use note 1's envelope]
+DECAY_VCA_SECS should be 3500, not sure if I will change it.
+
+Some of the sources used:
+- Devilfish manual and webpage
+- Various online webpages and forums
+- x0xb0x info from http://www.ladyada.net
+- Manuals from various TB-303 clones
+
+**/
+
+
+
+void Bass::process(const ProcessArgs &args) {
+	// Implements a Bass Synth ala. Roland TB-303.
+
+	// VCV Rack audio rate is +-5V
+	// VCV Rack CV is +-5V or 0V-10V
+
+	// We put this before connection check so the button and light works even when module not connected.
+	if (schmittButton.process(params[BUTTON_PARAM].getValue())) {
+		gateInputType = !gateInputType;
+	}
+	lights[GATE_LIGHT].value = gateInputType;
+	lights[TRIG_LIGHT].value = !gateInputType;
+
+	if (!outputs[BASS_OUTPUT].isConnected()) {
+		return;
+	}
+	int oversample_protected = current_oversample;// to be sure its not modified from another thread inside step.
+
+	float dt = args.sampleTime;
+
+	float osc = inputs[OSC_INPUT].getVoltage();
+	float resonance = clamp(params[RESONANCE_PARAM].getValue()+inputs[CV_RESONANCE_INPUT].getVoltage()*params[CV_RESONANCE_PARAM].getValue(),0.0f,RESONANCE_MAX);
+	float knob_cutoff = clamp(params[CUTOFF_PARAM].getValue()+inputs[CV_CUTOFF_INPUT].getVoltage()*params[CV_CUTOFF_PARAM].getValue(),0.0f,1.0f);
+	float knob_accent = params[ACCENT_PARAM].getValue();
+	float knob_envmod = clamp(params[ENVMOD_PARAM].getValue()+inputs[CV_ENVMOD_INPUT].getVoltage()*params[CV_ENVMOD_PARAM].getValue(),0.0f,1.0f);
+	float knob_env_decay = clamp(params[ENV_DECAY_PARAM].getValue()+inputs[CV_DECAY_INPUT].getVoltage()*params[CV_DECAY_PARAM].getValue(),DECAY_VCF_MIN,DECAY_VCF_MAX);
+	float accent = clamp(inputs[ACCENT_GATE_INPUT].getVoltage(),0.0f,1.0f);
+	float note = inputs[NOTE_GATE_INPUT].getVoltage();
+
+	
+
+	/* 0.6:
+	dsp::SchmittTrigger::setThresholds(float low, float high) has been removed, and the thresholds are now fixed at 0 and 1.
+	Instead, rescale your input if needed with trigger.process(rescale(in, low, high, 0.f, 1.f)).
+	**/
+	bool gateRising = schmittGate.process(note);
+	//bool accentHyst = schmittAccent.process(accent);
+	//std::cout <<     "Gate "+std::to_string(gate)+"\n";
+	//std::cout <<     "Note "+std::to_string(note)+"\n";
+
+	if (gateRising) {
+		accentBool = accent >= 1.0f;
+		//std::cout <<     "       ACCENT CHANGED "+std::to_string(accentBool)+"\n";
+	} else if (schmittGate.isHigh() && !accentBool && accent >= 1.0f && mode_cutoff == FILTER_ENV_0_ATTACK) {
+		// Late accent fix: Catch accent if it arrives slightly late (during attack phase only)
+		accentBool = true;
+
+		// Momentarily force gate trigger.
+		// This tells vca_env and filter_env to "Re-Trigger" this frame.
+		// They will automatically set 'accentAttackBase = current_cutoff'
+		// and smooth out the VCA transition.
+		gateRising = true;
+	}
+	lights[E_LIGHT].value = accentBool;
+
+	//float accent_envelope = this->accent_env(gate, note, accent, knob_accent);
+
+	float cutoff_env_norm = this->filter_env(gateRising, knob_env_decay, accent, clamp(resonance, 0.0f, 1.0f), knob_accent, dt);//params[DECAY3_PARAM].getValue()
+	
+
+	float vca_env;
+
+	//float vca_env_sum = vca_env/(1.0f+ACCENT_ENVELOPE_VCA_OFFSET);
+
+	if (accentBool) {
+		//vca_env_sum = (vca_env+accent_envelope*ACCENT_ENVELOPE_VCA_OFFSET)/(1.0f+ACCENT_ENVELOPE_VCA_OFFSET);
+		//std::cout << "Branch accent\n";
+		vca_env = this->vca_env_acc(gateRising, clamp(resonance,0.0f,1.0f), knob_accent, dt);
+	} else {
+		//std::cout << "Branch normal\n";
+		vca_env = this->vca_env(gateRising, clamp(resonance,0.0f,1.0f), knob_accent, dt);//knob_env_decay
+	}
+
+	//float cutoff_setting = this->toExp(knob_cutoff, CUTOFF_KNOB_MIN, CUTOFF_KNOB_MAX);
+	float cutoff_setting_hz = CUTOFF_KNOB_MIN * std::exp2f(knob_cutoff * LOG2_CUTOFF_RANGE);// much faster
+
+	float cutoff_hz;
+	if (useOctaveEnvMod) {
+		// TB way:
+    	float envmod_octaves = knob_envmod * CUTOFF_ENVMOD_OCT;
+
+		// cutoff_setting is 31% of sweep range from high to low.
+		cutoff_hz = cutoff_setting_hz * std::exp2f((cutoff_env_norm - CUTOFF_ENVELOPE_BIAS) * envmod_octaves);
+	} else {
+		// Autinn old way:
+		float range_hz = knob_envmod * CUTOFF_RANGE_FOR_ENVELOPE + CUTOFF_ENVMOD_MIN;//knob_envmod * maxf(cutoff_setting * 2.0f, CUTOFF_RANGE_FOR_ENVELOPE) + CUTOFF_ENVMOD_MIN;
+		float cutoff_env_Hz = (cutoff_env_norm-CUTOFF_ENVELOPE_BIAS) * range_hz;// Can be negative
+		cutoff_hz = cutoff_setting_hz+cutoff_env_Hz;
+	}
+
+	cutoff_hz = clamp(cutoff_hz, CUTOFF_MIN, CUTOFF_MAX);
+
+	float out = this->acid_filter(osc, resonance, cutoff_hz, oversample_protected, dt);
+
+	if (lastSampleTime != args.sampleTime) {
+		dcBlocker.setSampleTime(args.sampleTime);
+	}
+	lastSampleTime = args.sampleTime;
+
+	float final_out = vca_env * out;
+	final_out = dcBlocker.process(final_out);// this emulates that 303 has a large output capacitor (1µF) followed by a volume potentiometer and output buffer
+	final_out = clamp(final_out, -12.0f, 12.0f); // safety hard clip
+	outputs[BASS_OUTPUT].setVoltage(final_out, 0);//Audio output    //this->tanh_fast_high(vca*out/SATURATION_VOLT)*SATURATION_VOLT;
+	//outputs[BASS_OUTPUT].setVoltage(vca_env, 1);//VCA Envelope output (0V to 1.6V)
+	//outputs[BASS_OUTPUT].setVoltage(cutoff_env_norm-CUTOFF_ENVELOPE_BIAS, 2);//Normalized VCF cutoff envelope output (-0.31 to 3V)
+	//float ext_cutoff_voltage = log2(cutoff_hz/dsp::FREQ_C4);
+	//outputs[BASS_OUTPUT].setVoltage(ext_cutoff_voltage,3);// 1V/Oct cutoff output
+	//outputs[BASS_OUTPUT].setChannels(4);
+
+	/*if(inputs[CV_RESONANCE_INPUT].getVoltage() > 0) {
+		counter = 0;
+	}
+	if (gate and !gate_prev and counter == 0) {
+		tim = 0.0f;
+		std::cerr <<     "Cutoff "+std::to_string(cutoff_setting)+"\n";
+		std::cerr <<     "ModEnv "+std::to_string(range)+"\n";
+		std::cerr <<     "Decay "+std::to_string(knob_env_decay)+"\n";
+		std::cerr <<     "Res "+std::to_string(resonance)+"\n";
+		std::cerr <<     "Time,VCF,VCA,Cutoff\n";
+		counter += 1;
+	}
+	if (gate && !gate_prev) {
+		counter += 1;
+	}**/
+	
+	/*if (counter <= 32 and fast_counter > 250) {
+		fast_counter = 0;
+		std::cerr <<     std::to_string(tim)+", "+std::to_string(cutoff_env_filter)+", "+std::to_string(vca)+", "+std::to_string(cutoff)+"\n";
+	}
+	tim += args.sampleTime;
+	fast_counter += 1;**/
+
+	gate_prev = schmittGate.isHigh();
+
+	if (lightDivider++ >= 256) {
+		lightDivider = 0;
+		lights[GAIN_LIGHT].setBrightness(clamp(fabsf(osc)-EXPECTED_PEAK_INPUT,0.0f,1.0f)*1.0f);//OSC input has too much gain. (7V+)
+
+		// 2. VCA Lights
+		lights[A_LIGHT].setBrightness(0.f);
+		lights[B_LIGHT].setBrightness(0.f);
+		lights[C_LIGHT].setBrightness(0.f);
+		lights[D_LIGHT].setBrightness(0.f);
+
+		switch (mode_vca) {
+			case VCA_ENV_0_ATTACK:
+			lights[A_LIGHT].setBrightness(1.0f);
+			break;
+		case VCA_ENV_1_PEAK:
+			lights[B_LIGHT].setBrightness(1.0f);
+			break;
+		case VCA_ENV_2_DECAY:
+			lights[C_LIGHT].setBrightness(current_vca);
+			break;
+		case VCA_ENV_3_END:
+			// Fades in as note dies
+			lights[D_LIGHT].setBrightness(clamp(1.0f - current_vca, 0.0f, 1.0f));
+			break;
+		default:
+			lights[D_LIGHT].setBrightness(1.0f);
+			break;
+		}
+
+		// VCF Lights
+		lights[A2_LIGHT].setBrightness(0.f);
+		lights[B2_LIGHT].setBrightness(0.f);
+		lights[C2_LIGHT].setBrightness(0.f);
+		lights[D2_LIGHT].setBrightness(0.f);
+
+		switch (mode_cutoff) {
+			case FILTER_ENV_0_ATTACK:
+			lights[A2_LIGHT].setBrightness(1.0f);
+			break;
+		case FILTER_ENV_1_PEAK:
+			lights[B2_LIGHT].setBrightness(1.0f);
+			break;
+		case FILTER_ENV_2_DECAY:
+			lights[C2_LIGHT].setBrightness(current_cutoff);
+			break;
+		default:
+			lights[D2_LIGHT].setBrightness(1.0f);
+			break;
+		}
+	}
+}
+
+float Bass::attackCurve(float xx, unsigned target) {
+	//return log10f(xx/target+1.0f)*3.321928f;
+	return std::log2f(xx/float(target) + 1.0f);//same
+}
+
+float Bass::accentAttackCurve(float xx) {
+	// x and y is normalized. Quadratic rise to 1 from zero.
+	return -(xx-1.0f)*(xx-1.0f)+1.0f;
+}
+
+float Bass::accentAttackCurveInverse(float y) {
+	// x and y is normalized. Quadratic rise to 1 from zero.
+	if (y > 1.0f) {
+		return 1.0f;
+	}
+	return 1.0f-sqrtf(1.0f-y);
+}
+
+float Bass::toExp(float xx, float min, float max) {
+	// 0 to 1 to exp range
+	return min * expf( xx*logf(max/min) );
+}
+
+void Bass::setEnvMod(bool oct) {
+	useOctaveEnvMod = oct;
+
+	// Get the existing parameter quantity
+	auto* pq = paramQuantities[ENVMOD_PARAM];
+
+	if (useOctaveEnvMod) {
+		pq->unit = " Oct";
+		pq->displayMultiplier = CUTOFF_ENVMOD_OCT;
+		pq->displayOffset = 0.0f;
+		pq->displayPrecision = 3;
+	} else {
+		pq->unit = " Hz";
+		pq->displayMultiplier = CUTOFF_RANGE_FOR_ENVELOPE;
+		pq->displayOffset = CUTOFF_ENVMOD_MIN;
+		pq->displayPrecision = 5;
+	}
+}
+
+
+float Bass::accent_env(bool gate, bool accent, float knob_accent, float dt) {
+	// This method is not used atm. Does not simulate the accent envelope which is a modified vcf envelope good enough.
+	if (!accentBool) return 0.0f;
+	if (gate) {
+		noteSteps = 0;
+	} else {
+		noteSteps++;
+		if (noteSteps > 10000000) {
+			noteSteps = 0;
+		}
+	}
+
+	float xx = ((float)noteSteps)*dt;
+
+	float value;
+	if (xx < 0.0291f) {
+		value = -200.0f*(xx+0.023f)*(xx+0.023f)+18.0f*(xx+0.023f)+0.595f;
+	} else {
+		value = powf(20.0f, 0.02572f-xx);
+	}
+	return knob_accent*clamp(value, 0.0f, 1.0f);
+}
+
+float Bass::vca_env(bool gateRising, float resonance, float knob_accent, float dt) {
+	float level = 0.0f;
+
+	number_vca += 1; // steps progress counter
+	//std::cout <<     "NrmMode "+std::to_string(mode_vca)+" Number "+std::to_string(number_vca)+" Target "+std::to_string(target_vca)+"\n";
+	if (gateRising) {
+		mode_vca = VCA_ENV_0_ATTACK;// attack phase
+		number_vca = 1;// first step of this phase
+		
+		// linear attack from previous level, to avoid clicking
+		target_vca = unsigned(ATTACK_VCA/dt);// How many steps to get amp to 1.0
+		factor_vca = (1.0f-current_vca)/float(target_vca);// How much to increase amp each step until 1.0 is reached (offset)
+	} else if (gateInputType && mode_vca < VCA_ENV_3_END && !schmittGate.isHigh() && gate_prev) {
+		mode_vca = VCA_ENV_3_END;// Input set to gate. Note ending.
+		number_vca = 1;// first step of this phase
+		target_vca = unsigned(DECAY_VCA_NOTE_END/dt);// fast declicker
+		factor_vca = (current_vca-0.0f) / float(target_vca);// Linear go to 0.0 (offset)
+	} else if (mode_vca > VCA_ENV_3_END) {
+		// ended decay
+		number_vca = 0;// we wont get it too high
+		target_vca = 0;//to prevent vca_env_acc() to go into infinite loop
+		return 0.0f;
+	} else if (mode_vca == VCA_ENV_0_ATTACK && number_vca > target_vca) {
+		// We were in attack phase, now lets switch to decay
+		mode_vca = VCA_ENV_2_DECAY;// decay phase
+		number_vca = 1;// first step of this phase
+		target_vca = unsigned(DECAY_VCA_SECS/dt);// Number of steps to decay
+		if (DECAY_VCA_EXP) {
+			//factor_vca = 1.0f + ((logf(minimum) - logf(current_vca)) / float(target_vca));// Smooth exp decay down to minimum. (factor)
+			factor_vca = std::exp((LOG_MINIMUM - std::log(current_vca)) / float(target_vca));//more precise
+		} else {
+			factor_vca = (current_vca-minimum) / float(target_vca);// Linear decay down to minimum. (offset)
+		}
+	} else if (number_vca > target_vca) {
+		// end decay or end note decay
+		mode_vca = VCA_ENV_4_OFF;
+	}
+
+	switch (mode_vca) {
+		case VCA_ENV_0_ATTACK: {
+			//attack
+			level = current_vca+factor_vca;
+			current_vca = level;
+			break;
+		} case VCA_ENV_1_PEAK: {
+			// Should not happen
+		} case VCA_ENV_2_DECAY: { //decay
+			if (DECAY_VCA_EXP) {
+				level = current_vca*factor_vca;
+			} else {
+				level = current_vca-factor_vca;
+			}
+			current_vca = level;
+			break;
+		} case VCA_ENV_3_END: { //end note
+			level = current_vca-factor_vca;
+			current_vca = level;
+			break;
+		} default: {
+			level = 0.0f;
+			current_vca = minimum;
+		}
+	}
+	return level;
+}
+
+float Bass::vca_env_acc(bool gateRising, float resonance, float knob_accent, float dt) {
+	float level = 0.0f;
+
+	float attack_vca_accent_peak = (1.0f+ACCENT_ENVELOPE_VCA_OFFSET*knob_accent);
+
+	number_vca += 1; // steps progress counter
+	//std::cout <<     "AccMode "+std::to_string(mode_vca)+" Number "+std::to_string(number_vca)+" Target "+std::to_string(target_vca)+"\n";
+	if (gateRising) {
+		mode_vca = VCA_ENV_0_ATTACK;// attack phase
+		float fraction = accentAttackCurveInverse(current_vca/attack_vca_accent_peak);
+		float attack_time = ATTACK_VCF_ACCENT*resonance+ATTACK_VCA;
+		target_vca = unsigned(attack_time/dt);// How many steps to get amp to attack_vca_accent_peak from zero
+		if (target_vca > 0) inv_target_vca = 1.0f / float(target_vca);
+		number_vca = 1+unsigned(fraction*float(target_vca));// We do this to avoid click when rising from prev level.
+		//std::cout <<     "Attack "+std::to_string(fraction)+" Target "+std::to_string(target_vca)+" Number "+std::to_string(number_vca)+" Volts "+std::to_string(current_vca)+"\n";
+	} else if (gateInputType && mode_vca < VCA_ENV_3_END && !schmittGate.isHigh() && gate_prev) {
+		mode_vca = VCA_ENV_3_END;// Input set to gate. Note ending.
+		number_vca = 1;// first step of this phase
+		target_vca = unsigned(DECAY_VCA_NOTE_END/dt);// fast declicker
+		factor_vca = (current_vca-0.0f) / float(target_vca);// Linear go to 0.0 (offset)
+	} else if (mode_vca > VCA_ENV_3_END) {
+		// ended decay
+		number_vca = 0;// we wont get it too high
+		target_vca = 0;
+		return 0.0f;
+	} else if (mode_vca == VCA_ENV_0_ATTACK && number_vca >= target_vca) {
+		// ended attack
+		mode_vca = VCA_ENV_1_PEAK;// peak phase
+		number_vca = 1;// we wont get it too high
+		target_vca = unsigned(PEAK_ACCENT_SUSTAIN/dt);//holding peak time
+		// be careful, we skip calculating inv_target_vca here as it's not used, so its value is invalid
+	} else if (mode_vca == VCA_ENV_1_PEAK && number_vca > target_vca) {
+		// We were in peak phase, now lets switch to decay
+		mode_vca = VCA_ENV_2_DECAY;// decay phase
+		number_vca = 1;// first step of this phase
+		target_vca = unsigned(DECAY_VCA_ACCENT/dt);// Number of steps to decay
+		if (target_vca > 0) inv_target_vca = 1.0f / float(target_vca);
+	} else if (number_vca > target_vca) {
+		// end decay or end note decay
+		mode_vca = VCA_ENV_4_OFF;
+	}
+
+	// when switch to any accent timing, make sure no divide by zero (target_vca) due to switching method
+
+	switch (mode_vca) {
+		case VCA_ENV_0_ATTACK: {//attack
+			float fraction = target_vca==0?1.0f:float(number_vca) * inv_target_vca;
+			level = Bass::accentAttackCurve(fraction) * attack_vca_accent_peak;
+			current_vca = level;
+			break;
+		} case VCA_ENV_1_PEAK: { //peak
+			level = attack_vca_accent_peak;
+			current_vca = level;
+			break;
+		} case VCA_ENV_2_DECAY: { //decay
+			float fraction = float(number_vca) * inv_target_vca;
+			//level = attack_vca_accent_peak * powf(1.0f+fraction*2.0f,-fraction*6.0f);
+			float base = 1.0f + fraction * 2.0f;
+			float exponent = -fraction * 6.0f;
+			level = attack_vca_accent_peak * std::exp(exponent * std::log(base));// faster than above commented, and is same
+			current_vca = level;
+			break;
+		} case VCA_ENV_3_END: { //end note
+			level = current_vca-factor_vca;
+			current_vca = level;
+			break;
+		} default: { // silence
+			level = 0.0f;
+			current_vca = minimum;
+		}
+	}
+	return level;
+}
+
+
+
+float Bass::filter_env(bool gate, float knob_env_decay, float accent, float resonance, float knob_accent, float dt) {
+	float level = 0.0f;
+
+	number_cutoff += 1;
+	
+	
+
+	if (gate) {
+		// start attack
+		mode_cutoff = FILTER_ENV_0_ATTACK;
+		float attack_time = float(accentBool)*ATTACK_VCF_ACCENT*resonance+ATTACK_VCF;//params[DECAY2_PARAM].getValue()
+		//std::cerr << "Old target = "+std::to_string(dt*old_decay_target)+" ("+std::to_string(target_cutoff)+" , "+std::to_string(number_cutoff)+"\n";
+		
+		number_cutoff = 1;
+		target_cutoff = int(attack_time/dt);
+		if (target_cutoff > 0) inv_target_cutoff = 1.0f / float(target_cutoff);
+		
+		if(accentBool) {
+			accentAttackPeak = clamp(1.00f+0.25f*knob_accent+float(accentBool)*knob_accent*current_cutoff,0.0f,CUTOFF_MAX_STACKING);
+			accentAttackBase = current_cutoff;
+		}
+		//std::cerr <<     "dt             = "+std::to_string(dt)+"\n";
+		//std::cerr <<     "Attack time    = "+std::to_string(attack_time)+"\n";
+		//std::cerr <<     "Attack base    = "+std::to_string(accentAttackBase)+"\n";
+		//std::cerr <<     "Attack peak    = "+std::to_string(accentAttackPeak)+"\n";
+		//time = 0.0f;
+		//std::cerr <<     "Time, Env\n";
+
+		
+	} else if (mode_cutoff > FILTER_ENV_2_DECAY) {
+		// ended decay
+		number_cutoff = 0;// we wont get it too high
+		target_cutoff = 0;
+		current_cutoff = 0.0f;
+		return 0.0f;
+	} else if (mode_cutoff == FILTER_ENV_1_PEAK && number_cutoff > target_cutoff) {
+		// start decay
+		mode_cutoff = FILTER_ENV_2_DECAY;
+		number_cutoff = 1;
+		target_cutoff = int((accentBool?DECAY_VCF_ACCENT:knob_env_decay)/dt);
+		if (target_cutoff > 0) inv_target_cutoff = 1.0f / float(target_cutoff);
+		//std::cerr << "New target = "+std::to_string(decay_cutoff_time)+" ("+std::to_string(target_cutoff)+"\n";
+		if(accentBool) {
+			
+		} else {
+			if (DECAY_VCF_EXP) {
+				//factor_cutoff = 1.0f + ((logf(minimum) - logf(current_cutoff)) / float(target_cutoff));
+				factor_cutoff = std::exp((LOG_MINIMUM - std::log(current_cutoff)) / float(target_cutoff));//more precise
+			} else {
+				factor_cutoff = (current_cutoff-minimum)/ float(target_cutoff);
+			}
+		}
+	} else if (mode_cutoff == FILTER_ENV_0_ATTACK && number_cutoff >= target_cutoff) {
+		// start top
+		mode_cutoff = FILTER_ENV_1_PEAK;
+		number_cutoff = 1;
+		if (accentBool) {
+			target_cutoff = int(PEAK_ACCENT_SUSTAIN/dt);//holding peak time
+		} else {
+			target_cutoff = 0;
+		}
+	} else if (number_cutoff > target_cutoff) {
+		// end decay
+		if (mode_cutoff == FILTER_ENV_2_DECAY and accentBool and current_cutoff > minimum) {
+			// we allow decay to go on beyond DECAY_VCF_ACCENT until it gets to minimum
+		} else {
+			mode_cutoff += 1;
+			number_cutoff = 0;
+		}
+	}
+
+	switch (mode_cutoff) {
+		case FILTER_ENV_0_ATTACK: { //attack
+			if (accentBool) {
+				float fraction = target_cutoff==0?1.0f:float(number_cutoff) * inv_target_cutoff;
+				level = Bass::accentAttackCurve(fraction) * (accentAttackPeak - accentAttackBase) + accentAttackBase;
+			} else {
+				level = 1.0f;//instant
+			}
+			
+			current_cutoff = level;
+
+			break;
+		} case FILTER_ENV_1_PEAK: { //peak
+			level = current_cutoff;
+			break;
+		} case FILTER_ENV_2_DECAY: { //decay
+			if(accentBool) {
+				float fraction = float(number_cutoff) * inv_target_cutoff;
+				level = accentAttackPeak * powf(1.0f+fraction*2.0f,-fraction*2.0f);
+			} else {
+				if (DECAY_VCF_EXP) {
+					level = current_cutoff*factor_cutoff;
+				} else {
+					level = current_cutoff-factor_cutoff;
+				}
+			}
+			current_cutoff = level;
+			break;
+		} default: {
+			level = 0.0f;
+			current_cutoff = minimum;
+			number_cutoff = 0;
+			target_cutoff = 0;
+		}
+	}
+	return level;
+}
+
+float Bass::acid_filter(float in, float r, float F_c, int oversample_protected, float dt) {// from diagram of resonance of TB-303
+	in += 1e-16f;
+	float voltage_drive = VCV_TO_MOOG*INPUT_TO_CAPACITOR;// 0.18 to convert from VCV audio rate voltages. 0.035 to convert from input to voltage over first capacitor.
+	in *= voltage_drive;
+	F_s   = APP->engine->getSampleRate()*float(oversample_protected);
+
+	auto w_c = double(2.0*M_PI*F_c/F_s);// cutoff in radians per sample.
+	// w_c can be very tiny, so we use double:
+	// Horner's Method (nested multiplication optimization):
+	// y = A + x(B + x(C + xD))
+	g = float(V_t * (0.0008116984 + w_c * (0.9724111 + w_c * (-0.5077766 + w_c * 0.1534058))));
+
+	if (tunedResonance) {
+		// Horner's Method:
+		Gres = float(1.037174 + w_c * (3.606925 + w_c * (7.074555 + w_c * (-18.14674 + w_c * 9.364587))));
+	} else {
+		Gres = 1.15f;
+	}
+	
+	float g2;
+	if (firstPoleOneOctHigher) {
+		double w_c2 = 2.0*w_c;
+		g2 = float(V_t * (0.0008116984 + 0.9724111*w_c2 - 0.5077766*w_c2*w_c2 + 0.1534058*w_c2*w_c2*w_c2));
+	} else {
+		g2 = g;
+	}
+
+	float inInter[4];// max oversample size
+	float outBuf[4];
+	if (oversample_protected == oversample2) {
+		upsampler2.process(in, inInter);
+	} else {
+		upsampler4.process(in, inInter);
+	}
+
+	for (int i = 0; i < oversample_protected; i++) {
+		//unit and a half feedback delay. -inInter[i] is Gcomp, to make passband gain not decrease too much when turning up resonance.
+		x   = inInter[i] - float( 2.0f*Gres*r*(y_d_prev+y_d_prev_prev-priority*inInter[i])) + 1e-9f;// 1e-9 for denormal protection
+
+		// 1st transistor stage:
+		y_a = y_a_prev+g2*(tanh_fast_low( x*inv_Vt )-W_a_prev);
+		W_a = tanh_fast_low( float(y_a*inv_Vt) );
+		// 2nd transistor stage:
+		y_b = y_b_prev+g*(W_a-W_b_prev);
+		W_b = tanh_fast_low( float(y_b*inv_Vt) );
+		// 3rd transistor stage:
+		y_c = y_c_prev+g*(W_b-W_c_prev);
+		W_c = tanh_fast_low( float(y_c*inv_Vt) );
+		// 4th transistor stage:
+		y_d = y_d_prev+g*(W_c-tanh_fast_low( float(y_d_prev*inv_Vt) ));
+
+		// record stuff for next step
+		y_d_prev_prev = y_d_prev;
+		y_a_prev = y_a;
+		y_b_prev = y_b;
+		y_c_prev = y_c;
+		y_d_prev = y_d;
+
+		W_a_prev = W_a;
+		W_b_prev = W_b;
+		W_c_prev = W_c;
+		
+		outBuf[i] = (float)y_d;
+	}
+	float out;
+	if (oversample_protected == oversample2) {
+		out = decimator2.process(outBuf);
+	} else {
+		out = decimator4.process(outBuf);
+	}
+	if(!std::isfinite(out)) {
+		out = 0.0f;
+		y_a = 0.0; y_b = 0.0; y_c = 0.0; y_d = 0.0;
+    	y_a_prev = 0.0; y_b_prev = 0.0; y_c_prev = 0.0; y_d_prev = 0.0; y_d_prev_prev = 0.0;
+    	W_a_prev = 0.0f; W_b_prev = 0.0f; W_c_prev = 0.0f;
+	}
+	return out/voltage_drive;
+}
+
+struct OversampleBassMenuItem : MenuItem {
+	Bass* _module;
+	int _os;
+
+	OversampleBassMenuItem(Bass* module, const char* label, int os)
+	: _module(module), _os(os)
+	{
+		this->text = label;
+	}
+
+	void onAction(const event::Action &e) override {
+		_module->current_oversample = _os;
+		
+		// Reset all resamplers to clear stale buffer data
+        _module->upsampler2.reset();
+        _module->decimator2.reset();
+        _module->upsampler4.reset();
+        _module->decimator4.reset();
+	}
+
+	void step() override {
+		rightText = _module->current_oversample == _os ? "✔" : "";
+	}
+};
+
+struct PoleMenuItem : MenuItem {
+	Bass* _module;
+
+	PoleMenuItem(Bass* module, const char* label)
+	: _module(module)
+	{
+		this->text = label;
+	}
+
+	void onAction(const event::Action &e) override {
+		_module->firstPoleOneOctHigher = !_module->firstPoleOneOctHigher;
+	}
+
+	void step() override {
+		rightText = _module->firstPoleOneOctHigher == true ? "✔" : "";
+	}
+};
+
+struct ResTuneMenuItem : MenuItem {
+	Bass* _module;
+
+	ResTuneMenuItem(Bass* module, const char* label)
+	: _module(module)
+	{
+		this->text = label;
+	}
+
+	void onAction(const event::Action &e) override {
+		_module->tunedResonance = !_module->tunedResonance;
+	}
+
+	void step() override {
+		rightText = _module->tunedResonance == true ? "✔" : "";
+	}
+};
+
+struct PrioMenuItem : MenuItem {
+	Bass* _module;
+
+	PrioMenuItem(Bass* module, const char* label)
+	: _module(module)
+	{
+		this->text = label;
+	}
+
+	void onAction(const event::Action &e) override {
+		if (_module->priority > 0.0f) {
+			_module->priority = 0.0f;
+		} else {
+			_module->priority = 1.0f;
+		}
+	}
+
+	void step() override {
+		rightText = _module->priority > 0.0f ? "✔" : "";
+	}
+};
+
+struct EnvModModeItem : MenuItem {
+	Bass* _module;
+	EnvModModeItem(Bass* module) : _module(module) {
+		this->text = "ENVMOD Octaves mode";
+	}
+	void onAction(const event::Action &e) override {
+		_module->setEnvMod(!_module->useOctaveEnvMod);
+	}
+	void step() override {
+		rightText = _module->useOctaveEnvMod ? "✔" : "";
+	}
+};
+
+struct BassWidget : ModuleWidget {
+	BassWidget(Bass *module) {
+		setModule(module);
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/BassModule.svg")));
+		//box.size = Vec(16 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
+
+		addChild(createWidget<ScrewStarAutinn>(Vec(RACK_GRID_WIDTH, 0.f)));
+		addChild(createWidget<ScrewStarAutinn>(Vec(box.size.x - 2.f * RACK_GRID_WIDTH, 0.f)));
+		addChild(createWidget<ScrewStarAutinn>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ScrewStarAutinn>(Vec(box.size.x - 2.f * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+
+		//addParam(createParam<RoundSmallAutinnKnob>(Vec(12 * RACK_GRID_WIDTH*0.25-HALF_KNOB_SMALL, 1*RACK_GRID_HEIGHT/4-HALF_KNOB_SMALL), module, Bass::CUTOFF_PARAM));
+		auto cutKnob = createParam<AutinnArcSmallKnob>(Vec(12.f * RACK_GRID_WIDTH*0.25f-HALF_KNOB_SMALL, 1.f*RACK_GRID_HEIGHT/4.f-HALF_KNOB_SMALL), module, Bass::CUTOFF_PARAM);
+		cutKnob->setModulation(Bass::CV_CUTOFF_INPUT, [](float cv, float val, float att) {
+							return clamp(val + cv*att, 0.0f, 1.0f);
+						}, Bass::CV_CUTOFF_PARAM);
+		addParam(cutKnob);
+		//addParam(createParam<RoundSmallAutinnKnob>(Vec(12 * RACK_GRID_WIDTH*0.75-HALF_KNOB_SMALL, 1*RACK_GRID_HEIGHT/4-HALF_KNOB_SMALL), module, Bass::RESONANCE_PARAM));
+		auto qKnob = createParam<AutinnArcSmallKnob>(Vec(12.f * RACK_GRID_WIDTH*0.75f-HALF_KNOB_SMALL, 1.f*RACK_GRID_HEIGHT/4.f-HALF_KNOB_SMALL), module, Bass::RESONANCE_PARAM);
+		qKnob->setModulation(Bass::CV_RESONANCE_INPUT, [](float cv, float val, float att) {
+							return clamp(val + cv*att, 0.0f, RESONANCE_MAX);
+						}, Bass::CV_RESONANCE_PARAM);
+		addParam(qKnob);
+		//addParam(createParam<RoundSmallAutinnKnob>(Vec(12 * RACK_GRID_WIDTH*0.5-HALF_KNOB_SMALL, 1.625*RACK_GRID_HEIGHT/4-HALF_KNOB_SMALL), module, Bass::ENV_DECAY_PARAM));
+		auto decayKnob = createParam<AutinnArcSmallKnob>(Vec(12.f * RACK_GRID_WIDTH*0.5f-HALF_KNOB_SMALL, 1.625f*RACK_GRID_HEIGHT/4.f-HALF_KNOB_SMALL), module, Bass::ENV_DECAY_PARAM);
+		decayKnob->setModulation(Bass::CV_DECAY_INPUT, [](float cv, float val, float att) {
+							return clamp(val + cv*att, DECAY_VCF_MIN,DECAY_VCF_MAX);
+						}, Bass::CV_DECAY_PARAM);
+		addParam(decayKnob);
+		//addParam(createParam<RoundSmallAutinnKnob>(Vec(12 * RACK_GRID_WIDTH*0.25-HALF_KNOB_SMALL, 2.25*RACK_GRID_HEIGHT/4-HALF_KNOB_SMALL), module, Bass::ENVMOD_PARAM));
+		auto modKnob = createParam<AutinnArcSmallKnob>(Vec(12.f * RACK_GRID_WIDTH*0.25f-HALF_KNOB_SMALL, 2.25f*RACK_GRID_HEIGHT/4-HALF_KNOB_SMALL), module, Bass::ENVMOD_PARAM);
+		modKnob->setModulation(Bass::CV_ENVMOD_INPUT, [](float cv, float val, float att) {
+							return clamp(val + cv*att, 0.0f, 1.0f);
+						}, Bass::CV_ENVMOD_PARAM);
+		addParam(modKnob);
+		addParam(createParam<RoundSmallAutinnKnob>(Vec(12.f * RACK_GRID_WIDTH*0.75f-HALF_KNOB_SMALL, 2.25f*RACK_GRID_HEIGHT/4.f-HALF_KNOB_SMALL), module, Bass::ACCENT_PARAM));
+
+		addInput(createInput<InPortAutinn>(Vec(12.f * RACK_GRID_WIDTH*0.25f-HALF_PORT, 270.f-HALF_PORT), module, Bass::ACCENT_GATE_INPUT));
+		addInput(createInput<InPortAutinn>(Vec(12.f * RACK_GRID_WIDTH*0.75f-HALF_PORT, 270.f-HALF_PORT), module, Bass::NOTE_GATE_INPUT));
+
+		addInput(createInput<InPortAutinn>(Vec(12.f * RACK_GRID_WIDTH*0.25f-HALF_PORT, 300.f), module, Bass::OSC_INPUT));
+		addOutput(createOutput<OutPortAutinn>(Vec(12.f * RACK_GRID_WIDTH*0.75f-HALF_PORT, 300.f), module, Bass::BASS_OUTPUT));
+		
+		addChild(createLight<SmallLight<RedLight>>(Vec(12.f * RACK_GRID_WIDTH*0.16f-6.4252f*0.5f, RACK_GRID_HEIGHT/5.5f), module, Bass::A_LIGHT));
+		addChild(createLight<SmallLight<GreenLight>>(Vec(12.f * RACK_GRID_WIDTH*0.32f-6.4252f*0.5f, RACK_GRID_HEIGHT/5.5f), module, Bass::B_LIGHT));
+		addChild(createLight<SmallLight<YellowLight>>(Vec(12.f * RACK_GRID_WIDTH*0.48f-6.4252f*0.5f, RACK_GRID_HEIGHT/5.5f), module, Bass::C_LIGHT));
+		addChild(createLight<SmallLight<RedLight>>(Vec(12.f * RACK_GRID_WIDTH*0.66f-6.4252f*0.5f, RACK_GRID_HEIGHT/5.5f), module, Bass::D_LIGHT));
+
+		addChild(createLight<SmallLight<BlueLight>>(Vec(12.f * RACK_GRID_WIDTH*0.82f-6.4252f*0.5f, RACK_GRID_HEIGHT/6.0f), module, Bass::E_LIGHT));
+
+		addChild(createLight<SmallLight<RedLight>>(Vec(12.f * RACK_GRID_WIDTH*0.16f-6.4252f*0.5f, RACK_GRID_HEIGHT/6.5f), module, Bass::A2_LIGHT));
+		addChild(createLight<SmallLight<GreenLight>>(Vec(12.f * RACK_GRID_WIDTH*0.32f-6.4252f*0.5f, RACK_GRID_HEIGHT/6.5f), module, Bass::B2_LIGHT));
+		addChild(createLight<SmallLight<YellowLight>>(Vec(12.f * RACK_GRID_WIDTH*0.48f-6.4252f*0.5f, RACK_GRID_HEIGHT/6.5f), module, Bass::C2_LIGHT));
+		addChild(createLight<SmallLight<RedLight>>(Vec(12.f * RACK_GRID_WIDTH*0.66f-6.4252f*0.5f, RACK_GRID_HEIGHT/6.5f), module, Bass::D2_LIGHT));
+
+		addInput(createInput<InPortAutinn>(Vec(16.f * RACK_GRID_WIDTH*0.875f-HALF_PORT, 1.f*RACK_GRID_HEIGHT/5.f-HALF_PORT), module, Bass::CV_CUTOFF_INPUT));
+		addInput(createInput<InPortAutinn>(Vec(16.f * RACK_GRID_WIDTH*0.875f-HALF_PORT, 2.f*RACK_GRID_HEIGHT/5.f-HALF_PORT), module, Bass::CV_RESONANCE_INPUT));
+		addInput(createInput<InPortAutinn>(Vec(16.f * RACK_GRID_WIDTH*0.875f-HALF_PORT, 3.f*RACK_GRID_HEIGHT/5.f-HALF_PORT), module, Bass::CV_DECAY_INPUT));
+		addInput(createInput<InPortAutinn>(Vec(16.f * RACK_GRID_WIDTH*0.875f-HALF_PORT, 4.f*RACK_GRID_HEIGHT/5.f-HALF_PORT), module, Bass::CV_ENVMOD_INPUT));
+
+		addParam(createParam<RoundSmallAutinnKnob>(Vec(16.f * RACK_GRID_WIDTH*0.875f-HALF_KNOB_SMALL, 1.35f*RACK_GRID_HEIGHT/5.f-HALF_KNOB_SMALL), module, Bass::CV_CUTOFF_PARAM));
+		addParam(createParam<RoundSmallAutinnKnob>(Vec(16.f * RACK_GRID_WIDTH*0.875f-HALF_KNOB_SMALL, 2.35f*RACK_GRID_HEIGHT/5.f-HALF_KNOB_SMALL), module, Bass::CV_RESONANCE_PARAM));
+		addParam(createParam<RoundSmallAutinnKnob>(Vec(16.f * RACK_GRID_WIDTH*0.875f-HALF_KNOB_SMALL, 3.35f*RACK_GRID_HEIGHT/5.f-HALF_KNOB_SMALL), module, Bass::CV_DECAY_PARAM));
+		addParam(createParam<RoundSmallAutinnKnob>(Vec(16.f * RACK_GRID_WIDTH*0.875f-HALF_KNOB_SMALL, 4.35f*RACK_GRID_HEIGHT/5.f-HALF_KNOB_SMALL), module, Bass::CV_ENVMOD_PARAM));
+
+		addChild(createLight<SmallLight<GreenLight>>(Vec(12.f * RACK_GRID_WIDTH*0.5f-6.4252f*0.5f, 270-5.f-6.4252f*0.5f), module, Bass::GATE_LIGHT));
+		addChild(createLight<SmallLight<GreenLight>>(Vec(12.f * RACK_GRID_WIDTH*0.5f-6.4252f*0.5f, 270+5.f-6.4252f*0.5f), module, Bass::TRIG_LIGHT));
+		addChild(createLight<SmallLight<RedLight>>(Vec(12.f * RACK_GRID_WIDTH*0.125f-6.4252f*0.5f, 300-6.4252f*0.5f), module, Bass::GAIN_LIGHT));
+		addParam(createParam<RoundButtonSmallAutinn>(Vec(12.f * RACK_GRID_WIDTH*0.5f+7.5f, 270.f-17.5f-HALF_BUTTON_SMALL), module, Bass::BUTTON_PARAM));
+	//	addParam(createParam<RoundSmallAutinnKnob>(Vec(12 * RACK_GRID_WIDTH*0.5-HALF_KNOB_SMALL, 2.5*RACK_GRID_HEIGHT/4-HALF_KNOB_SMALL), module, Bass::DECAY2_PARAM));
+	//	addParam(createParam<RoundSmallAutinnKnob>(Vec(12 * RACK_GRID_WIDTH*0.5-HALF_KNOB_SMALL, 3.5*RACK_GRID_HEIGHT/4-HALF_KNOB_SMALL), module, Bass::DECAY3_PARAM));
+	}
+
+	void appendContextMenu(Menu* menu) override {
+		Bass* a = dynamic_cast<Bass*>(module);
+		assert(a);
+
+		menu->addChild(new MenuLabel());
+		menu->addChild(new OversampleBassMenuItem(a, "Oversample x2", 2));
+		menu->addChild(new OversampleBassMenuItem(a, "Oversample x4", 4));
+		menu->addChild(new MenuLabel());
+		menu->addChild(new EnvModModeItem(a));
+		//menu->addChild(new ResTuneMenuItem(a, "Tuned Resonance"));
+		//menu->addChild(new MenuLabel());
+		//menu->addChild(new PoleMenuItem(a, "1st Pole Oct Up"));
+		//menu->addChild(new MenuLabel());
+		//menu->addChild(new PrioMenuItem(a, "Compensate Passband"));
+	}
+};
+
+Model *modelBass = createModel<Bass, BassWidget>("Bass");

@@ -1,0 +1,390 @@
+{
+  "slug": "Autinn",
+  "name": "Autinn",
+  "version": "2.6.33",
+  "minRackVersion": "2.4.0",
+  "license": "GPL-3.0-or-later",
+  "brand": "Autinn",
+  "author": "Nikolai V. Chr.",
+  "description": "",
+  "authorEmail": "",
+  "authorUrl": "",
+  "pluginUrl": "",
+  "manualUrl": "https://github.com/NikolaiVChr/Autinn/wiki",
+  "sourceUrl": "https://github.com/NikolaiVChr/Autinn",
+  "donateUrl": "https://www.paypal.me/autinn",
+  "changelogUrl": "https://github.com/NikolaiVChr/Autinn/wiki/Changelog",
+  "modules": [
+    {
+      "slug": "Amp",
+      "name": "Amp",
+      "description": "Amplifier",
+      "tags": [
+        "Voltage-controlled amplifier",
+        "Polyphonic",
+        "Attenuator"
+      ]
+    },
+    {
+      "slug": "Bass",
+      "name": "Bass",
+      "description": "Bass and Acid synth",
+      "keywords": "acid 303",
+      "tags": [
+        "Filter",
+        "Physical modeling"
+      ]
+    },
+    {
+      "slug": "Boomerang",
+      "name": "Mera",
+      "description": "Pre-post VCA",
+      "tags": [
+        "Voltage-controlled amplifier",
+        "Attenuator"
+      ]
+    },
+    {
+      "slug": "CVConverter",
+      "name": "Conv",
+      "description": "Converts to and from uni/bi CV voltages",
+      "keywords": "convert",
+      "tags": [
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Deadband",
+      "name": "Deadband",
+      "description": "Constrain low voltages to zero",
+      "tags": [
+        "Voltage-controlled amplifier",
+        "Attenuator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Digi",
+      "name": "Digi",
+      "description": "Quantizes a signal into discrete steps",
+      "keywords": "digital",
+      "tags": [
+        "Utility",
+        "Digital",
+        "Effect",
+        "Quantizer",
+        "Waveshaper",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Disee",
+      "name": "DC",
+      "description": "Outputs DC component of signal",
+      "tags": [
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Flopper",
+      "name": "Flopper",
+      "description": "Mix signals in uncommon way",
+      "tags": [
+        "Waveshaper"
+      ]
+    },
+    {
+      "slug": "Jette",
+      "name": "Jette",
+      "description": "Oscillator with harmonics control",
+      "tags": [
+        "Oscillator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Oxcart",
+      "name": "Oxcart",
+      "description": "Aggressive oscillator. Best for low/mid frequencies.",
+      "tags": [
+        "Oscillator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Retri",
+      "name": "Flora",
+      "description": "A 24dB low-pass filter emulating a 4-pole transistor ladder.",
+      "keywords": "24db ladder",
+      "tags": [
+        "Filter",
+        "Physical modeling",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "Fauna",
+      "name": "Fauna",
+      "description": "A 24dB low-pass filter emulating a 4-pole transistor ladder (ZDF)",
+      "keywords": "24db ladder",
+      "tags": [
+        "Filter",
+        "Physical modeling",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "Saw",
+      "name": "Saw",
+      "description": "Oscillator with a sawish sound. Deprecated in favor of Axe.",
+      "hidden": true,
+      "tags": [
+        "Oscillator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Saw2",
+      "name": "Axe",
+      "description": "Oscillator with an old analog sound",
+      "tags": [
+        "Oscillator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Sjip",
+      "name": "Sjip",
+      "description": "Oscillator with rounded waveform",
+      "tags": [
+        "Oscillator"
+      ]
+    },
+    {
+      "slug": "Square",
+      "name": "Square",
+      "description": "Oscillator with a squarish sound. Deprecated in favor of Axe.",
+      "hidden": true,
+      "tags": [
+        "Oscillator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Vector",
+      "name": "Vxy",
+      "description": "Random x-y generator",
+      "keywords": "walk walker xy",
+      "deprecated": false,
+      "tags": [
+        "Controller",
+        "Utility",
+        "Random",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Vibrato",
+      "name": "Vibrato",
+      "description": "Vibrato effect with optional Flanger",
+      "tags": [
+        "Effect",
+        "Delay",
+        "Flanger",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Zod",
+      "name": "Zod",
+      "description": "Dynamic range manipulator with noisegate",
+      "keywords": "noisegate noise-gate noise gate",
+      "tags": [
+        "Compressor",
+        "Limiter",
+        "Dynamics",
+        "Expander",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "TriBand",
+      "name": "Imp",
+      "description": "Simple Triple Band Equalizer",
+      "tags": [
+        "Equalizer",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Mixer6",
+      "name": "6 Channel Mixer",
+      "description": "6 channel mixer with no CV",
+      "tags": [
+        "Mixer",
+        "Equalizer",
+        "Polyphonic",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "Non",
+      "name": "Non",
+      "description": "Limiter",
+      "tags": [
+        "Limiter",
+        "Dynamics",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "Overdrive",
+      "name": "Fil",
+      "description": "Filing away at audio (Overdrive)",
+      "keywords": "overdrive",
+      "tags": [
+        "Effect",
+        "Distortion",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Distortion",
+      "name": "Nap",
+      "description": "Taking a nap (Distortion)",
+      "keywords": "distortion",
+      "tags": [
+        "Effect",
+        "Distortion",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Melody",
+      "name": "Fluencerator",
+      "description": "Random melody sequencer with special constraints that make it sound more pleasant for the ear",
+      "tags": [
+        "Sequencer",
+        "Random",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Chord",
+      "name": "Rebel",
+      "description": "Plays a random selected chord from a root note (does not have to be in tune). Polyphonic outputs.",
+      "tags": [
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Kicker",
+      "name": "Stomp",
+      "description": "Kick drum",
+      "keywords": "bass drum",
+      "tags": [
+        "Drum",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Lurer",
+      "name": "Punch",
+      "description": "Snare drum",
+      "tags": [
+        "Drum",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Coil",
+      "name": "Coil",
+      "description": "Spring reverb",
+      "tags": [
+        "Reverb",
+        "Physical modeling",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "Geiger",
+      "name": "Rad",
+      "description": "Geiger counter",
+      "keywords": "radiation radioactivity geiger",
+      "tags": [
+        "Physical modeling",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Scope40",
+      "name": "Scope",
+      "description": "Oscilloscope with auto-time",
+      "keywords": "measure monitor",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Excavi",
+      "name": "Excavi",
+      "description": "A polyphonic complex oscillator featuring morphing waveforms, Through-Zero FM, screaming hard sync, and vintage analog degradation and drift",
+      "keywords": "complex oscillator, through-zero fm, TZFM, hard sync, ring mod, analog drift, morphing",
+      "tags": [
+        "Oscillator",
+        "Polyphonic",
+        "Dual",
+        "Ring modulator"
+      ]
+    },
+    {
+      "slug": "Alias",
+      "name": "Aliasmeter",
+      "description": "Alias/noise to signal meter",
+      "keywords": "measure monitor analyse",
+      "hidden": false,
+      "tags": [
+        "Visual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "Trace",
+      "name": "Lissajous",
+      "description": "Lissajous oscillator",
+      "keywords": "oscilloscope scope",
+      "tags": [
+        "Oscillator",
+        "Low-frequency oscillator",
+        "Visual",
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Au",
+      "name": "Au",
+      "description": "Polyphonic chord converger",
+      "keywords": "",
+      "hidden": false,
+      "tags": [
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Big",
+      "name": "Myria",
+      "description": "16 voice polyphonic chord generator",
+      "keywords": "",
+      "hidden": false,
+      "tags": [
+        "Polyphonic"
+      ]
+    }
+  ]
+}

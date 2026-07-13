@@ -1,0 +1,423 @@
+{
+  "slug": "Fundamental",
+  "name": "VCV Free",
+  "version": "2.6.4",
+  "license": "GPL-3.0-or-later",
+  "brand": "VCV",
+  "author": "VCV",
+  "authorEmail": "support@vcvrack.com",
+  "pluginUrl": "https://vcvrack.com/Free",
+  "authorUrl": "https://vcvrack.com/",
+  "manualUrl": "https://vcvrack.com/Free#manual",
+  "sourceUrl": "https://github.com/VCVRack/Fundamental",
+  "changelogUrl": "https://vcvrack.com/Free#changelog",
+  "minRackVersion": "2.4.0",
+  "modules": [
+    {
+      "slug": "VCO",
+      "name": "VCO",
+      "description": "Voltage-controlled oscillator",
+      "manualUrl": "https://vcvrack.com/Free#VCO",
+      "tags": [
+        "VCO",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "VCO2",
+      "name": "Wavetable VCO",
+      "description": "Voltage-controlled wavetable oscillator",
+      "keywords": "WT",
+      "manualUrl": "https://vcvrack.com/Free#WavetableVCO",
+      "tags": [
+        "VCO",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "VCF",
+      "name": "VCF",
+      "description": "Voltage-controlled filter",
+      "manualUrl": "https://vcvrack.com/Free#VCF",
+      "tags": [
+        "VCF",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "VCA-1",
+      "name": "VCA",
+      "description": "Voltage-controlled amplifier",
+      "manualUrl": "https://vcvrack.com/Free#VCA-1",
+      "tags": [
+        "VCA",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "VCA",
+      "name": "VCA-2",
+      "description": "2-channel voltage-controlled amplifier",
+      "tags": [
+        "VCA",
+        "Dual",
+        "Polyphonic"
+      ],
+      "hidden": true
+    },
+    {
+      "slug": "LFO",
+      "name": "LFO",
+      "description": "Low-frequency oscillator",
+      "manualUrl": "https://vcvrack.com/Free#LFO",
+      "tags": [
+        "LFO",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "LFO2",
+      "name": "Wavetable LFO",
+      "description": "Low-frequency wavetable oscillator",
+      "keywords": "WT",
+      "manualUrl": "https://vcvrack.com/Free#LFO2",
+      "tags": [
+        "LFO",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Delay",
+      "name": "Delay",
+      "description": "",
+      "manualUrl": "https://vcvrack.com/Free#Delay",
+      "tags": [
+        "Delay"
+      ]
+    },
+    {
+      "slug": "ADSR",
+      "name": "ADSR EG",
+      "description": "Generates an envelope with Attack/Decay/Sustain/Release",
+      "manualUrl": "https://vcvrack.com/Free#ADSR",
+      "tags": [
+        "Envelope Generator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Mixer",
+      "name": "Mix",
+      "description": "Mixes 6 signals",
+      "manualUrl": "https://vcvrack.com/Free#Mixer",
+      "tags": [
+        "Mixer",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "VCMixer",
+      "name": "VCA Mix",
+      "description": "Mixes 4 signals with built-in VCAs",
+      "manualUrl": "https://vcvrack.com/Free#VCMixer",
+      "tags": [
+        "Mixer",
+        "VCA",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "8vert",
+      "name": "8vert",
+      "description": "Attenuverts 8 signals or creates constant voltages",
+      "manualUrl": "https://vcvrack.com/Free#8vert",
+      "tags": [
+        "Attenuator",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Unity",
+      "name": "Unity",
+      "description": "Mixes or averages signals with unity gain",
+      "tags": [
+        "Mixer",
+        "Utility",
+        "Dual"
+      ],
+      "hidden": true
+    },
+    {
+      "slug": "Mutes",
+      "name": "Mutes",
+      "description": "Toggles up to 10 signals",
+      "manualUrl": "https://vcvrack.com/Free#Mutes",
+      "tags": [
+        "Switch",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Pulses",
+      "name": "Pulses",
+      "description": "Generates up to 10 trigger and gate signals",
+      "manualUrl": "https://vcvrack.com/Free#Pulses",
+      "tags": [
+        "Switch"
+      ]
+    },
+    {
+      "slug": "Scope",
+      "name": "Scope",
+      "description": "Inspect waveforms with an oscilloscope",
+      "manualUrl": "https://vcvrack.com/Free#Scope",
+      "tags": [
+        "Visual",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "SEQ3",
+      "name": "SEQ 3",
+      "description": "3-channel 8-step sequencer also with gate outputs",
+      "manualUrl": "https://vcvrack.com/Free#SEQ3",
+      "tags": [
+        "Sequencer"
+      ]
+    },
+    {
+      "slug": "SequentialSwitch1",
+      "name": "Sequential Switch 1 to 4",
+      "description": "Routes 1 input to one of 4 outputs",
+      "manualUrl": "https://vcvrack.com/Free#SequentialSwitch1",
+      "tags": [
+        "Switch",
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "SequentialSwitch2",
+      "name": "Sequential Switch 4 to 1",
+      "description": "Routes one of 4 inputs to 1 output",
+      "manualUrl": "https://vcvrack.com/Free#SequentialSwitch2",
+      "tags": [
+        "Switch",
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Octave",
+      "name": "Octave",
+      "description": "Shifts 1V/oct pitch CV by octaves",
+      "keywords": "OCT",
+      "manualUrl": "https://vcvrack.com/Free#Octave",
+      "tags": [
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Quantizer",
+      "name": "Quantizer",
+      "description": "12-note quantizer and scale selector",
+      "keywords": "QNT",
+      "manualUrl": "https://vcvrack.com/Free#Quantizer",
+      "tags": [
+        "Quantizer",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Split",
+      "name": "Split",
+      "description": "Splits a polyphonic cable into multiple monophonic cables",
+      "manualUrl": "https://vcvrack.com/Free#Split",
+      "tags": [
+        "Polyphonic",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "Merge",
+      "name": "Merge",
+      "description": "Combines multiple monophonic cables into a polyphonic cable",
+      "manualUrl": "https://vcvrack.com/Free#Merge",
+      "tags": [
+        "Polyphonic",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "Sum",
+      "name": "Sum",
+      "description": "Sums all channels of a polyphonic cable",
+      "manualUrl": "https://vcvrack.com/Free#Sum",
+      "tags": [
+        "Polyphonic",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "Viz",
+      "name": "Viz",
+      "description": "Visualizes all channels of a polyphonic cable",
+      "manualUrl": "https://vcvrack.com/Free#Viz",
+      "tags": [
+        "Polyphonic",
+        "Visual"
+      ]
+    },
+    {
+      "slug": "MidSide",
+      "name": "Mid/Side",
+      "description": "Encodes/decodes between mid/side and left/right stereo signals",
+      "keywords": "M/S",
+      "manualUrl": "https://vcvrack.com/Free#MidSide",
+      "tags": [
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Noise",
+      "name": "Noise",
+      "description": "Multicolored noise generator",
+      "keywords": "NOIS",
+      "manualUrl": "https://vcvrack.com/Free#Noise",
+      "tags": [
+        "Noise"
+      ]
+    },
+    {
+      "slug": "Random",
+      "name": "Random",
+      "description": "Random CV generator",
+      "manualUrl": "https://vcvrack.com/Free#Random",
+      "tags": [
+        "Random",
+        "Sample and hold",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "CVMix",
+      "name": "CV Mix",
+      "description": "Mixes 3 CV signals with attenuverters",
+      "keywords": "CVMIX",
+      "manualUrl": "https://vcvrack.com/Free#CVMix",
+      "tags": [
+        "Mixer",
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Fade",
+      "name": "Fade",
+      "description": "Crossfades audio or CV",
+      "manualUrl": "https://vcvrack.com/Free#Fade",
+      "tags": [
+        "Panning",
+        "Voltage-controlled amplifier",
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Logic",
+      "name": "Logic",
+      "description": "Gate logic processor",
+      "manualUrl": "https://vcvrack.com/Free#Logic",
+      "tags": [
+        "Logic",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Compare",
+      "name": "Compare",
+      "description": "Compares two voltages",
+      "manualUrl": "https://vcvrack.com/Free#Compare",
+      "tags": [
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Gates",
+      "name": "Gates",
+      "description": "Gate processor",
+      "manualUrl": "https://vcvrack.com/Free#Gates",
+      "tags": [
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Process",
+      "name": "Process",
+      "description": "CV processor",
+      "manualUrl": "https://vcvrack.com/Free#Process",
+      "tags": [
+        "Sample and hold",
+        "Slew limiter",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Mult",
+      "name": "Mult",
+      "description": "Copies a signal to 8 outputs",
+      "manualUrl": "https://vcvrack.com/Free#Mult",
+      "tags": [
+        "Multiple",
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Rescale",
+      "name": "Rescale",
+      "description": "Rescales voltages with gain, offset, and range limiting",
+      "keywords": "RSCL",
+      "manualUrl": "https://vcvrack.com/Free#Rescale",
+      "tags": [
+        "Attenuator",
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "RandomValues",
+      "name": "Random Values",
+      "description": "Generates 7 random fixed voltages",
+      "keywords": "RND",
+      "manualUrl": "https://vcvrack.com/Free#RandomValues",
+      "tags": [
+        "Random",
+        "Utility",
+        "Polyphonic"
+      ]
+    },
+    {
+      "slug": "Push",
+      "name": "Push",
+      "description": "Button with gate/trigger outputs and hold switch",
+      "manualUrl": "https://vcvrack.com/Free#Push",
+      "tags": [
+        "Utility"
+      ]
+    },
+    {
+      "slug": "SHASR",
+      "name": "Sample & Hold Analog Shift Register",
+      "description": "8 channel sample & hold combined with a shift register",
+      "keywords": "S&H ASR",
+      "manualUrl": "https://vcvrack.com/Free#SHASR",
+      "tags": [
+        "Sample and hold"
+      ]
+    }
+  ]
+}

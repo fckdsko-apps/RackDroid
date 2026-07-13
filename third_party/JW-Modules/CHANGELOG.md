@@ -1,0 +1,293 @@
+# Change Log
+
+## v2.0.42 ~ 
+
+  * Trigs128: NEW MODULE!
+  * Trigs: added 'Repeat First Row Down' menu item
+  * NoteSeq16: added 'Repeat 16 Steps'
+  * NoteSeq: added 'Repeat 16 Steps'
+  * NoteSeqFu: added 'Repeat 16 Steps'
+  * Arrange: added presets
+
+  improved all context menus
+
+## v2.0.41 ~ 7-4-26
+
+  * samplegrid: add drag and drop file
+  * grains: add drag and drop file
+  * grains: fix drag position playhead
+  * FM16Seq: randomize all trigger input is now polyphonic so you can randomize certain params
+  * FM16Seq: increased feedback max to 2
+  * FM16Seq: added v/oct output
+  * FM16Seq: added EOC output
+  * FM16Seq: added carrier output
+  * FM16Seq: added swapped output
+  * FM16Seq: FIXED BUG modulating length could be incorrect
+
+## v2.0.39 ~ 6-2-26
+
+  * FM4Dice: added random seed input
+  * FM16Seq: added random seed input
+  * GridSeq: added random seed input
+  * NoteSeq: added random seed input
+  * NoteSeq16: added random seed input
+  * NoteSeqFu: added random seed input
+  * RandomSound: fixed Rnd&Trig input, added random seed input
+  * Trigs: added random seed input
+  * XYPad: added random seed input
+
+
+## v2.0.38 ~ 5-25-26
+
+  * New Module FM16SEQ: fm synth for every step, randomization options
+  * New Module FRACT: delay for fractions of a clock tick
+  * New Module FM4DICE: random 4 operator fm sounds
+  * Buffer: added stereo in/out, added chance to freeze
+  * added scales to all quantizers - this should not break existing patches
+  * Play mode knob tooltip is better now for all modules
+
+## v2.0.34 ~ 5-9-26
+
+  * fixed duplicating selected grains
+  * fixed shiftregrnd bad notes while filling up
+
+## v2.0.33 ~ 3-24-26
+
+  * Sample Grid: fixed load random samples interupting audio playback
+  * DivSeq: added gate length context menu item
+  * Grains: added switch for monitoring the input
+  * NoteSeq16: knob updates when max length changes
+  * NoteSeq16: length now persists correctly
+
+## v2.0.31 ~ 2-?-26
+
+  * Grains: fix crash
+
+## v2.0.30 ~ 2-?-26
+
+  * SampleGrid: fix crash
+
+## v2.0.27 ~ 2-?-26
+
+  * SampleGrid: fix crash
+
+## v2.0.26 ~ 2-?-26
+
+  * noteseq16: FIXED rotate
+  * buffer: reduced clicks
+  * samplegrid: FIXED replacing a sample
+  * samplegrid: x now unloads sample
+  * grains: reduced clicks on record and playback
+  * grains: added rate
+  * grains: added reverse
+  * grains: added clock input and sync
+  * grains: added auto-advance speed
+  * randomsound: now inputs use polyphony
+
+## v2.0.25 ~ 1-?-26
+
+  * added position knob to grains
+  * added input for loading random samples
+  * fixed posible crash in samplegrid
+
+## v2.0.24 ~ 1-8-26
+
+  * SampleGrid: NEW MODULE - a 16 sample player with random loading, shuffling, and slicing
+  * changes mouse button events on a button to be handled by triggers in process method
+  * added position knob to grains
+
+## v2.0.21 ~ 1-2-26
+
+  * Grains: NEW MODULE - my 40th module - a simple granular sampler
+  * Subtract5: NEW MODULE - subtracts 5 volts
+  * Stereo Switch Inverted: NEW MODULE - one pair of inputs and 8 pairs of outputs
+  * Stereo Switch: added reset
+  * random sound: added poly tag since it can have 16 output channels
+  * make max pulse length 10s 
+  * canged blue labels to white labels on modules for more contrast
+
+## v2.0.20 ~ 12-20-25
+
+  * Buffer: NEW MODULE - records audio into a buffer and can be frozen on gate
+  * Random Sound: NEW MODULE - plays a random sound based on FM or Additive Synthesis of random wave forms and random frequencies
+  * Shift Reister Random: NEW MODULE - allows you to grab a random set of polyphonic voltage from a stream of notes
+  * Stereo Switch: NEW MODULE - allows you to have a stereo switch where certain steps can have a higher chance
+  * NoteSeq16: now has 256 steps and scrolls, right click menu has options for up to 256 steps, 16 is default for old patches
+  * GridSeq: now has snake options in right click menu
+  * EightSeq: now has snake options in right click menu
+  * DivSeq: now has an option for the maximum random division
+  * Arrange: now you can shift click to move the playhead
+  * Arrange16: now you can shift click to move the playhead
+  * AbcdSeq: now accepts digits to play the column number
+  * AbcdSeq: now has randomize column and row buttons
+  * Bouncy Balls: balls now hit each other
+  * NoteSeq: life counter resets on reset
+  * NoteSeqFu: life counter resets on reset
+  * Tree: added a jitter amount knob
+  * XYPad: clears drawing on load preset
+  * Added 2hp and 4hp blanks
+  * Got rid of all light panels and components because I hate updating panels and components and colors multiple times.  Now we just have dark.  Improved colors and made UIs more consistent.
+  * Added gate length slider to right click menu of all modules which output a trigger/gate. This means you can now have fast clocks and sequencers without gates merging and sticking on.
+
+## v2.0.17 ~ 11-29-25
+
+  * Bouncy Balls: fixed edge hit trigger
+
+## v2.0.16 ~ 6-8-25
+
+  * AbcdSeq: added poly out to get 4 channels of cv out per column
+
+## v2.0.15 ~ 6-8-25
+
+  * AbcdSeq: added menu options to randomize each row individually
+  * AbcdSeq: added menu options to copy/paste each row individually
+  * AbcdSeq: added button/input to randomize all length knobs
+  * AbcdSeq: added menu option to use velocity as a probability
+  * AbcdSeq: added end of cycle per row
+  * Arrange: colored text fields and input/output ports
+  * Arrange16: colored text fields and input/output ports
+  * Quantizer: fixed dark mode
+
+## v2.0.14 ~ 5-29-25
+
+  * Trigs: now allows poly input for 4 different clocks/start/len/playmode/random one for each sequence
+  * SimpleClock: fixed dark mode
+  * Arrange/Arrange16: added poly tag since each row can be poly
+  
+## v2.0.13 ~ 5-28-25
+
+  * added module Arrange16, a newer smaller version of Arrange
+  
+## v2.0.12 ~ 5-27-25
+
+  * Arrange: added right click option to output absolute position instead of relative to start and length
+  * Arrange: added right click option to output 10v when there is no input for a row
+  * Arrange: added labels to output ports for hovering over the port to see its label
+
+## v2.0.11 ~ 5-14-25
+
+  * fixed randomize on Arrange
+
+## v2.0.10 ~ 5-12-25
+
+  * fixed reset on Arrange
+
+## v2.0.9 ~ 5-7-25
+
+  * minor fixes for meta module
+  * added Arrange module
+
+## v2.0.8 ~ 3-14-25
+
+  * added cv and gate outputs per row in AbcdSeq
+
+## v2.0.7 ~ 12-26-24
+
+  * fixed vertical lines every 4 columns in NoteSeq, NoteSeq16, and NoteSeqFu so you can now see where half way is for example
+  * fixed quantizer when it is built into a sequencer so 'None' means no quantizing.  When quantizer is on its own it means chromatic.
+
+## v2.0.6 ~ 9-5-24
+
+  * added Timer module
+  * 'S' and 's' in AbcdSeq now play previous row
+  * added EOC to AbcdSeq
+  * fixed - randomize velocities was an integer
+  * quantizer right click menu for 'Inputs Override Knobs'
+  * added blue indicator on divisions in OnePattern and Patterns
+  * added white key highlight
+
+## v2.0.5 ~ 8-26-24
+
+  * added AbcdSeq
+  * Add5 is now Polyphonic
+
+## v2.0.3 ~ 11-14-23
+
+  * added dark panels from Jorge Salas and updated code to use them
+
+## v2.0.2 ~ 2-9-22
+
+  * Fixed dragging at different zoom levels for
+    noteseq, noteseq16, noteseqfu, 1pattern, patterns, trigs, xypad 
+
+## v1.0.29 ~ 5-11-21
+
+  * Fixed EOC on all sequencers
+
+## v1.0.28 ~ 5-8-21
+
+  * Fixed all gates on after reset
+
+## v1.0.27 ~ 5-3-21
+
+  * New Module: DivSeq
+  * 8Seq, GridSeq, DivSeq: see readme and tooltips for randomize buttons
+
+## v1.0.25 ~ 4-6-21
+
+  * 8seq length issue fixed
+
+## v1.0.24 ~ 3-29-21
+  
+  * New Module: 8Seq
+
+## v1.0.21 ~ 12-30-20
+
+  * Quantizer: Added Octave Shift knob and input to go up or down octaves after quantizing.
+  * Fixed Pos output in D1v1de
+
+## v1.0.20 ~ 11-8-2020
+
+  * Trigs: Shortened trigger pulse to match my other module triggers.
+  * Fixed Lydian scale in all quantizers.
+
+## v1.0.19 ~ 11-7-2020
+
+  * New Module: Trigs
+  * Tree module now resizable (Thanks to SteveRussell33)
+  * ThingThing module now resizable (Thanks to me)
+  * Fixed: Tree and ThingThing no longer draw outside of bounds when LightOff Active\
+
+## v1.0.18 ~ 11-2-2020
+
+  * NoteSeqFu: added High/Low knobs and inputs to limit the range of notes
+  * Graphic dispays in all modules now have a black background
+  * Graphic displays work with Lights Off module
+  * New Module: Tree visual module
+
+## v1.0.17 ~ 10-28-2020
+
+  * New Module: 1Pattern (basically one row of Patterns module)
+  * New Module: Add5 (because Caudal is bipolar (like me))
+  * NoteSeqFu 'Start' now effects running sequence
+  * Added 'Start' knobs and inputs to NoteSeq and NoteSeq16
+  * Added 'Length' inputs to NoteSeq16
+  * Added 'Probability' knobs and randomizer to GridSeq
+  * Added Shift 'Chaos' feature to NoteSeq and NoteSeqFu: shifts each note in a random direction and distance determined by amount
+  * Can now shift click randomize buttons in GridSeq to init parameters to defaults
+  * Fixed position of playhead on reset in NoteSeq, NoteSeq16, and NoteSeqFu
+
+## v1.0.16 ~ 10-16-2020
+
+  * New Module: NoteSeqFu
+
+## v1.0.15 ~ 10-3-2020
+
+  * Added EOC (end of cycle) to NoteSeq16
+  * Added right click options to simple clock
+  * Added tooltips to all knobs and buttons
+  * Can now enter a BPM in simple clock and see it in the tooltip
+  * Added module manual urls
+
+## v1.0.14 ~ 9-1-2020
+  * Added EOC (end of cycle) to NoteSeq
+  * Fixed Reset in D1v1de
+  * Added a changelog
+
+## v0.0.0 up to v1.0.13
+  * Created 20 more modules.
+
+## v0.0.0 ~ 10-16-2017
+  * [Started](https://github.com/jeremywen/JW-Modules/commit/b4037bc606ea106d8f1e8d495a2a9440cd8d921e)   JW-Modules with SimpleClock
+
+  

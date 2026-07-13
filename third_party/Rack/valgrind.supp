@@ -1,0 +1,55 @@
+{
+   <>
+   Memcheck:Cond
+   ...
+   fun:pa_mainloop_run
+}
+{
+   <>
+   Memcheck:Cond
+   ...
+   obj:/usr/lib/libgallium*
+   ...
+}
+{
+   <>
+   Memcheck:Cond
+   ...
+   obj:/usr/lib/libGLX_mesa*
+   ...
+}
+{
+   <>
+   Memcheck:Leak
+   ...
+   obj:/usr/lib/libgallium*
+   ...
+}
+{
+   <>
+   Memcheck:Leak
+   ...
+   fun:snd_seq_open
+   ...
+}
+{
+   <>
+   Memcheck:Leak
+   ...
+   fun:snd_config_update_r
+   ...
+}
+{
+   <>
+   Memcheck:Leak
+   ...
+   fun:_snd_config_load_with_include
+   ...
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   ...
+   fun:pa_pdispatch_run
+   ...
+}

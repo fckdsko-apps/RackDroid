@@ -1,0 +1,14 @@
+build
+dist
+node_modules
+.DS_Store
+plugin.*
+!plugin.json
+a.out
+*.swp
+*.swo
+__pycache__/
+scripts/gen/
+.claude/
+CLAUDE.local.md
+AGENTS.local.md

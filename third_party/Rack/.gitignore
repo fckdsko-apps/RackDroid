@@ -1,0 +1,29 @@
+# Ignore all dotfiles except git dotfiles
+.*
+!.git*
+
+# Binaries and build targets
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.res
+*.d
+*.dSYM
+*.vcvplugin
+/build
+/Rack
+/dep
+/dist
+
+# Rack folders
+/plugins
+/disabledplugins
+/patches
+/presets
+/licenses
+/autosave
+/settings.json
+/screenshots
+/selections

@@ -1,0 +1,256 @@
+#include "Autinn.hpp"
+#include "Autinn-dsp.hpp"
+#include <cmath>
+
+/*
+
+    Autinn VCV Rack Plugin
+    Copyright (C) 2021  Nikolai V. Chr.
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+**/
+
+static constexpr int oversample2 = 2;
+static constexpr int oversample4 = 4;
+static constexpr int oversample8 = 8;
+
+#define DRIVE_MAX 25.0f
+#define DRIVE_MIN 0.0f
+
+struct Fil : Module {
+	enum ParamIds {
+		DIAL_PARAM,
+		NUM_PARAMS
+	};
+	enum InputIds {
+		FIL_INPUT,
+		NUM_INPUTS
+	};
+	enum OutputIds {
+		FIL_OUTPUT,
+		NUM_OUTPUTS
+	};
+	enum LightIds {
+		LOW_LIGHT,
+		MID_LIGHT,
+		HIGH_LIGHT,
+		NUM_LIGHTS
+	};
+
+	Fil() {
+		config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
+		configParam<Param3Digits>(DIAL_PARAM, 0.0f, 1.0f, 0.25f, "Drive", " ", 0.0f, DRIVE_MAX);
+		configBypass(FIL_INPUT, FIL_OUTPUT);
+		configInput(FIL_INPUT, "Audio");
+		configOutput(FIL_OUTPUT, "Audio");
+
+		configLight(HIGH_LIGHT, "Serious grinding going on.. ");
+		configLight(MID_LIGHT, "Moderate filing.. ");
+		configLight(LOW_LIGHT, "Hungry, feed me!  ");
+
+		for (int ch = 0; ch < 16; ch++) {
+			dcBlocker[ch].cutoff_hz = 2.25f;
+			dcBlocker[ch].setSampleTime(lastSampleTime);
+		}
+	}
+
+	int current_oversample = 4;
+	float th=1.0f/3.0f;
+
+	DCBlocker dcBlocker[16];
+	float lastSampleTime = 1.0f/44100.0f;
+
+	dsp::Upsampler<oversample2, 10> upsampler2[16];
+	dsp::Decimator<oversample2, 10> decimator2[16];
+	dsp::Upsampler<oversample4, 10> upsampler4[16];
+	dsp::Decimator<oversample4, 10> decimator4[16];
+	dsp::Upsampler<oversample8, 10> upsampler8[16];
+	dsp::Decimator<oversample8, 10> decimator8[16];
+
+	json_t *dataToJson() override {
+		json_t *root = json_object();
+		json_object_set_new(root, "oversample", json_integer(current_oversample));
+		return root;
+	}
+
+	void dataFromJson(json_t *rootJ) override {
+		json_t *ext3 = json_object_get(rootJ, "oversample");
+		if (ext3) {
+			current_oversample = json_integer_value(ext3);
+			if (current_oversample != 2 and current_oversample != 4 and current_oversample != 8) {
+				current_oversample = 4;
+			}
+		}
+	}
+
+	void onReset(const ResetEvent& e) override {
+		current_oversample = 4;
+		for (int ch = 0; ch < 16; ch++) {
+			dcBlocker[ch].reset();
+		}
+		Module::onReset(e);
+	}
+
+	void process(const ProcessArgs &args) override;
+};
+
+void Fil::process(const ProcessArgs &args) {
+	// VCV Rack audio rate is +-5V
+	// VCV Rack CV is +-5V or 0V-10V
+
+	if (!outputs[FIL_OUTPUT].isConnected()) {
+		return;
+	}
+
+	if (lastSampleTime != args.sampleTime) {
+		for (auto & chDcBlocker : dcBlocker) {
+			chDcBlocker.setSampleTime(args.sampleTime);
+		}
+	}
+	lastSampleTime = args.sampleTime;
+
+	int channels = std::max(1, inputs[FIL_INPUT].getChannels());
+	outputs[FIL_OUTPUT].setChannels(channels);
+
+	float driveGain = 0.2f * (1.0f + params[DIAL_PARAM].getValue() * DRIVE_MAX);
+
+	for (int c = 0; c < channels; c++) {
+		float in = inputs[FIL_INPUT].getPolyVoltage(c) * driveGain;
+		float out = 0.0f;
+
+		float inInter [8];// max oversample size
+		float outBuf  [8];
+		if (current_oversample == oversample2) {
+			upsampler2[c].process(in, inInter);
+		} else if (current_oversample == oversample4) {
+			upsampler4[c].process(in, inInter);
+		} else {
+			upsampler8[c].process(in, inInter);
+		}
+
+		for (int i = 0; i < current_oversample; i++) {
+			float x = inInter[i];
+			if (std::abs(x) < 1e-15f) x = 0.0f; // Denormal protection
+
+			// Overdrive
+
+			// Asymmetric Tube Bias
+			// Adding x*x creates Even Harmonics (Warmth).
+			// At high volumes, large negative values will 'fold' back positive (Grit).
+			float tube_bias = x + 0.25f * x * x;
+
+			float drive_amount = tube_bias * 0.5f;
+
+			// Soft saturation (The tube limit)
+			// non_lin handles the clipping smoothly like a vacuum tube.
+			float saturated = tanh_fast_high(drive_amount);
+
+			// Safety Check
+			if (!std::isfinite(saturated)) {
+				saturated = 0.0f;
+			}
+
+			outBuf[i] = saturated;
+
+			// Update Lights based on saturation intensity
+			if (c == 0 && i == 0) {
+				float drive_abs = std::abs(drive_amount);
+
+				// Green: Signal Indicator (Fades in quickly)
+				// Shows if any signal is present.
+				lights[LOW_LIGHT].value = clamp(drive_abs * 10.0f, 0.0f, 1.0f);
+
+				// Yellow: Warmth Indicator (Fades in from 0.4 to 0.8)
+				// Turns on when the tube starts "bending" the waveform.
+				lights[MID_LIGHT].value = clamp((drive_abs - 0.4f) * 2.5f, 0.0f, 1.0f);
+
+				// Red: Overdrive Indicator (Fades in from 1.0 to 1.4)
+				// Turns on when you hit the saturation ceiling.
+				lights[HIGH_LIGHT].value = clamp((drive_abs - 1.0f) * 2.5f, 0.0f, 1.0f);
+			}
+		}
+
+		if (current_oversample == oversample2) {
+			out = decimator2[c].process(outBuf);
+		} else if (current_oversample == oversample4) {
+			out = decimator4[c].process(outBuf);
+		} else {
+			out = decimator8[c].process(outBuf);
+		}
+		out = dcBlocker[c].process(out);
+		outputs[FIL_OUTPUT].setVoltage(out*5.0f, c);
+	}
+}
+
+struct OversampleFilMenuItem : MenuItem {
+	Fil* _module;
+	int _os;
+
+	OversampleFilMenuItem(Fil* module, const char* label, int os)
+	: _module(module), _os(os)
+	{
+		this->text = label;
+	}
+
+	void onAction(const event::Action &e) override {
+		_module->current_oversample = _os;
+
+		for (int c = 0; c < 16; c++) {
+			_module->upsampler2[c].reset();
+			_module->decimator2[c].reset();
+			_module->upsampler4[c].reset();
+			_module->decimator4[c].reset();
+			_module->upsampler8[c].reset();
+			_module->decimator8[c].reset();
+		}
+	}
+
+	void step() override {
+		rightText = _module->current_oversample == _os ? "✔" : "";
+	}
+};
+
+struct FilWidget : ModuleWidget {
+	FilWidget(Fil *module) {
+		setModule(module);
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/FilModule.svg")));
+
+		addChild(createWidget<ScrewStarAutinn>(Vec(RACK_GRID_WIDTH, 0.f)));
+		addChild(createWidget<ScrewStarAutinn>(Vec(box.size.x - 2.f * RACK_GRID_WIDTH, 0.f)));
+		addChild(createWidget<ScrewStarAutinn>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ScrewStarAutinn>(Vec(box.size.x - 2.f * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+
+		addParam(createParam<RoundMediumAutinnKnob>(Vec(3.f * RACK_GRID_WIDTH*0.5f-HALF_KNOB_MED, 130.f), module, Fil::DIAL_PARAM));
+
+		addInput(createInput<InPortAutinn>(Vec(3.f * RACK_GRID_WIDTH*0.5f-HALF_PORT, 245.f), module, Fil::FIL_INPUT));
+		addOutput(createOutput<OutPortAutinn>(Vec(3.f * RACK_GRID_WIDTH*0.5f-HALF_PORT, 300.f), module, Fil::FIL_OUTPUT));
+
+		addChild(createLight<MediumLight<RedLight>>(Vec(3.f * RACK_GRID_WIDTH*0.5f-9.378f*0.5f, 65.f), module, Fil::HIGH_LIGHT));
+		addChild(createLight<MediumLight<GreenLight>>(Vec(3.f * RACK_GRID_WIDTH*0.5f-9.378f*0.5f, 75.f), module, Fil::MID_LIGHT));
+		addChild(createLight<MediumLight<BlueLight>>(Vec(3.f * RACK_GRID_WIDTH*0.5f-9.378f*0.5f, 85.f), module, Fil::LOW_LIGHT));
+	}
+
+	void appendContextMenu(Menu* menu) override {
+		Fil* a = dynamic_cast<Fil*>(module);
+		assert(a);
+		
+		menu->addChild(new MenuLabel());
+		menu->addChild(new OversampleFilMenuItem(a, "Oversample x2", 2));
+		menu->addChild(new OversampleFilMenuItem(a, "Oversample x4", 4));
+		menu->addChild(new OversampleFilMenuItem(a, "Oversample x8", 8));
+	}
+};
+
+Model *modelFil = createModel<Fil, FilWidget>("Overdrive");

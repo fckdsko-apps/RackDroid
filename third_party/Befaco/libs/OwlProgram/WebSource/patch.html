@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>OpenWareLaboratory</title>
+    <meta charset="UTF-8">
+    <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0"> -->
+    <!-- <link href="css/custom.css" rel="stylesheet"> -->
+  </head>
+  <body>
+    <div class="center">
+      <h1>OWL Patch</h1>
+      <h2>Input select</h2>
+      <div class="input-select no-input">
+        <input type="button" onclick="patch.clearInput(); return false;" value="No input"/>
+        <input type="button" onclick="patch.useMicrophoneInput(); return false;" value="Microphone"/>
+        <input type="button" onclick="patch.useFileInput(); return false;" value="File"/>
+        <div class="file-input-controls">
+          <input type="file" id="file-input-selector" onchange="patch.onFileSelect(this.files)" />
+          <audio id="patch-test-audio" controls loop></audio>
+        </div>
+      </div>
+      <div id="patchname"></div>
+      <div id="p1"></div>
+      <input id="i1" type="range" min="0" max="1" step="0.001" oninput="patch.update(0, this.value)"/>
+      <div id="p2"></div>
+      <input id="i2" type="range" min="0" max="1" step="0.001" oninput="patch.update(1, this.value)"/>
+      <div id="p3"></div>
+      <input id="i3" type="range" min="0" max="1" step="0.001" oninput="patch.update(2, this.value)"/>
+      <div id="p4"></div>
+      <input id="i4" type="range" min="0" max="1" step="0.001" oninput="patch.update(3, this.value)"/>
+      <div id="p5"></div>
+      <input id="i5" type="range" min="0" max="1" step="0.001" oninput="patch.update(4, this.value)"/>
+      <div/>
+      <input id="pushbutton" type="button" 
+	     onmousedown="patch.setButton(1, 4095); return false;"
+	     onmouseup="patch.setButton(1, 0); return false;"
+	     value="Pushbutton"/>
+      <input type="button" 
+	     onmousedown="patch.update(80, 4095); return false;"
+	     onmouseup="patch.update(80, 0); return false;"
+	     value="Button A"/>
+      <input type="button" 
+	     onmousedown="patch.update(81, 4095); return false;"
+	     onmouseup="patch.update(81, 0); return false;"
+	     value="Button B"/>
+      <input type="button" 
+	     onmousedown="patch.update(82, 4095); return false;"
+	     onmouseup="patch.update(82, 0); return false;"
+	     value="Button C"/>
+      <input type="button" 
+	     onmousedown="patch.update(83, 4095); return false;"
+	     onmouseup="patch.update(83, 0); return false;"
+	     value="Button D"/>
+      <h2>Control</h2>
+      <div>
+        <input type="button" onclick="start(); return false;" value="Start Audio"/>
+        <input type="button" onclick="getMessage(); return false;" value="Message"/>
+        <input type="button" onclick="getStatus(); return false;" value="Status"/>
+      </div>
+    </div>
+
+    <!-- <script type="text/javascript" src="wavy-jones.js"></script> -->
+    <script type="text/javascript" src="patch.js"></script>
+    <script type="text/javascript" src="webaudio.js"></script>
+    <script type="text/javascript">
+var patch;
+var monitorTask;
+
+function start(){
+      patch = owl.initPatchAudio();
+      document.getElementById("patchname").innerHTML = "<h2>"+patch.getPatchName()+"</h2>";
+      document.getElementById("p1").innerHTML = "<h3>"+patch.getParameterName(0)+"</h3>";
+      document.getElementById("p2").innerHTML = "<h3>"+patch.getParameterName(1)+"</h3>";
+      document.getElementById("p3").innerHTML = "<h3>"+patch.getParameterName(2)+"</h3>";
+      document.getElementById("p4").innerHTML = "<h3>"+patch.getParameterName(3)+"</h3>";
+      document.getElementById("p5").innerHTML = "<h3>"+patch.getParameterName(4)+"</h3>";
+      document.getElementById("i1").value = patch.getParameter(0);
+      document.getElementById("i2").value = patch.getParameter(1);
+      document.getElementById("i3").value = patch.getParameter(2);
+      document.getElementById("i4").value = patch.getParameter(3);
+      document.getElementById("i5").value = patch.getParameter(4);
+      <!-- patch.scope.lineColor = "blue"; -->
+      <!-- patch.scope.lineThickness = 2; -->
+      patch.useFileInput(document.getElementById("patch-test-audio"));
+      monitorTask = window.setInterval(monitorProcess, 1000);
+      patch.connectToOutput({outputs: patch.getNumOutputs()});
+}
+
+function getMessage(){
+      var msg = patch.getMessage();
+      if(msg)
+        console.log("Program message: "+msg);
+      document.getElementById("message").innerHTML = msg;
+}
+
+function getStatus(){
+      document.getElementById("status").innerHTML = patch.getStatus();
+}
+
+function updateButton(){
+     var state = patch.getButtons();
+     var button = document.getElementById("pushbutton");
+     if(state & 0x04) // GREEN_BUTTON
+       button.style.background = 'lightgreen';
+     else if(state & 0x08) // RED_BUTTON
+       button.style.background = 'red';
+     else
+       button.style.background = 'lightgray';
+}
+
+function monitorProcess(){
+     getMessage();
+     getStatus();
+     updateButton();
+}
+
+    </script>
+    <style>
+    #oscilloscope {
+        width: 800px;
+        height: 200px;
+    }
+    </style>
+
+      <div>
+        <p id="message"></p>
+        <p id="status"></p>
+      </div>
+
+      <div id="oscilloscope"></div>
+
+  </body>
+
+</html>

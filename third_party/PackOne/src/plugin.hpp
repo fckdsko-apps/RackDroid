@@ -1,0 +1,102 @@
+#pragma once
+#include <rack.hpp>
+#include "components/components.hpp"
+#include "utils/digital.hpp"
+#include "ui/ThemedModuleWidget.hpp"
+#include "pluginhelpers.hpp"
+#include "pluginsettings.hpp"
+
+using namespace rack;
+
+
+extern Plugin* pluginInstance;
+
+
+#ifndef METAMODULE
+extern Model* modelCVMap;
+extern Model* modelCVMapCtx;
+extern Model* modelCVMapMicro;
+extern Model* modelCVPam;
+extern Model* modelRotorA;
+extern Model* modelReMoveLite;
+extern Model* modelBolt;
+extern Model* modelInfix;
+extern Model* modelInfixMicro;
+extern Model* modelStrip;
+extern Model* modelStripBay4;
+extern Model* modelStripPp;
+extern Model* modelEightFace;
+extern Model* modelEightFaceX2;
+extern Model* modelMidiCat;
+extern Model* modelMidiCatXl;
+extern Model* modelMidiCatMem;
+extern Model* modelMidiCatCtx;
+extern Model* modelMidiCatClk;
+extern Model* modelMidiCatFine;
+extern Model* modelSipo;
+extern Model* modelFourRounds;
+extern Model* modelArena;
+extern Model* modelMaze;
+extern Model* modelHive;
+extern Model* modelIntermix;
+extern Model* modelIntermixGate;
+extern Model* modelIntermixEnv;
+extern Model* modelIntermixFade;
+extern Model* modelSail;
+extern Model* modelPile;
+extern Model* modelPilePoly;
+extern Model* modelMidiStep;
+extern Model* modelMirror;
+extern Model* modelAffix;
+extern Model* modelAffixMicro;
+extern Model* modelGrip;
+extern Model* modelGlue;
+extern Model* modelGoto;
+extern Model* modelStroke;
+extern Model* modelSpin;
+extern Model* modelTransit;
+extern Model* modelTransitEx;
+extern Model* modelX4;
+extern Model* modelMacro;
+extern Model* modelRaw;
+extern Model* modelMidiMon;
+extern Model* modelOrbit;
+extern Model* modelEightFaceMk2;
+extern Model* modelEightFaceMk2Ex;
+extern Model* modelMidiPlug;
+extern Model* modelDirt;
+extern Model* modelMidiKey;
+extern Model* modelPanicRoom;
+extern Model* modelMidiEsx;
+extern Model* modelAhab;
+extern Model* modelAudioInterface64;
+extern Model* modelMb;
+extern Model* modelMe;
+extern Model* modelSiren;
+#else
+extern Model* modelBolt;
+extern Model* modelFourRounds;
+extern Model* modelMaze;
+extern Model* modelMidiStep;
+extern Model* modelHive;
+extern Model* modelOrbit;
+extern Model* modelPile;
+extern Model* modelRaw;
+#endif
+
+namespace StoermelderPackOne {
+
+bool registerSingleton(std::string name, Widget* mw);
+bool unregisterSingleton(std::string name, Widget* mw);
+Widget* getSingleton(std::string name);
+
+
+struct ModuleChangeListener {
+    bool moduleChangedFlag;
+};
+
+void registerModuleListener(std::string topic, ModuleChangeListener* l);
+void unregisterModuleListener(std::string topic, ModuleChangeListener* l);
+void notifyModuleListeners(std::string topic);
+
+} // namespace StoermelderPackOne
