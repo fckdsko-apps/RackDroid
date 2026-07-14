@@ -1,3 +1,4 @@
+English version at: [`ENGLISH_README`](https://github.com/nowheel/RackDroid/blob/main/README.en.md)
 # RackDroid — sintetizzatore modulare per Android
 
 Port **non ufficiale** del motore di [VCV Rack 2](https://vcvrack.com) su Android,
