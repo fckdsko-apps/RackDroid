@@ -15,6 +15,8 @@ import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.json.JSONArray
@@ -206,8 +208,8 @@ class ModulePalette(
 		val decor = activity.window.decorView
 		decor.post {
 			runCatching {
-				val bottom = decor.rootWindowInsets?.getInsets(
-					android.view.WindowInsets.Type.systemBars())?.bottom ?: 0
+				val bottom = ViewCompat.getRootWindowInsets(decor)?.getInsets(
+					WindowInsetsCompat.Type.systemBars())?.bottom ?: 0
 				p.showAtLocation(decor, Gravity.BOTTOM or Gravity.START, 0, bottom + dp(6))
 				card.alpha = 0f
 				card.translationY = dp(32).toFloat()

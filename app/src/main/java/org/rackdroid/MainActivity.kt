@@ -43,10 +43,22 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
+
+/** Cross-window blur (the glass card look) needs isCrossWindowBlurEnabled,
+ *  API 31+ only -- calling it on API 29/30 throws NoSuchMethodError. Shared
+ *  by every glass surface (MainActivity, ModuleBrowserSheet, HelpUi). */
+fun crossWindowBlurEnabled(windowManager: android.view.WindowManager): Boolean =
+	android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+		windowManager.isCrossWindowBlurEnabled
 
 /**
  * Java-side services for the native app (native/port/):
@@ -303,9 +315,9 @@ class MainActivity : NativeActivity() {
 		val decor = window.decorView
 		decor.post { // runs once the decor is attached (valid window token)
 			try {
-				val top = decor.rootWindowInsets?.getInsets(
-					android.view.WindowInsets.Type.systemBars()
-						or android.view.WindowInsets.Type.displayCutout())?.top ?: 0
+				val top = ViewCompat.getRootWindowInsets(decor)?.getInsets(
+					WindowInsetsCompat.Type.systemBars()
+						or WindowInsetsCompat.Type.displayCutout())?.top ?: 0
 				topPopup.showAtLocation(decor, Gravity.TOP or Gravity.START, 0, top)
 				// Entrance: the card drops in from above.
 				card.alpha = 0f
@@ -451,8 +463,8 @@ class MainActivity : NativeActivity() {
 		val decor = window.decorView
 		decor.post {
 			try {
-				val bottom = decor.rootWindowInsets?.getInsets(
-					android.view.WindowInsets.Type.systemBars())?.bottom ?: 0
+				val bottom = ViewCompat.getRootWindowInsets(decor)?.getInsets(
+					WindowInsetsCompat.Type.systemBars())?.bottom ?: 0
 				popup.showAtLocation(decor, Gravity.BOTTOM or Gravity.START, 0, bottom)
 				jlog("virtual keyboard shown")
 			} catch (t: Throwable) {
@@ -575,7 +587,7 @@ class MainActivity : NativeActivity() {
 	private fun handleImportIntent(intent: Intent?) {
 		val uri: Uri = when (intent?.action) {
 			Intent.ACTION_VIEW -> intent.data
-			Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+			Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
 			else -> null
 		} ?: return
 		try {
@@ -873,11 +885,11 @@ class MainActivity : NativeActivity() {
 	 * Rack's menu bar (File/Edit/View...) and swallows its touches. System
 	 * bars reappear transiently with an edge swipe. */
 	private fun hideSystemBars() {
-		window.setDecorFitsSystemWindows(false)
-		window.insetsController?.let {
-			it.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+		WindowCompat.setDecorFitsSystemWindows(window, false)
+		WindowInsetsControllerCompat(window, window.decorView).let {
+			it.hide(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
 			it.systemBarsBehavior =
-				android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+				WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 		}
 	}
 
@@ -1050,14 +1062,14 @@ class MainActivity : NativeActivity() {
 	 * nearly-opaque fallback so the card never turns to unreadable mud. */
 	fun glassify(window: android.view.Window?, radiusDp: Int = 48) {
 		window ?: return
-		if (windowManager.isCrossWindowBlurEnabled) {
+		if (crossWindowBlurEnabled(windowManager)) {
 			window.addFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
 			window.attributes = window.attributes.apply { blurBehindRadius = dp(radiusDp) }
 		}
 	}
 
 	fun glassCardColor(): Int = Color.parseColor(
-		if (windowManager.isCrossWindowBlurEnabled) "#CC221F1A" else "#F5221F1A")
+		if (crossWindowBlurEnabled(windowManager)) "#CC221F1A" else "#F5221F1A")
 
 	/** Dismisses menuDialog, if any, without telling native (its dismissal
 	 * was either native-initiated already, or is about to be replaced by a
@@ -1477,8 +1489,16 @@ class MainActivity : NativeActivity() {
 	private var bleCallback: ScanCallback? = null
 
 	private fun showBleMidiScanner() {
-		val need = arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-			.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+		// BLUETOOTH_SCAN/CONNECT don't exist before API 31 -- requesting an
+		// unrecognized permission is silently auto-denied there, so BLE scan
+		// would never work on API 29/30 without this branch. Below 31, a BLE
+		// scan instead needs ACCESS_FINE_LOCATION at runtime (BLUETOOTH/
+		// BLUETOOTH_ADMIN are normal, install-time only -- see manifest).
+		val required = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S)
+			arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+		else
+			arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+		val need = required.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
 		if (need.isNotEmpty()) {
 			requestPermissions(need.toTypedArray(), 2)
 			return

@@ -95,8 +95,15 @@ Obiettivo: vedere il rack renderizzato e interagirci.
 
 ## Debiti tecnici correnti
 
-- `minSdk 33` per `<execinfo.h>` (system::getStackTrace): scendere richiede
-  uno shim backtrace (es. unwind.h) 
+- `minSdk 29` (Android 10): risolto lo shim `<execinfo.h>` che teneva il
+  minimo a 33 (`native/compat/execinfo.h`, backtrace via `<unwind.h>` sotto
+  API 33). Il pavimento reale ora è l'API MIDI nativa AMidi, anche lei
+  introdotta in API 29. Bluetooth LE MIDI usa BLUETOOTH_SCAN/CONNECT su
+  API 31+ e ACCESS_FINE_LOCATION + BLUETOOTH/BLUETOOTH_ADMIN legacy su
+  API 29-30 (branch in `MainActivity.showBleMidiScanner`). Inset/immersive
+  mode e cross-window blur passano per androidx WindowCompat/
+  WindowInsetsControllerCompat invece delle API dirette (che richiedevano
+  30/31/33), così girano fino ad API 29 senza NoSuchMethodError.
 - La rejection del manifest Core in fase 1 è attesa (stub senza modelli)
 - Il branding va cambiato prima di qualunque distribuzione (trademark VCV,
   asset CC BY-NC: vedi README)

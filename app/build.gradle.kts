@@ -79,12 +79,14 @@ android {
 
 	defaultConfig {
 		applicationId = "org.rackdroid"
-		// bionic gained <execinfo.h> (used by Rack's system::getStackTrace)
-		// in API 33. A compat shim can lower this later.
-		minSdk = 33
+		// Android 10 (Q). Bionic's <execinfo.h> (Rack's system::getStackTrace)
+		// only exists from API 33; native/compat/execinfo.h shims backtrace()
+		// via the unwind.h EH API below that, so the true floor is Q's AMidi
+		// native MIDI API (native/port/amidi_driver.cpp), also API 29.
+		minSdk = 29
 		targetSdk = 35
-		versionCode = 1
-		versionName = "0.1.0"
+		versionCode = 2
+		versionName = "0.1.1"
 
 		ndk {
 			abiFilters += listOf("arm64-v8a")
@@ -93,7 +95,7 @@ android {
 			cmake {
 				arguments += listOf(
 					"-DANDROID_STL=c++_shared",
-					"-DANDROID_PLATFORM=android-33"
+					"-DANDROID_PLATFORM=android-29"
 				)
 				// rackdroid pulls in librack_engine.so; the plugin .so are
 				// dlopen'd at runtime and must be packaged explicitly.

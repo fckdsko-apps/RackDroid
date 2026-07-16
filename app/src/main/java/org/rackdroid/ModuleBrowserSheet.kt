@@ -117,7 +117,7 @@ class ModuleBrowserSheet(
 		parseModels()
 
 		val glass = activity as? MainActivity
-		val blurOn = activity.windowManager.isCrossWindowBlurEnabled
+		val blurOn = crossWindowBlurEnabled(activity.windowManager)
 		val root = LinearLayout(activity).apply {
 			orientation = LinearLayout.VERTICAL
 			// Fullscreen glass: the rack shows through, blurred, behind the
@@ -364,7 +364,7 @@ class ModuleBrowserSheet(
 		val meta = listOf(m.plugin, m.version, m.license).filter { it.isNotEmpty() }
 		line(meta.joinToString(" — "), "#9A9284", 11f, padTop = 10)
 
-		val blurOn = activity.windowManager.isCrossWindowBlurEnabled
+		val blurOn = crossWindowBlurEnabled(activity.windowManager)
 		Dialog(activity).apply {
 			setContentView(android.widget.ScrollView(activity).apply { addView(content) })
 			// The default dialog window background is light and pokes out

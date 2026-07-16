@@ -13,6 +13,8 @@ import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 /** In-app help surfaces: a library of topic guides (Help ▸ Guide) and two
  * step-by-step wizards (basic + Pro), reached via the synthetic Help rows
@@ -148,7 +150,7 @@ private fun staggerIn(parent: ViewGroup, stepMs: Long = 24L) {
 }
 
 private fun glassDialog(activity: Activity, content: View): Dialog {
-	val blurOn = activity.windowManager.isCrossWindowBlurEnabled
+	val blurOn = crossWindowBlurEnabled(activity.windowManager)
 	val dialog = Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
 	dialog.setContentView(ScrollView(activity).apply {
 		setBackgroundColor(Color.parseColor(if (blurOn) "#E0221F1A" else "#221F1A"))
@@ -756,8 +758,8 @@ class Wizard(
 
 	/** Just below the status bar and the collapsed tools card's arrow. */
 	private fun topOffset(): Int {
-		val inset = activity.window.decorView.rootWindowInsets?.getInsets(
-			android.view.WindowInsets.Type.systemBars())?.top ?: 0
+		val inset = ViewCompat.getRootWindowInsets(activity.window.decorView)?.getInsets(
+			WindowInsetsCompat.Type.systemBars())?.top ?: 0
 		return inset + dp(56)
 	}
 
