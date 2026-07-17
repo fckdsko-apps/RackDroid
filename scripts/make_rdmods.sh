@@ -14,7 +14,9 @@ cd "$(dirname "$0")/.."
 # build restricts `targets` to the base three. Build every plugin first:
 #   ANDROID_HOME=~/android-sdk gradle externalNativeBuildRelease \
 #     -Pandroid.injected.build.abi=arm64-v8a   # or drop the `targets` line
-SO=$(ls -d app/build/intermediates/cxx/*/*/obj/arm64-v8a 2>/dev/null | head -1)
+# Newest release config only: a bare */* glob can hit a stale Debug dir
+# whose .so predate the current toolchain flags (e.g. 16 KB page align).
+SO=$(ls -dt app/build/intermediates/cxx/RelWithDebInfo/*/obj/arm64-v8a 2>/dev/null | head -1)
 [ -z "$SO" ] && SO=app/build/intermediates/stripped_native_libs/release/stripReleaseDebugSymbols/out/lib/arm64-v8a
 OUT="${1:-/tmp/rdmods}"
 mkdir -p "$OUT"
