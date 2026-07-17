@@ -1,0 +1,607 @@
+<title>RackDroid — sintetizzatore modulare per Android</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="RackDroid: il motore di VCV Rack 2, nativo su Android. Costruisci patch modulari col dito, ovunque tu sia.">
+<style>
+  @font-face {
+    font-family: "Geomini";
+    src: url("assets/fonts/Geomini.ttf") format("truetype");
+    font-weight: 400 700;
+    font-display: swap;
+  }
+
+  :root {
+    color-scheme: dark;
+    --bg: #120f0b;
+    --bg-1: #17130d;
+    --panel: #201b14;
+    --panel-2: #251f17;
+    --rail: #2c2519;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.17);
+    --text: #ede6d8;
+    --text-dim: #a29a8b;
+    --text-faint: #6f695d;
+    --amber: #f9b130;
+    --amber-soft: #ffda9f;
+    --amber-glow: rgba(249,177,48,0.35);
+    --red: #d45b52;
+    --teal: #4fb8a6;
+    --violet: #9b7fd4;
+    --blue: #5b9bd5;
+    --radius-panel: 18px;
+    --wrap: 1080px;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(249,177,48,0.10), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(91,155,213,0.06), transparent 60%);
+  }
+  ::selection { background: var(--amber); color: #17140f; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 28px; }
+
+  a { color: var(--amber-soft); }
+
+  /* ---------- nav ---------- */
+  .nav {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(18,15,11,0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .nav-brand { display: flex; align-items: center; gap: 10px; font-family: "Geomini", sans-serif; font-size: 20px; letter-spacing: 0.02em; }
+  .nav-brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
+  .nav-cta {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; letter-spacing: 0.03em;
+    color: #17140f; background: var(--amber-soft);
+    border: none; border-radius: 999px; padding: 9px 18px;
+    text-decoration: none; font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    display: inline-block;
+  }
+  .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(249,177,48,0.28); }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .nav-lang {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; color: var(--text-dim); text-decoration: none;
+    border: 1px solid var(--border-strong); border-radius: 999px; padding: 8px 14px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .nav-lang:hover { color: var(--amber-soft); border-color: var(--amber-soft); }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; padding: 88px 0 60px; overflow: hidden; }
+  #patchCanvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    opacity: 0.9;
+    pointer-events: none;
+    mask-image: linear-gradient(to bottom, black 55%, transparent 96%);
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 96%);
+  }
+  .hero .wrap {
+    position: relative; z-index: 2;
+    display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center;
+  }
+  @media (max-width: 860px) { .hero .wrap { grid-template-columns: 1fr; } }
+
+  .kicker {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--amber-soft); margin: 0 0 18px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .kicker::before { content: ""; width: 22px; height: 1px; background: var(--amber-soft); display: inline-block; }
+
+  h1.wordmark {
+    font-family: "Geomini", sans-serif;
+    font-size: clamp(48px, 8vw, 76px);
+    line-height: 0.98;
+    margin: 0 0 20px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  h1.wordmark .rd { color: var(--amber); }
+
+  .hero-lede {
+    font-size: 18px; color: var(--text-dim); max-width: 46ch; margin: 0 0 32px;
+  }
+  .hero-lede strong { color: var(--text); }
+
+  .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 40px; }
+  .btn {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 14px; letter-spacing: 0.02em;
+    border-radius: 12px; padding: 14px 24px;
+    text-decoration: none; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 10px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--amber); color: #17140f; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(249,177,48,0.32); }
+  .btn-ghost { background: transparent; color: var(--text); border-color: var(--border-strong); }
+  .btn-ghost:hover { border-color: var(--amber-soft); color: var(--amber-soft); transform: translateY(-2px); }
+
+  .hero-meta {
+    display: flex; gap: 22px; flex-wrap: wrap;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; color: var(--text-faint);
+  }
+  .hero-meta span b { color: var(--text-dim); }
+
+  .device {
+    position: relative;
+    border-radius: 34px;
+    padding: 12px;
+    background: linear-gradient(160deg, #2b2519, #17130d 60%);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.4);
+    max-width: 320px;
+    margin: 0 auto;
+    animation: float 7s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .device { animation: none; } }
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(-0.4deg); }
+    50% { transform: translateY(-14px) rotate(0.4deg); }
+  }
+  .device img { width: 100%; display: block; border-radius: 24px; }
+  .device::after {
+    content: "";
+    position: absolute; left: 50%; top: 6px; transform: translateX(-50%);
+    width: 46px; height: 5px; border-radius: 3px; background: rgba(0,0,0,0.5);
+  }
+
+  /* ---------- rack rail divider ---------- */
+  .rail {
+    height: 30px;
+    background: var(--rail);
+    border-top: 1px solid var(--border-strong);
+    border-bottom: 1px solid var(--border-strong);
+    background-image: radial-gradient(circle, rgba(0,0,0,0.5) 1.4px, transparent 1.6px);
+    background-size: 22px 22px;
+    background-position: 11px center;
+  }
+
+  section { padding: 84px 0; }
+  section.tight { padding: 60px 0; }
+
+  .section-head { max-width: 620px; margin: 0 0 46px; }
+  .section-head .kicker { margin-bottom: 12px; }
+  h2.section-title {
+    font-family: "Geomini", sans-serif;
+    font-size: clamp(28px, 4vw, 38px);
+    margin: 0 0 14px; text-wrap: balance;
+  }
+  .section-head p { color: var(--text-dim); font-size: 16.5px; margin: 0; max-width: 56ch; }
+
+  /* ---------- reveal ---------- */
+  .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .reveal.in-view { opacity: 1; transform: translateY(0); }
+  .reveal-stagger.in-view > * { animation: none; }
+
+  /* ---------- why grid ---------- */
+  .why-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  }
+  @media (max-width: 900px) { .why-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 620px) { .why-grid { grid-template-columns: 1fr; } }
+  .why-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    padding: 26px 24px;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .why-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--border-strong);
+    box-shadow: 0 16px 34px -18px rgba(0,0,0,0.6);
+  }
+  .why-icon { width: 38px; height: 38px; margin-bottom: 16px; }
+  .why-card h3 { font-size: 16.5px; margin: 0 0 8px; color: var(--text); }
+  .why-card p { font-size: 14.5px; color: var(--text-dim); margin: 0; }
+
+  /* ---------- showcase ---------- */
+  .showcase-wrap {
+    position: relative;
+    display: flex; gap: 40px; justify-content: center; align-items: center; flex-wrap: wrap;
+    padding: 20px 0 10px;
+  }
+  .showcase-frame {
+    border-radius: 26px; padding: 9px;
+    background: linear-gradient(160deg, #2b2519, #17130d 60%);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 24px 50px -22px rgba(0,0,0,0.6);
+    width: 240px;
+    transition: transform 0.3s ease;
+  }
+  .showcase-frame:hover { transform: translateY(-6px); }
+  .showcase-frame img { width: 100%; display: block; border-radius: 18px; }
+  svg.cable-connector { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .cable-path { fill: none; stroke: var(--amber); stroke-width: 2; opacity: 0.55; }
+
+  /* ---------- feature rack rows ---------- */
+  .rack-row {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 20px 18px;
+    position: relative;
+  }
+  .rack-row::before, .rack-row::after {
+    content: ""; position: absolute; top: 9px; width: 6px; height: 6px; border-radius: 50%;
+    background: #3a3226; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4);
+  }
+  .rack-row::before { left: 9px; }
+  .rack-row::after { right: 9px; }
+  .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .feature-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .feature-grid { grid-template-columns: 1fr; } }
+  .rack-row .f-icon { font-size: 21px; margin-bottom: 10px; display: block; }
+  .rack-row h4 {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--amber-soft); margin: 0 0 8px;
+  }
+  .rack-row p { font-size: 13.5px; color: var(--text-dim); margin: 0; }
+
+  /* ---------- expand / plugins ---------- */
+  .plugin-pills { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 0; }
+  .pill {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; padding: 9px 16px; border-radius: 999px;
+    background: var(--panel-2); border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .pill:hover { color: var(--amber-soft); border-color: var(--amber-soft); }
+
+  /* ---------- cta ---------- */
+  .cta-panel {
+    background: radial-gradient(ellipse 700px 300px at 30% 0%, rgba(249,177,48,0.14), transparent 70%), var(--panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 26px;
+    padding: 56px 48px;
+    text-align: center;
+  }
+  @media (max-width: 620px) { .cta-panel { padding: 40px 24px; } }
+  .cta-panel h2 { font-family: "Geomini", sans-serif; font-size: clamp(26px, 4vw, 36px); margin: 0 0 14px; }
+  .cta-panel p { color: var(--text-dim); max-width: 50ch; margin: 0 auto 30px; }
+  .req-line {
+    margin-top: 26px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; color: var(--text-faint);
+  }
+
+  /* ---------- footer ---------- */
+  footer { padding: 40px 0 60px; border-top: 1px solid var(--border); }
+  footer .wrap { display: flex; flex-direction: column; gap: 14px; }
+  .foot-links { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; }
+  .foot-fine { font-size: 12px; color: var(--text-faint); line-height: 1.7; max-width: 70ch; }
+
+  .scope {
+    width: 100%; height: 46px; display: block; margin: 0 0 6px;
+    opacity: 0.55;
+  }
+</style>
+
+<nav class="nav">
+  <div class="wrap">
+    <div class="nav-brand"><span class="dot"></span>RackDroid</div>
+    <div class="nav-right">
+      <a class="nav-lang" href="index.html">EN</a>
+      <a class="nav-cta" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">Scarica su GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <canvas id="patchCanvas"></canvas>
+  <div class="wrap">
+    <div>
+      <p class="kicker">Sintetizzatore modulare per Android</p>
+      <h1 class="wordmark">Il tuo rack<br>modulare<span class="rd">.</span><br>In tasca<span class="rd">.</span></h1>
+      <p class="hero-lede">
+        <strong>RackDroid</strong> porta il motore audio di VCV Rack 2 su Android, col tocco al
+        posto del mouse. Trascini cavi veri tra oscillatori, filtri e sequencer — nessun
+        compromesso, nessun clone: è lo stesso engine, reso nativo per il telefono.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Scarica RackDroid</a>
+        <a class="btn btn-ghost" href="#showcase">Guarda l'interfaccia</a>
+      </div>
+      <div class="hero-meta">
+        <span><b>66</b> moduli inclusi</span>
+        <span><b>Android 10+</b></span>
+        <span><b>GPLv3</b>, open source</span>
+        <span><b>~40 MB</b></span>
+      </div>
+    </div>
+    <div class="device">
+      <img src="assets/screenshots/patch-rack.png" alt="RackDroid in esecuzione: una patch con sequencer, VCO, VCF e ADSR">
+    </div>
+  </div>
+</header>
+
+<div class="rail"></div>
+
+<section>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Perché RackDroid</p>
+      <h2 class="section-title">Non un giocattolo. Un rack vero.</h2>
+      <p>Ogni scelta di design parte da una domanda: funzionerebbe con un dito su uno schermo da 6 pollici? Se la risposta era no, l'abbiamo ridisegnato — non solo ridimensionato.</p>
+    </div>
+    <div class="why-grid reveal-stagger">
+      <div class="why-card reveal">
+        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="13" stroke="#f9b130" stroke-width="2.4"/><path d="M20 20 L13 13" stroke="#ffda9f" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <h3>È VCV Rack, non un clone</h3>
+        <p>Stesso motore DSP, stessi 66 moduli, stesso formato <code>.vcv</code> — sui sorgenti upstream v2.6.4, non modificati.</p>
+      </div>
+      <div class="why-card reveal">
+        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M8 30 C14 14, 26 14, 32 30" stroke="#d45b52" stroke-width="2.4" fill="none"/><circle cx="8" cy="30" r="3" fill="#d45b52"/><circle cx="32" cy="30" r="3" fill="#d45b52"/></svg>
+        <h3>Pensato per il tocco</h3>
+        <p>Non una UI desktop rimpicciolita: cavi trascinabili col dito, manopole a pressione lunga per digitare un valore, pizzico per lo zoom.</p>
+      </div>
+      <div class="why-card reveal">
+        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M6 24 L14 24 L18 10 L24 32 L28 20 L34 20" stroke="#4fb8a6" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <h3>Latenza nativa bassa</h3>
+        <p>Oboe/AAudio, full-duplex — suona in tempo reale, non un giocattolo che scatta.</p>
+      </div>
+      <div class="why-card reveal">
+        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><rect x="8" y="8" width="10" height="10" rx="2" stroke="#9b7fd4" stroke-width="2.2"/><rect x="22" y="22" width="10" height="10" rx="2" stroke="#ffda9f" stroke-width="2.2"/><path d="M18 13 L26 13 L26 22" stroke="#9b7fd4" stroke-width="2.2" fill="none"/></svg>
+        <h3>Cresce con te</h3>
+        <p>Parti con i 66 moduli inclusi, poi aggiungi pacchetti interi (Bogaudio, Valley, Befaco…) al volo, senza aggiornare l'app.</p>
+      </div>
+      <div class="why-card reveal">
+        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><rect x="9" y="6" width="22" height="30" rx="3" stroke="#5b9bd5" stroke-width="2.2"/><path d="M15 30 L25 30" stroke="#5b9bd5" stroke-width="2.2" stroke-linecap="round"/></svg>
+        <h3>Anche su hardware datato</h3>
+        <p>Supportato da Android 10 in su: gira anche su telefoni e tablet non più giovanissimi.</p>
+      </div>
+      <div class="why-card reveal">
+        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M8 20 L14 20 L17 10 L22 30 L25 20 L32 20" stroke="#f9b130" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <h3>Codice aperto, per sempre</h3>
+        <p>GPLv3, sorgenti completi nel repository. Nessun account, nessuna licenza a pagamento, nessun tracking.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rail"></div>
+
+<section id="showcase">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Interfaccia</p>
+      <h2 class="section-title">Uno screenshot vero. Non un mockup.</h2>
+      <p>Sequencer, VCO, VCF, inviluppo ADSR e mixer — presi da un dispositivo reale in esecuzione, con la barra strumenti a vetro che si apre sopra il rack.</p>
+    </div>
+    <div class="showcase-wrap reveal">
+      <div class="showcase-frame">
+        <img src="assets/screenshots/patch-rack.png" alt="Una patch attiva in RackDroid">
+      </div>
+      <div class="showcase-frame">
+        <img src="assets/screenshots/toolbar-menus.png" alt="Barra strumenti e menu di RackDroid">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rail"></div>
+
+<section>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Dentro il rack</p>
+      <h2 class="section-title">Cosa include</h2>
+      <p>Tutto quello che serve per costruire un suono dal nulla, già nell'APK base.</p>
+    </div>
+    <div class="rack-row reveal">
+      <div class="feature-grid">
+        <div><span class="f-icon">🎚️</span><h4>Motore audio</h4><p>Nativo, Oboe/AAudio, full-duplex, bassa latenza.</p></div>
+        <div><span class="f-icon">🧩</span><h4>66 moduli</h4><p>Core, Fundamental (39 moduli), RackDroid Drums (14 voci originali).</p></div>
+        <div><span class="f-icon">👆</span><h4>Touch reale</h4><p>Cavi e moduli col dito, zoom a pizzico, valori a pressione lunga.</p></div>
+        <div><span class="f-icon">🪟</span><h4>Barra a vetro</h4><p>Menu, palette moduli, gestore plugin, undo/redo, blocco layout.</p></div>
+        <div><span class="f-icon">🧲</span><h4>Palette moduli</h4><p>Chip per categoria, anteprime trascinabili, badge info per ogni modulo.</p></div>
+        <div><span class="f-icon">🎹</span><h4>MIDI</h4><p>Tastiera a schermo, MIDI USB e Bluetooth LE.</p></div>
+        <div><span class="f-icon">⏺️</span><h4>Registrazione</h4><p>Uscita su file WAV, salvata in Documents/RackDroid/.</p></div>
+        <div><span class="f-icon">🎓</span><h4>30 tutorial</h4><p>Guidati passo-passo su 5 livelli, più una guida per argomenti.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rail"></div>
+
+<section class="tight">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Moduli aggiuntivi</p>
+      <h2 class="section-title">Pacchetti extra, senza aggiornare l'app</h2>
+      <p>Installi file <code>.rdmod</code> dal gestore moduli integrato, oppure li copi nella cartella <code>Modules/</code> — vengono caricati subito.</p>
+    </div>
+    <div class="plugin-pills reveal">
+      <span class="pill">Bogaudio</span>
+      <span class="pill">Valley</span>
+      <span class="pill">Audible Instruments</span>
+      <span class="pill">Impromptu</span>
+      <span class="pill">Befaco</span>
+      <span class="pill">HetrickCV</span>
+      <span class="pill">Aria</span>
+      <span class="pill">Bidoo</span>
+      <span class="pill">…e altri</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="cta-panel reveal">
+      <svg class="scope" viewBox="0 0 400 46" preserveAspectRatio="none"><path id="scopePath" d="M0 23 L400 23" stroke="#f9b130" stroke-width="1.5" fill="none"/></svg>
+      <h2>Pronto a costruire il tuo primo suono?</h2>
+      <p>Gratis, open source, senza account. Scarica l'APK dal repository e sei dentro in un minuto.</p>
+      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Scarica RackDroid su GitHub</a>
+      <div class="req-line">Richiede Android 10 (API 29) o successivo · arm64-v8a · OpenGL ES 3.0</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-links">
+      <a href="https://github.com/nowheel/RackDroid">Repository</a>
+      <a href="https://github.com/nowheel/RackDroid/blob/main/MODULES.md">Creare un plugin</a>
+      <a href="https://github.com/nowheel/RackDroid/issues">Segnala un problema</a>
+      <a href="https://vcvrack.com" target="_blank" rel="noopener">VCV Rack</a>
+    </div>
+    <p class="foot-fine">
+      RackDroid è un port <strong>non ufficiale</strong> del motore di VCV Rack 2, costruito sui
+      sorgenti upstream non modificati (GPLv3). Non affiliato né approvato da VCV; il nome/logo
+      "VCV" non è usato nell'app. Grafica di RackDroid rifatta e distribuita in GPLv3.
+    </p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---- scroll reveal ----
+  var els = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window && !reduced) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e, i) {
+        if (e.isIntersecting) {
+          setTimeout(function () { e.target.classList.add('in-view'); }, (i % 6) * 70);
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    els.forEach(function (el) { io.observe(el); });
+  } else {
+    els.forEach(function (el) { el.classList.add('in-view'); });
+  }
+
+  // ---- ambient patch-cable canvas ----
+  var canvas = document.getElementById('patchCanvas');
+  var ctx = canvas.getContext('2d');
+  var W, H, DPR;
+
+  function resize() {
+    var rect = canvas.getBoundingClientRect();
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = rect.width; H = rect.height;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  var jacks = [
+    { x: 0.06, y: 0.28 }, { x: 0.26, y: 0.62 }, { x: 0.46, y: 0.18 },
+    { x: 0.64, y: 0.58 }, { x: 0.86, y: 0.30 }, { x: 0.40, y: 0.80 },
+    { x: 0.14, y: 0.78 }, { x: 0.94, y: 0.68 }
+  ];
+  var cables = [
+    { a: 0, b: 1, c: '#d45b52' }, { a: 1, b: 2, c: '#f9b130' },
+    { a: 2, b: 3, c: '#4fb8a6' }, { a: 3, b: 4, c: '#9b7fd4' },
+    { a: 1, b: 6, c: '#5b9bd5' }, { a: 6, b: 5, c: '#f9b130' },
+    { a: 3, b: 7, c: '#d45b52' }
+  ];
+
+  function jackPos(i) { return { x: jacks[i].x * W, y: jacks[i].y * H }; }
+
+  function bez(p0, p1, p2, p3, t) {
+    var mt = 1 - t;
+    return {
+      x: mt * mt * mt * p0.x + 3 * mt * mt * t * p1.x + 3 * mt * t * t * p2.x + t * t * t * p3.x,
+      y: mt * mt * mt * p0.y + 3 * mt * mt * t * p1.y + 3 * mt * t * t * p2.y + t * t * t * p3.y
+    };
+  }
+
+  function draw(t) {
+    ctx.clearRect(0, 0, W, H);
+    cables.forEach(function (cab, ci) {
+      var p0 = jackPos(cab.a), p1 = jackPos(cab.b);
+      var sag = 46 + 18 * Math.sin(ci * 1.7);
+      var midY = Math.max(p0.y, p1.y) + sag;
+      var cp1 = { x: p0.x + (p1.x - p0.x) * 0.25, y: midY };
+      var cp2 = { x: p0.x + (p1.x - p0.x) * 0.75, y: midY };
+
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p1.x, p1.y);
+      ctx.strokeStyle = cab.c;
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = 2.4;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      if (!reduced) {
+        var tt = ((t * 0.00045) + ci * 0.15) % 1;
+        var pt = bez(p0, cp1, cp2, p1, tt);
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffda9f';
+        ctx.shadowColor = cab.c;
+        ctx.shadowBlur = 9;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    jacks.forEach(function (j) {
+      var p = { x: j.x * W, y: j.y * H };
+      ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#241f18'; ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,218,159,0.4)'; ctx.lineWidth = 1; ctx.stroke();
+    });
+  }
+
+  if (reduced) {
+    draw(0);
+  } else {
+    requestAnimationFrame(function loop(ts) { draw(ts); requestAnimationFrame(loop); });
+  }
+
+  // ---- scope line idle animation ----
+  var scopePath = document.getElementById('scopePath');
+  if (scopePath && !reduced) {
+    var pts = [];
+    for (var i = 0; i <= 40; i++) pts.push(i);
+    function scopeFrame(ts) {
+      var d = 'M0 23 ';
+      for (var i = 1; i <= 40; i++) {
+        var x = i * 10;
+        var y = 23 + Math.sin(i * 0.5 + ts * 0.0018) * 7 * Math.sin(ts * 0.0006 + i * 0.1);
+        d += 'L' + x + ' ' + y.toFixed(1) + ' ';
+      }
+      scopePath.setAttribute('d', d);
+      requestAnimationFrame(scopeFrame);
+    }
+    requestAnimationFrame(scopeFrame);
+  }
+})();
+</script>
