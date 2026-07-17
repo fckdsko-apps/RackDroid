@@ -81,6 +81,7 @@ class MainActivity : NativeActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
+		AppTheme.init(this) // before any themed view gets built below
 		hideSystemBars()
 		jlog("RackDroid ${packageManager.getPackageInfo(packageName, 0).versionName} starting")
 
@@ -145,7 +146,7 @@ class MainActivity : NativeActivity() {
 			orientation = LinearLayout.HORIZONTAL
 			// Translucent: the rack scrolls under a smoked-glass strip (the
 			// popup window also gets blur-behind below, where supported).
-			setBackgroundColor(Color.parseColor("#C21B1815"))
+			setBackgroundColor(AppTheme.withAlpha(AppTheme.current.surface, 76))
 		}
 		// label -> canvas MenuBar child index (File=0 .. Help=5). "Library"
 		// (index 4) is deliberately absent: it only manages a VCV account /
@@ -164,7 +165,7 @@ class MainActivity : NativeActivity() {
 				androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
 					this, 7, 12, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
 				setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
-				setTextColor(Color.parseColor("#EDE6D8"))
+				setTextColor(AppTheme.current.textPrimary)
 				gravity = Gravity.CENTER
 				background = amberRippleRounded()
 				setPadding(0, dp(12), 0, dp(12))
@@ -179,8 +180,8 @@ class MainActivity : NativeActivity() {
 			layoutParams = LinearLayout.LayoutParams(
 				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 		}
-		val iconTint = android.content.res.ColorStateList.valueOf(Color.parseColor("#E4DCCB"))
-		val amberTint = android.content.res.ColorStateList.valueOf(Color.parseColor("#FFDA9F"))
+		val iconTint = android.content.res.ColorStateList.valueOf(AppTheme.current.textPrimary)
+		val amberTint = android.content.res.ColorStateList.valueOf(AppTheme.current.accent)
 		// One consistent set of line icons (vector drawables, uniformly tinted),
 		// each in an equal-weight slot so the row spreads evenly -- replaces the
 		// old grab-bag of mismatched colour emoji. Toggles light up amber.
@@ -199,13 +200,14 @@ class MainActivity : NativeActivity() {
 			}
 		val paletteButton = iconButton(R.drawable.ic_tb_modules, getString(R.string.menu_view)) { modulePalette.toggle() }
 		val installButton = iconButton(R.drawable.ic_tb_install, getString(R.string.modules_manager_title)) { showModuleManager() }
+		val themeButton = iconButton(R.drawable.ic_tb_theme, getString(R.string.theme_picker_title)) { showThemePicker() }
 		val undoButton = iconButton(R.drawable.ic_tb_undo, "Undo") { nativeHistoryAction(0) }
 		val redoButton = iconButton(R.drawable.ic_tb_redo, "Redo") { nativeHistoryAction(1) }
 		val midiButton = iconButton(R.drawable.ic_tb_midi, "MIDI") { showBleMidiScanner() }
 		val keyboardButton = iconButton(R.drawable.ic_tb_keyboard, "Keyboard") { toggleVirtualKeyboard() }
 		val creditsButton = iconButton(R.drawable.ic_tb_info, "Info") { showCredits() }
 		val recordButton = iconButton(R.drawable.ic_tb_record, "Record") { toggleRecording(it) }
-		recordButton.imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF6B6B"))
+		recordButton.imageTintList = android.content.res.ColorStateList.valueOf(AppTheme.current.danger)
 		// Patch padlocks. Outline lock freezes the layout (module positions +
 		// cables, knobs stay live); the solid lock freezes everything including
 		// parameters. Active = amber + full opacity; inactive dimmed. Persisted.
@@ -228,6 +230,7 @@ class MainActivity : NativeActivity() {
 		applyLocks() // restore persisted state (also styles both buttons)
 		iconRow.addView(paletteButton)
 		iconRow.addView(installButton)
+		iconRow.addView(themeButton)
 		iconRow.addView(undoButton)
 		iconRow.addView(redoButton)
 		iconRow.addView(lockButton)
@@ -238,7 +241,7 @@ class MainActivity : NativeActivity() {
 		iconRow.addView(creditsButton)
 		menuRow.setBackgroundColor(Color.TRANSPARENT)
 		val menuDivider = View(this).apply {
-			setBackgroundColor(Color.parseColor("#1AFFFFFF"))
+			setBackgroundColor(AppTheme.withAlpha(Color.WHITE, 10))
 			layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1))
 				.apply { setMargins(dp(10), dp(3), dp(10), dp(4)) }
 		}
@@ -250,13 +253,13 @@ class MainActivity : NativeActivity() {
 		// A reusable rounded glass pill for the handle button.
 		fun glassPill() = GradientDrawable().apply {
 			cornerRadius = dp(18).toFloat()
-			setColor(Color.parseColor("#D9221F1A"))
-			setStroke(dp(1), Color.parseColor("#26FFFFFF"))
+			setColor(AppTheme.withAlpha(AppTheme.current.surface, 85))
+			setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 15))
 		}
 		val cardBg = GradientDrawable().apply {
 			cornerRadius = dp(20).toFloat()
-			setColor(Color.parseColor("#D9221F1A"))
-			setStroke(dp(1), Color.parseColor("#26FFFFFF"))
+			setColor(AppTheme.withAlpha(AppTheme.current.surface, 85))
+			setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 15))
 		}
 		lateinit var collapseButton: ImageButton
 		lateinit var card: LinearLayout
@@ -280,7 +283,7 @@ class MainActivity : NativeActivity() {
 		collapseToolbar = { c -> applyCollapsed(c) }
 		collapseButton = ImageButton(this).apply {
 			setImageResource(R.drawable.ic_tb_chevron)
-			imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#CFC7B8"))
+			imageTintList = android.content.res.ColorStateList.valueOf(AppTheme.current.textPrimary)
 			scaleType = ImageView.ScaleType.FIT_CENTER
 			contentDescription = getString(R.string.menu_view)
 			minimumWidth = 0; minimumHeight = 0
@@ -423,7 +426,7 @@ class MainActivity : NativeActivity() {
 
 		val row = LinearLayout(this).apply {
 			orientation = LinearLayout.HORIZONTAL
-			setBackgroundColor(Color.parseColor("#1A1D24"))
+			setBackgroundColor(AppTheme.current.surface)
 			addView(octaveButton("‹", down = true),
 				LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.MATCH_PARENT))
 			addView(piano, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
@@ -433,13 +436,13 @@ class MainActivity : NativeActivity() {
 		// Close (✕) button, top-right corner over the keyboard.
 		val closeBtn = ImageButton(this).apply {
 			setImageResource(R.drawable.ic_tb_close)
-			imageTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#EDE6D8"))
+			imageTintList = android.content.res.ColorStateList.valueOf(AppTheme.current.textPrimary)
 			scaleType = ImageView.ScaleType.FIT_CENTER
 			contentDescription = getString(android.R.string.cancel)
 			setPadding(dp(6), dp(6), dp(6), dp(6))
 			background = GradientDrawable().apply {
 				shape = GradientDrawable.OVAL
-				setColor(Color.parseColor("#B3000000"))
+				setColor(AppTheme.withAlpha(Color.BLACK, 70))
 			}
 			setOnClickListener {
 				pianoView?.releaseAll()
@@ -631,7 +634,7 @@ class MainActivity : NativeActivity() {
 		}
 		col.addView(TextView(this).apply {
 			text = getString(R.string.modules_manager_title)
-			setTextColor(Color.parseColor("#FFDA9F"))
+			setTextColor(AppTheme.current.accent)
 			textSize = 17f
 			setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
 			setPadding(0, 0, 0, dp(12))
@@ -640,9 +643,9 @@ class MainActivity : NativeActivity() {
 		col.addView(Button(this).apply {
 			text = getString(R.string.install_from_file)
 			isAllCaps = false
-			setTextColor(Color.parseColor("#17140F"))
+			setTextColor(AppTheme.current.onAccent)
 			background = GradientDrawable().apply {
-				cornerRadius = dp(14).toFloat(); setColor(Color.parseColor("#FFDA9F"))
+				cornerRadius = dp(14).toFloat(); setColor(AppTheme.current.accent)
 			}
 			setOnClickListener { moduleManagerDialog?.dismiss(); pickModulePacks() }
 		})
@@ -651,14 +654,14 @@ class MainActivity : NativeActivity() {
 		if (packs.isEmpty()) {
 			col.addView(TextView(this).apply {
 				text = getString(R.string.no_modules_installed)
-				setTextColor(Color.parseColor("#9C9486"))
+				setTextColor(AppTheme.current.textSecondary)
 				textSize = 14f
 				setPadding(0, dp(16), 0, 0)
 			})
 		} else {
 			col.addView(TextView(this).apply {
 				text = getString(R.string.modules_installed_header, packs.size)
-				setTextColor(Color.parseColor("#9C9486"))
+				setTextColor(AppTheme.current.textSecondary)
 				textSize = 12f
 				letterSpacing = 0.08f
 				setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
@@ -671,27 +674,27 @@ class MainActivity : NativeActivity() {
 					setPadding(0, dp(8), 0, dp(8))
 					addView(TextView(this@MainActivity).apply {
 						text = pack.slug
-						setTextColor(Color.parseColor("#EDE6D8"))
+						setTextColor(AppTheme.current.textPrimary)
 						textSize = 15f
 						setTypeface(AppFont.get(this@MainActivity))
 						layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 					})
 					addView(TextView(this@MainActivity).apply {
 						text = "%.1f MB".format(pack.sizeBytes / 1048576.0)
-						setTextColor(Color.parseColor("#8C857A"))
+						setTextColor(AppTheme.current.textSecondary)
 						textSize = 12f
 						setPadding(0, 0, dp(12), 0)
 					})
 					addView(Button(this@MainActivity).apply {
 						text = getString(R.string.uninstall)
 						isAllCaps = false
-						setTextColor(Color.parseColor("#FF9E9E"))
+						setTextColor(AppTheme.current.danger)
 						minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
 						setPadding(dp(14), dp(8), dp(14), dp(8))
 						background = GradientDrawable().apply {
 							cornerRadius = dp(12).toFloat()
-							setStroke(dp(1), Color.parseColor("#4DFF9E9E"))
-							setColor(Color.parseColor("#1AFF9E9E"))
+							setStroke(dp(1), AppTheme.withAlpha(AppTheme.current.danger, 30))
+							setColor(AppTheme.withAlpha(AppTheme.current.danger, 10))
 						}
 						setOnClickListener { confirmUninstall(pack.slug) }
 					})
@@ -706,12 +709,94 @@ class MainActivity : NativeActivity() {
 		dlg.window?.apply {
 			setBackgroundDrawable(GradientDrawable().apply {
 				cornerRadius = dp(24).toFloat(); setColor(glassCardColor())
-				setStroke(dp(1), Color.parseColor("#2EFFFFFF"))
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 18))
 			})
 			setDimAmount(0.4f)
 		}
 		glassify(dlg.window)
 		moduleManagerDialog = dlg
+		dlg.show()
+	}
+
+	/** Rebuilds the toolbar PopupWindow in place so it picks up the current
+	 * AppTheme.current colors. Cheap and precedented: every Kotlin dialog
+	 * (module manager, browser, credits) already rebuilds itself from
+	 * scratch each time it's shown, so only the persistent toolbar needs an
+	 * explicit rebuild -- recreate()'ing the whole Activity would restart
+	 * the native engine (autosave + full re-init), which is unnecessary
+	 * here. */
+	private fun rebuildToolbar() {
+		buttonPopup?.dismiss()
+		buttonPopup = null
+		addMidiButton()
+	}
+
+	/** 🎨 toolbar button: pick one of the touch UI's color themes. Rack's own
+	 * module-panel light/dark setting is untouched -- this only covers the
+	 * Kotlin-side chrome (toolbar, menus, palette, browser, dialogs). */
+	private fun showThemePicker() {
+		val col = LinearLayout(this).apply {
+			orientation = LinearLayout.VERTICAL
+			setPadding(dp(20), dp(18), dp(20), dp(20))
+		}
+		col.addView(TextView(this).apply {
+			text = getString(R.string.theme_picker_title)
+			setTextColor(AppTheme.current.accent)
+			textSize = 17f
+			setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
+			setPadding(0, 0, 0, dp(12))
+		})
+		lateinit var dlg: AlertDialog
+		for (preset in AppTheme.all) {
+			val isCurrent = preset.id == AppTheme.current.id
+			col.addView(LinearLayout(this).apply {
+				orientation = LinearLayout.HORIZONTAL
+				gravity = Gravity.CENTER_VERTICAL
+				setPadding(dp(4), dp(10), dp(4), dp(10))
+				background = amberRippleRounded()
+				addView(View(this@MainActivity).apply {
+					background = GradientDrawable().apply {
+						shape = GradientDrawable.OVAL
+						setColor(preset.surface)
+						setStroke(dp(2), preset.accent)
+					}
+					layoutParams = LinearLayout.LayoutParams(dp(30), dp(30)).apply { marginEnd = dp(16) }
+				})
+				addView(TextView(this@MainActivity).apply {
+					text = getString(preset.nameRes)
+					setTextColor(AppTheme.current.textPrimary)
+					textSize = 15.5f
+					setTypeface(AppFont.get(this@MainActivity))
+					layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+				})
+				if (isCurrent) addView(TextView(this@MainActivity).apply {
+					text = "✔"
+					setTextColor(AppTheme.current.accent)
+					textSize = 15f
+					setPadding(dp(10), 0, dp(4), 0)
+				})
+				setOnClickListener {
+					AppTheme.set(this@MainActivity, preset)
+					dlg.dismiss()
+					rebuildToolbar()
+					pianoView?.applyTheme()
+					Toast.makeText(this@MainActivity,
+						getString(R.string.toast_theme_applied, getString(preset.nameRes)), Toast.LENGTH_SHORT).show()
+				}
+			})
+		}
+		val scroll = ScrollView(this).apply { addView(col); isVerticalScrollBarEnabled = false }
+		dlg = AlertDialog.Builder(this).create()
+		dlg.setView(scroll)
+		trackTopWindow(dlg)
+		dlg.window?.apply {
+			setBackgroundDrawable(GradientDrawable().apply {
+				cornerRadius = dp(24).toFloat(); setColor(glassCardColor())
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 18))
+			})
+			setDimAmount(0.4f)
+		}
+		glassify(dlg.window)
 		dlg.show()
 	}
 
@@ -1068,8 +1153,9 @@ class MainActivity : NativeActivity() {
 		}
 	}
 
-	fun glassCardColor(): Int = Color.parseColor(
-		if (crossWindowBlurEnabled(windowManager)) "#CC221F1A" else "#F5221F1A")
+	fun glassCardColor(): Int =
+		if (crossWindowBlurEnabled(windowManager)) AppTheme.withAlpha(AppTheme.current.surface, 80)
+		else AppTheme.withAlpha(AppTheme.current.surface, 96)
 
 	/** Dismisses menuDialog, if any, without telling native (its dismissal
 	 * was either native-initiated already, or is about to be replaced by a
@@ -1187,13 +1273,13 @@ class MainActivity : NativeActivity() {
 					dp(28).toFloat(), dp(28).toFloat(), dp(28).toFloat(), dp(28).toFloat(),
 					0f, 0f, 0f, 0f)
 				// Liquid-glass rim: a whisper of white along the edge.
-				setStroke(dp(1), Color.parseColor("#2EFFFFFF"))
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 18))
 			}
 			setPadding(dp(8), 0, dp(8), dp(14))
 		}
 		col.addView(View(this).apply {
 			background = GradientDrawable().apply {
-				setColor(Color.parseColor("#4E483F"))
+				setColor(AppTheme.current.surfaceInset)
 				cornerRadius = dp(2).toFloat()
 			}
 			layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).apply {
@@ -1209,13 +1295,13 @@ class MainActivity : NativeActivity() {
 			val f = flags[i]
 			when {
 				f and ROW_SEPARATOR != 0 -> col.addView(View(this).apply {
-					setBackgroundColor(Color.parseColor("#14FFFFFF"))
+					setBackgroundColor(AppTheme.withAlpha(Color.WHITE, 8))
 					layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1))
 						.apply { topMargin = dp(7); bottomMargin = dp(7); leftMargin = dp(12); rightMargin = dp(12) }
 				})
 				f and ROW_LABEL != 0 -> col.addView(TextView(this).apply {
 					text = labels[i].uppercase()
-					setTextColor(Color.parseColor("#FFDA9F"))
+					setTextColor(AppTheme.current.accent)
 					textSize = 11f
 					letterSpacing = 0.1f
 					setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
@@ -1285,10 +1371,10 @@ class MainActivity : NativeActivity() {
 	/** A titled SeekBar row (0..100%) for a global cable setting. `initial` is
 	 * the native 0..1 value; `onSet` writes the new 0..1 value back live. */
 	private fun sliderRow(label: String, initial: Float, onSet: (Float) -> Unit): View {
-		val amber = android.content.res.ColorStateList.valueOf(Color.parseColor("#FFDA9F"))
+		val amber = android.content.res.ColorStateList.valueOf(AppTheme.current.accent)
 		val pct = Math.round(initial * 100).coerceIn(0, 100)
 		val valueLabel = TextView(this).apply {
-			setTextColor(Color.parseColor("#FFDA9F"))
+			setTextColor(AppTheme.current.accent)
 			textSize = 13f
 			setTypeface(AppFont.get(this@MainActivity), Typeface.BOLD)
 			text = "$pct%"
@@ -1298,7 +1384,7 @@ class MainActivity : NativeActivity() {
 			gravity = Gravity.CENTER_VERTICAL
 			addView(TextView(this@MainActivity).apply {
 				text = label
-				setTextColor(Color.parseColor("#EDE6D8"))
+				setTextColor(AppTheme.current.textPrimary)
 				textSize = 15f
 				setTypeface(AppFont.get(this@MainActivity))
 				layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -1350,9 +1436,9 @@ class MainActivity : NativeActivity() {
 				else -> label
 			}
 			setTextColor(when {
-				disabled -> Color.parseColor("#6A645A")
-				back -> Color.parseColor("#FFDA9F")
-				else -> Color.parseColor("#EDE6D8")
+				disabled -> AppTheme.current.textDisabled
+				back -> AppTheme.current.accent
+				else -> AppTheme.current.textPrimary
 			})
 			textSize = 16f
 			setTypeface(AppFont.get(this@MainActivity), if (back) Typeface.BOLD else Typeface.NORMAL)
@@ -1368,13 +1454,13 @@ class MainActivity : NativeActivity() {
 			if (value.isNotEmpty() && !isCheck) row.addView(TextView(this).apply {
 				text = value
 				typeface = AppFont.get(this@MainActivity)
-				setTextColor(Color.parseColor("#9A9284"))
+				setTextColor(AppTheme.current.textSecondary)
 				textSize = 14f
 				setPadding(dp(12), 0, 0, 0)
 			})
 			row.addView(TextView(this).apply {
 				text = if (isCheck) CHECKMARK else "›"
-				setTextColor(Color.parseColor(if (isCheck) "#FFDA9F" else "#756E62"))
+				setTextColor(if (isCheck) AppTheme.current.accent else AppTheme.current.textDisabled)
 				textSize = if (isCheck) 15f else 19f
 				setPadding(dp(10), 0, dp(2), if (isCheck) 0 else dp(2))
 			})
@@ -1394,7 +1480,7 @@ class MainActivity : NativeActivity() {
 			setColor(Color.WHITE)
 		}
 		return android.graphics.drawable.RippleDrawable(
-			android.content.res.ColorStateList.valueOf(Color.parseColor("#33FFDA9F")), null, mask)
+			android.content.res.ColorStateList.valueOf(AppTheme.withAlpha(AppTheme.current.accent, 20)), null, mask)
 	}
 
 	private external fun nativeMenuSelect(index: Int)

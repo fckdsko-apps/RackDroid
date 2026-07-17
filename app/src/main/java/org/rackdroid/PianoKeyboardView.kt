@@ -47,14 +47,23 @@ class PianoKeyboardView(context: Context) : View(context) {
 	// dragging across keys or lifting a finger releases the right note.
 	private val pointerNotes = SparseIntArray()
 
+	// Keys themselves stay neutral (a piano doesn't change skin with the app
+	// theme); only the press-highlight follows the current accent color.
 	private val whitePaint = Paint().apply { color = Color.parseColor("#ECEFF3") }
-	private val whitePressedPaint = Paint().apply { color = Color.parseColor("#F5A623") }
+	private var whitePressedPaint = Paint().apply { color = AppTheme.current.accent }
 	private val blackPaint = Paint().apply { color = Color.parseColor("#1A1D24") }
-	private val blackPressedPaint = Paint().apply { color = Color.parseColor("#F5A623") }
+	private var blackPressedPaint = Paint().apply { color = AppTheme.current.accent }
 	private val borderPaint = Paint().apply {
 		color = Color.parseColor("#5A606B")
 		style = Paint.Style.STROKE
 		strokeWidth = 2f
+	}
+
+	/** Re-reads the accent color after a theme change. */
+	fun applyTheme() {
+		whitePressedPaint = Paint().apply { color = AppTheme.current.accent }
+		blackPressedPaint = Paint().apply { color = AppTheme.current.accent }
+		invalidate()
 	}
 
 	override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {

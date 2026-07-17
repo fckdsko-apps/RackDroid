@@ -421,6 +421,12 @@
 	<string name="install_failed">Impossibile installare i moduli</string>
 	<string name="cable_tension">Tensione dei cavi</string>
 	<string name="cable_opacity">Opacità dei cavi</string>
+	<string name="theme_picker_title">Tema</string>
+	<string name="theme_amber">Ambra</string>
+	<string name="theme_blue_night">Blu notte</string>
+	<string name="theme_emerald">Verde smeraldo</string>
+	<string name="theme_violet">Violetto</string>
+	<string name="toast_theme_applied">Tema: %1$s</string>
 	<string name="modules_manager_title">Moduli</string>
 	<string name="install_from_file">＋ Installa da file…</string>
 	<string name="no_modules_installed">Nessun pack extra installato. Tocca “Installa da file” per aggiungere un .rdmod.</string>

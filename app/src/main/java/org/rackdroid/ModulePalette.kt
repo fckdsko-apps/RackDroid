@@ -96,7 +96,7 @@ class ModulePalette(
 	private fun collapseStrip() {
 		val chip = activeChip ?: return
 		chip.background = chipBg(false)
-		chip.setTextColor(Color.parseColor("#EDE6D8"))
+		chip.setTextColor(AppTheme.current.textPrimary)
 		activeChip = null
 		if (::strip.isInitialized) strip.visibility = View.GONE
 	}
@@ -172,7 +172,7 @@ class ModulePalette(
 				text = label
 				textSize = 12f
 				setTypeface(font, Typeface.BOLD)
-				setTextColor(Color.parseColor("#EDE6D8"))
+				setTextColor(AppTheme.current.textPrimary)
 				background = chipBg(false)
 				setPadding(dp(14), dp(7), dp(14), dp(7))
 				layoutParams = LinearLayout.LayoutParams(
@@ -189,8 +189,8 @@ class ModulePalette(
 			orientation = LinearLayout.VERTICAL
 			background = GradientDrawable().apply {
 				cornerRadius = dp(20).toFloat()
-				setColor(Color.parseColor("#D9221F1A"))
-				setStroke(dp(1), Color.parseColor("#26FFFFFF"))
+				setColor(AppTheme.withAlpha(AppTheme.current.surface, 85))
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 15))
 			}
 			clipToOutline = true
 			addView(strip, LinearLayout.LayoutParams(
@@ -221,24 +221,24 @@ class ModulePalette(
 
 	private fun chipBg(active: Boolean) = GradientDrawable().apply {
 		cornerRadius = dp(16).toFloat()
-		setColor(Color.parseColor(if (active) "#FFFFFF" else "#3A352D"))
-		if (!active) setStroke(dp(1), Color.parseColor("#1FFFFFFF"))
+		setColor(if (active) Color.WHITE else AppTheme.current.surfaceInset)
+		if (!active) setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 12))
 	}
 
 	private fun selectChip(chip: TextView, label: String, pred: (Entry) -> Boolean) {
 		if (activeChip === chip) {
 			// Tap the active chip again: collapse the strip.
 			chip.background = chipBg(false)
-			chip.setTextColor(Color.parseColor("#EDE6D8"))
+			chip.setTextColor(AppTheme.current.textPrimary)
 			activeChip = null
 			strip.visibility = View.GONE
 			return
 		}
 		activeChip?.background = chipBg(false)
-		activeChip?.setTextColor(Color.parseColor("#EDE6D8"))
+		activeChip?.setTextColor(AppTheme.current.textPrimary)
 		activeChip = chip
 		chip.background = chipBg(true)
-		chip.setTextColor(Color.parseColor("#17140F"))
+		chip.setTextColor(AppTheme.current.onAccent)
 
 		if (entries.isEmpty())
 			loadEntries()
@@ -282,14 +282,14 @@ class ModulePalette(
 		}
 		col.addView(TextView(ctx).apply {
 			text = e.name
-			setTextColor(Color.parseColor("#FFDA9F"))
+			setTextColor(AppTheme.current.accent)
 			textSize = 19f
 			setTypeface(font, Typeface.BOLD)
 		})
 		val sub = listOf(e.brand, e.plugin).filter { it.isNotBlank() }.distinct().joinToString(" • ")
 		if (sub.isNotEmpty()) col.addView(TextView(ctx).apply {
 			text = sub
-			setTextColor(Color.parseColor("#9C9486"))
+			setTextColor(AppTheme.current.textSecondary)
 			textSize = 13f
 			setPadding(0, dp(3), 0, 0)
 		})
@@ -301,7 +301,7 @@ class ModulePalette(
 		})
 		col.addView(TextView(ctx).apply {
 			text = e.description.ifBlank { ctx.getString(R.string.module_no_description) }
-			setTextColor(Color.parseColor("#E4DCCB"))
+			setTextColor(AppTheme.current.textPrimary)
 			textSize = 15f
 			setPadding(0, dp(14), 0, 0)
 			setLineSpacing(dp(3).toFloat(), 1f)
@@ -312,8 +312,8 @@ class ModulePalette(
 			ctx.getString(android.R.string.ok)) { d, _ -> d.dismiss() }
 		dlg.window?.setBackgroundDrawable(GradientDrawable().apply {
 			cornerRadius = dp(22).toFloat()
-			setColor(Color.parseColor("#F2221F1A"))
-			setStroke(dp(1), Color.parseColor("#2EFFFFFF"))
+			setColor(AppTheme.withAlpha(AppTheme.current.surface, 95))
+			setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 18))
 		})
 		(ctx as? MainActivity)?.let { runCatching { it.trackTopWindow(dlg); it.glassify(dlg.window) } }
 		dlg.show()
@@ -331,7 +331,7 @@ class ModulePalette(
 			alpha = 0.9f
 			background = GradientDrawable().apply {
 				cornerRadius = dp(6).toFloat()
-				setStroke(dp(2), Color.parseColor("#66FFDA9F"))
+				setStroke(dp(2), AppTheme.withAlpha(AppTheme.current.accent, 40))
 			}
 		}
 		val g = PopupWindow(iv, ghostW, ghostH)
@@ -385,11 +385,11 @@ class ModulePalette(
 				text = "ⓘ"
 				textSize = 12f
 				gravity = Gravity.CENTER
-				setTextColor(Color.parseColor("#17140F"))
+				setTextColor(AppTheme.current.onAccent)
 				background = GradientDrawable().apply {
 					shape = GradientDrawable.OVAL
-					setColor(Color.parseColor("#E6FFDA9F"))
-					setStroke(dp(1), Color.parseColor("#66000000"))
+					setColor(AppTheme.withAlpha(AppTheme.current.accent, 90))
+					setStroke(dp(1), AppTheme.withAlpha(Color.BLACK, 40))
 				}
 				layoutParams = FrameLayout.LayoutParams(dp(22), dp(22)).apply {
 					gravity = Gravity.TOP or Gravity.END
@@ -412,7 +412,7 @@ class ModulePalette(
 			val name = TextView(activity).apply {
 				textSize = 10f
 				typeface = AppFont.get(activity)
-				setTextColor(Color.parseColor("#C9C1B2"))
+				setTextColor(AppTheme.current.textPrimary)
 				gravity = Gravity.CENTER_HORIZONTAL
 				// Wrap onto a second line rather than truncating; still bound to
 				// the thumbnail's width so it can't widen (and off-centre) the

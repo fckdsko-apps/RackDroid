@@ -122,7 +122,7 @@ class ModuleBrowserSheet(
 			orientation = LinearLayout.VERTICAL
 			// Fullscreen glass: the rack shows through, blurred, behind the
 			// whole browser (solid warm dark when blur is unavailable).
-			setBackgroundColor(Color.parseColor(if (blurOn) "#D9221F1A" else "#221F1A"))
+			setBackgroundColor(if (blurOn) AppTheme.withAlpha(AppTheme.current.surface, 85) else AppTheme.current.surface)
 		}
 
 		val dialog = Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
@@ -141,8 +141,8 @@ class ModuleBrowserSheet(
 		val search = EditText(activity).apply {
 			hint = activity.getString(R.string.browser_search_hint)
 			typeface = AppFont.get(activity)
-			setHintTextColor(Color.parseColor("#9A9284"))
-			setTextColor(Color.parseColor("#EDE6D8"))
+			setHintTextColor(AppTheme.current.textSecondary)
+			setTextColor(AppTheme.current.textPrimary)
 			setSingleLine()
 			layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 			addTextChangedListener(object : TextWatcher {
@@ -157,7 +157,7 @@ class ModuleBrowserSheet(
 		searchRow.addView(search)
 		searchRow.addView(TextView(activity).apply {
 			text = "✕"
-			setTextColor(Color.parseColor("#9A9284"))
+			setTextColor(AppTheme.current.textSecondary)
 			setPadding(dp(16), 0, dp(4), 0)
 			setOnClickListener { dialog.dismiss() }
 		})
@@ -181,7 +181,7 @@ class ModuleBrowserSheet(
 
 		countLabel = TextView(activity).apply {
 			typeface = AppFont.get(activity)
-			setTextColor(Color.parseColor("#9A9284"))
+			setTextColor(AppTheme.current.textSecondary)
 			textSize = 12f
 			setPadding(dp(12), dp(6), dp(12), dp(6))
 		}
@@ -263,10 +263,10 @@ class ModuleBrowserSheet(
 			fun paint(active: Boolean) {
 				background = GradientDrawable().apply {
 					cornerRadius = dp(18).toFloat()
-					setColor(Color.parseColor(if (active) "#FFFFFF" else "#3A352D"))
-					if (!active) setStroke(dp(1), Color.parseColor("#1FFFFFFF"))
+					setColor(if (active) Color.WHITE else AppTheme.current.surfaceInset)
+					if (!active) setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 12))
 				}
-				setTextColor(Color.parseColor(if (active) "#17140F" else "#EDE6D8"))
+				setTextColor(if (active) AppTheme.current.onAccent else AppTheme.current.textPrimary)
 			}
 			var active = initiallyActive
 			paint(active)
@@ -294,10 +294,10 @@ class ModuleBrowserSheet(
 					if (v.text != brand && v.text != favoritesLabel) {
 						v.background = GradientDrawable().apply {
 							cornerRadius = dp(18).toFloat()
-							setColor(Color.parseColor("#3A352D"))
-							setStroke(dp(1), Color.parseColor("#1FFFFFFF"))
+							setColor(AppTheme.current.surfaceInset)
+							setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 12))
 						}
-						v.setTextColor(Color.parseColor("#EDE6D8"))
+						v.setTextColor(AppTheme.current.textPrimary)
 					}
 				}
 				refresh()
@@ -312,10 +312,10 @@ class ModuleBrowserSheet(
 					if (v.text != tag) {
 						v.background = GradientDrawable().apply {
 							cornerRadius = dp(18).toFloat()
-							setColor(Color.parseColor("#3A352D"))
-							setStroke(dp(1), Color.parseColor("#1FFFFFFF"))
+							setColor(AppTheme.current.surfaceInset)
+							setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 12))
 						}
-						v.setTextColor(Color.parseColor("#EDE6D8"))
+						v.setTextColor(AppTheme.current.textPrimary)
 					}
 				}
 				refresh()
@@ -346,23 +346,23 @@ class ModuleBrowserSheet(
 			orientation = LinearLayout.VERTICAL
 			setPadding(dp(20), dp(16), dp(20), dp(16))
 		}
-		fun line(text: String, color: String, size: Float, bold: Boolean = false, padTop: Int = 0) {
+		fun line(text: String, color: Int, size: Float, bold: Boolean = false, padTop: Int = 0) {
 			if (text.isEmpty()) return
 			content.addView(TextView(activity).apply {
 				this.text = text
-				setTextColor(Color.parseColor(color))
+				setTextColor(color)
 				textSize = size
 				setTypeface(AppFont.get(activity), if (bold) Typeface.BOLD else Typeface.NORMAL)
 				setPadding(0, dp(padTop), 0, 0)
 			})
 		}
-		line(m.name, "#EDE6D8", 18f, bold = true)
-		line(m.brand, "#FFDA9F", 13f)
-		line(m.description, "#D8D0C2", 14f, padTop = 10)
+		line(m.name, AppTheme.current.textPrimary, 18f, bold = true)
+		line(m.brand, AppTheme.current.accent, 13f)
+		line(m.description, AppTheme.current.textPrimary, 14f, padTop = 10)
 		if (m.tags.isNotEmpty())
-			line(m.tags.joinToString(" · "), "#C0A377", 12f, padTop = 10)
+			line(m.tags.joinToString(" · "), Color.parseColor("#C0A377"), 12f, padTop = 10)
 		val meta = listOf(m.plugin, m.version, m.license).filter { it.isNotEmpty() }
-		line(meta.joinToString(" — "), "#9A9284", 11f, padTop = 10)
+		line(meta.joinToString(" — "), AppTheme.current.textSecondary, 11f, padTop = 10)
 
 		val blurOn = crossWindowBlurEnabled(activity.windowManager)
 		Dialog(activity).apply {
@@ -371,8 +371,8 @@ class ModuleBrowserSheet(
 			// above the content -- replace it with the glass card itself.
 			window?.setBackgroundDrawable(GradientDrawable().apply {
 				cornerRadius = dp(20).toFloat()
-				setColor(Color.parseColor(if (blurOn) "#CC221F1A" else "#F5221F1A"))
-				setStroke(dp(1), Color.parseColor("#2EFFFFFF"))
+				setColor(if (blurOn) AppTheme.withAlpha(AppTheme.current.surface, 80) else AppTheme.withAlpha(AppTheme.current.surface, 96))
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 18))
 			})
 			window?.setLayout(
 				(activity.resources.displayMetrics.widthPixels * 0.85).toInt(),
@@ -415,8 +415,8 @@ class ModuleBrowserSheet(
 				orientation = LinearLayout.VERTICAL
 				background = GradientDrawable().apply {
 					cornerRadius = dp(14).toFloat()
-					setColor(Color.parseColor("#2B2721"))
-					setStroke(dp(1), Color.parseColor("#17FFFFFF"))
+					setColor(AppTheme.current.surfaceInset)
+					setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 9))
 				}
 				clipToOutline = true
 			}
@@ -433,14 +433,14 @@ class ModuleBrowserSheet(
 
 			val name = TextView(ctx).apply {
 				typeface = AppFont.get(ctx)
-				setTextColor(Color.parseColor("#EDE6D8"))
+				setTextColor(AppTheme.current.textPrimary)
 				setTypeface(typeface, Typeface.BOLD)
 				textSize = 13f
 				maxLines = 2
 			}
 			val brand = TextView(ctx).apply {
 				typeface = AppFont.get(ctx)
-				setTextColor(Color.parseColor("#9A9284"))
+				setTextColor(AppTheme.current.textSecondary)
 				textSize = 10f
 			}
 			val tags = TextView(ctx).apply {
@@ -497,7 +497,7 @@ class ModuleBrowserSheet(
 			holder.brand.text = m.brand
 			holder.tags.text = m.tags.joinToString(" · ")
 			holder.star.text = if (m.favorite) "★" else "☆"
-			holder.star.setTextColor(Color.parseColor(if (m.favorite) "#FFDA9F" else "#9A9284"))
+			holder.star.setTextColor(if (m.favorite) AppTheme.current.accent else AppTheme.current.textSecondary)
 			holder.star.setOnClickListener { onToggleFavorite(m) }
 			// Tap places the module; holding LONG_PRESS_MS opens the info
 			// card instead (and the flag suppresses the click that Android

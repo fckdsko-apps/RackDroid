@@ -425,6 +425,12 @@
 	<string name="install_failed">Could not install modules</string>
 	<string name="cable_tension">Cable tension</string>
 	<string name="cable_opacity">Cable opacity</string>
+	<string name="theme_picker_title">Theme</string>
+	<string name="theme_amber">Amber</string>
+	<string name="theme_blue_night">Blue Night</string>
+	<string name="theme_emerald">Emerald</string>
+	<string name="theme_violet">Violet</string>
+	<string name="toast_theme_applied">Theme: %1$s</string>
 	<string name="modules_manager_title">Modules</string>
 	<string name="install_from_file">＋ Install from file…</string>
 	<string name="no_modules_installed">No extra packs installed yet. Tap “Install from file” to add a .rdmod.</string>

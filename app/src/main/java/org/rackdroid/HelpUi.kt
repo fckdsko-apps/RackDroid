@@ -41,7 +41,7 @@ private fun rowOfModules(activity: Activity, keys: List<String>, heightDp: Int):
 			row.addView(TextView(activity).apply {
 				text = "▸"
 				textSize = 22f
-				setTextColor(Color.parseColor("#FFDA9F"))
+				setTextColor(AppTheme.current.accent)
 				setPadding(dp(8), 0, dp(8), 0)
 			})
 		}
@@ -50,7 +50,7 @@ private fun rowOfModules(activity: Activity, keys: List<String>, heightDp: Int):
 			adjustViewBounds = true
 			background = GradientDrawable().apply {
 				cornerRadius = dp(6).toFloat()
-				setStroke(dp(1), Color.parseColor("#1FFFFFFF"))
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 12))
 			}
 			clipToOutline = true
 			layoutParams = LinearLayout.LayoutParams(
@@ -153,7 +153,7 @@ private fun glassDialog(activity: Activity, content: View): Dialog {
 	val blurOn = crossWindowBlurEnabled(activity.windowManager)
 	val dialog = Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
 	dialog.setContentView(ScrollView(activity).apply {
-		setBackgroundColor(Color.parseColor(if (blurOn) "#E0221F1A" else "#221F1A"))
+		setBackgroundColor(if (blurOn) AppTheme.withAlpha(AppTheme.current.surface, 88) else AppTheme.current.surface)
 		addView(content)
 	})
 	dialog.window?.setBackgroundDrawable(
@@ -180,7 +180,7 @@ class GuideSheet(private val activity: Activity) {
 		}
 		content.addView(TextView(activity).apply {
 			text = activity.getString(R.string.guide_title)
-			setTextColor(Color.parseColor("#FFDA9F"))
+			setTextColor(AppTheme.current.accent)
 			textSize = 22f
 			setTypeface(font, Typeface.BOLD)
 			setPadding(dp(4), 0, 0, dp(6))
@@ -191,8 +191,8 @@ class GuideSheet(private val activity: Activity) {
 				gravity = Gravity.CENTER_VERTICAL
 				background = GradientDrawable().apply {
 					cornerRadius = dp(16).toFloat()
-					setColor(Color.parseColor("#2B2721"))
-					setStroke(dp(1), Color.parseColor("#17FFFFFF"))
+					setColor(AppTheme.current.surfaceInset)
+					setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 9))
 				}
 				setPadding(dp(16), dp(14), dp(16), dp(14))
 				layoutParams = LinearLayout.LayoutParams(
@@ -207,13 +207,13 @@ class GuideSheet(private val activity: Activity) {
 			val texts = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
 			texts.addView(TextView(activity).apply {
 				text = activity.getString(topic.title)
-				setTextColor(Color.parseColor("#EDE6D8"))
+				setTextColor(AppTheme.current.textPrimary)
 				textSize = 16f
 				setTypeface(font, Typeface.BOLD)
 			})
 			texts.addView(TextView(activity).apply {
 				text = activity.getString(topic.subtitle)
-				setTextColor(Color.parseColor("#9A9284"))
+				setTextColor(AppTheme.current.textSecondary)
 				textSize = 12f
 				typeface = font
 			})
@@ -221,7 +221,7 @@ class GuideSheet(private val activity: Activity) {
 			card.addView(TextView(activity).apply {
 				text = "›"
 				textSize = 20f
-				setTextColor(Color.parseColor("#756E62"))
+				setTextColor(AppTheme.current.textDisabled)
 			})
 			card.setOnClickListener { GuideTopicSheet(activity, topic).show() }
 			content.addView(card)
@@ -243,21 +243,21 @@ class GuideTopicSheet(private val activity: Activity, private val topic: GuideTo
 		}
 		content.addView(TextView(activity).apply {
 			text = "${topic.icon}  ${activity.getString(topic.title)}"
-			setTextColor(Color.parseColor("#FFDA9F"))
+			setTextColor(AppTheme.current.accent)
 			textSize = 21f
 			setTypeface(font, Typeface.BOLD)
 		})
 		for (s in topic.sections) {
 			content.addView(TextView(activity).apply {
 				text = activity.getString(s.t)
-				setTextColor(Color.parseColor("#EDE6D8"))
+				setTextColor(AppTheme.current.textPrimary)
 				textSize = 16f
 				setTypeface(font, Typeface.BOLD)
 				setPadding(0, dp(18), 0, 0)
 			})
 			content.addView(TextView(activity).apply {
 				text = activity.getString(s.b)
-				setTextColor(Color.parseColor("#C9C1B2"))
+				setTextColor(AppTheme.current.textPrimary)
 				textSize = 14f
 				typeface = font
 				setPadding(0, dp(4), 0, 0)
@@ -511,7 +511,7 @@ class TutorialLibrarySheet(private val activity: Activity) {
 		}
 		content.addView(TextView(activity).apply {
 			text = activity.getString(R.string.tut_library_title)
-			setTextColor(Color.parseColor("#FFDA9F"))
+			setTextColor(AppTheme.current.accent)
 			textSize = 22f
 			setTypeface(font, Typeface.BOLD)
 			setPadding(dp(4), 0, 0, dp(2))
@@ -540,8 +540,8 @@ class TutorialLibrarySheet(private val activity: Activity) {
 				gravity = Gravity.CENTER_VERTICAL
 				background = GradientDrawable().apply {
 					cornerRadius = dp(16).toFloat()
-					setColor(Color.parseColor("#2B2721"))
-					setStroke(dp(1), Color.parseColor("#17FFFFFF"))
+					setColor(AppTheme.current.surfaceInset)
+					setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 9))
 				}
 				setPadding(dp(16), dp(12), dp(16), dp(12))
 				layoutParams = LinearLayout.LayoutParams(
@@ -556,14 +556,14 @@ class TutorialLibrarySheet(private val activity: Activity) {
 			val texts = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
 			texts.addView(TextView(activity).apply {
 				text = activity.getString(t.title)
-				setTextColor(Color.parseColor("#EDE6D8"))
+				setTextColor(AppTheme.current.textPrimary)
 				textSize = 15f
 				setTypeface(font, Typeface.BOLD)
 			})
 			texts.addView(TextView(activity).apply {
 				text = activity.getString(t.sub) + "  ·  " +
 					activity.getString(R.string.tut_steps_count, t.steps.size)
-				setTextColor(Color.parseColor("#9A9284"))
+				setTextColor(AppTheme.current.textSecondary)
 				textSize = 12f
 				typeface = font
 			})
@@ -571,7 +571,7 @@ class TutorialLibrarySheet(private val activity: Activity) {
 			card.addView(TextView(activity).apply {
 				text = "›"
 				textSize = 20f
-				setTextColor(Color.parseColor("#756E62"))
+				setTextColor(AppTheme.current.textDisabled)
 			})
 			card.setOnClickListener {
 				dialog.dismiss()
@@ -676,17 +676,17 @@ class Wizard(
 		// for this tutorial card (user request).
 		(activity as? MainActivity)?.setToolbarCollapsedForTutorial(true)
 		val font = AppFont.get(activity)
-		fun label(size: Float, color: String, bold: Boolean = false) = TextView(activity).apply {
+		fun label(size: Float, color: Int, bold: Boolean = false) = TextView(activity).apply {
 			textSize = size
-			setTextColor(Color.parseColor(color))
+			setTextColor(color)
 			setTypeface(font, if (bold) Typeface.BOLD else Typeface.NORMAL)
 		}
 		val card = LinearLayout(activity).apply {
 			orientation = LinearLayout.VERTICAL
 			background = GradientDrawable().apply {
 				cornerRadius = dp(20).toFloat()
-				setColor(Color.parseColor("#F0221F1A"))
-				setStroke(dp(1), Color.parseColor("#2EFFFFFF"))
+				setColor(AppTheme.withAlpha(AppTheme.current.surface, 94))
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 18))
 			}
 			setPadding(dp(20), dp(14), dp(20), dp(12))
 		}
@@ -694,12 +694,12 @@ class Wizard(
 			orientation = LinearLayout.HORIZONTAL
 			gravity = Gravity.CENTER_VERTICAL
 		}
-		val title = label(15f, "#FFDA9F", bold = true).apply {
+		val title = label(15f, AppTheme.current.accent, bold = true).apply {
 			text = activity.getString(titleRes)
 			layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 		}
-		stepLabel = label(12f, "#9A9284")
-		val close = label(16f, "#9A9284").apply {
+		stepLabel = label(12f, AppTheme.current.textSecondary)
+		val close = label(16f, AppTheme.current.textSecondary).apply {
 			text = "✕"
 			setPadding(dp(14), 0, 0, 0)
 			setOnClickListener { dismiss() }
@@ -714,7 +714,7 @@ class Wizard(
 		}
 		stepContent.addView(imageHolder)
 
-		body = label(14f, "#EDE6D8").apply { setPadding(0, dp(8), 0, dp(10)) }
+		body = label(14f, AppTheme.current.textPrimary).apply { setPadding(0, dp(8), 0, dp(10)) }
 		stepContent.addView(body)
 		card.addView(stepContent)
 
@@ -722,7 +722,7 @@ class Wizard(
 			orientation = LinearLayout.HORIZONTAL
 			gravity = Gravity.END
 		}
-		fun navButton(onTap: () -> Unit) = label(14f, "#FFDA9F", bold = true).apply {
+		fun navButton(onTap: () -> Unit) = label(14f, AppTheme.current.accent, bold = true).apply {
 			setPadding(dp(16), dp(8), dp(16), dp(8))
 			setOnClickListener { onTap() }
 		}
