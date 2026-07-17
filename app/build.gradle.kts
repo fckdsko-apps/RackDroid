@@ -94,6 +94,9 @@ val packThumbnailAssets = tasks.register<Zip>("packThumbnailAssets") {
 android {
 	namespace = "org.rackdroid"
 	compileSdk = 35
+	// r27+: needed for ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES below. Play
+	// rejects targetSdk 35 apps whose native libs aren't 16 KB-aligned.
+	ndkVersion = "27.2.12479018"
 
 	defaultConfig {
 		applicationId = "org.rackdroid"
@@ -113,7 +116,10 @@ android {
 			cmake {
 				arguments += listOf(
 					"-DANDROID_STL=c++_shared",
-					"-DANDROID_PLATFORM=android-29"
+					"-DANDROID_PLATFORM=android-29",
+					// 16 KB page-size support (max-page-size=16384 on every
+					// .so, including FetchContent deps like libsamplerate)
+					"-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
 				)
 				// rackdroid pulls in librack_engine.so; the plugin .so are
 				// dlopen'd at runtime and must be packaged explicitly.
