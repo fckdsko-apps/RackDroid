@@ -1,108 +1,135 @@
-English version at: [`ENGLISH_README`](https://github.com/nowheel/RackDroid/blob/main/README.en.md)
-# RackDroid — sintetizzatore modulare per Android
+Versione italiana: [`README.it.md`](https://github.com/nowheel/RackDroid/blob/main/README.it.md)
 
-Port **non ufficiale** del motore di [VCV Rack 2](https://vcvrack.com) su Android,
-costruito sui sorgenti upstream non modificati (`third_party/Rack`, pinnato a
-v2.6.4) più un layer di porting nativo e un'interfaccia pensata per il tocco.
-Non affiliato a VCV.
+<div align="center">
 
-Costruisci patch modulari sul telefono: colleghi oscillatori, filtri, inviluppi,
-sequencer e altro con cavi virtuali, esattamente come in un rack hardware.
+# 🎛️ RackDroid
 
-> **Versione 0.1.0** · repo: [`nowheel/RackDroid`](https://github.com/nowheel/RackDroid)
+### Your modular rack, in your pocket.
 
-## Cosa fa
+A **touch-first** modular synthesizer for Android — build real patches by
+dragging cables between oscillators, filters, envelopes and sequencers, just
+like a hardware rack. No compromises: it's the [VCV Rack 2](https://vcvrack.com)
+audio engine, made native for your phone.
 
-- **Motore audio nativo** a bassa latenza (Oboe/AAudio), full-duplex.
-- **66 moduli di base** sempre presenti: **Core** (Audio/MIDI), **Fundamental**
-  (39: VCO, VCF, VCA, ADSR, LFO, SEQ-3, Delay, Mixer, Scope, Quantizer…) e
-  **RackDroid Drums** (14 voci di batteria originali nella tradizione dell'808).
-- **Interfaccia touch**: trascini per creare cavi e spostare moduli, pizzichi
-  per lo zoom, tieni premuta una manopola per digitare un valore.
-- **Barra strumenti a vetro** con menu (File/Modifica/Visualizza/Motore/Aiuto) e
-  tool: palette moduli, gestore plugin, annulla/ripeti, blocco layout/parametri,
-  MIDI, tastiera, registrazione, info. Si richiude in una linguetta.
-- **Palette dei moduli**: chip per categoria (VCO, LFO, VCF, VCA, ENV, SEQ,
-  DRUM, MIX, FX, NOISE, QNT, MIDI, UTIL), anteprime trascinabili sul rack, tocco
-  per inserire al centro, pallino **ⓘ** con nome/descrizione/tag di ogni modulo.
-  Si chiude con lo swipe verso il basso.
-- **Menu a bottom-sheet** con swipe-giù per chiudere; cursori di **tensione** e
-  **opacità dei cavi** nel menu Visualizza.
-- **Tastiera musicale** a schermo (con cambio ottava e chiusura ✕) e **MIDI
-  Bluetooth LE**.
-- **Registrazione** dell'uscita su file **WAV** in `Documents/RackDroid/`.
-- **30 tutorial** guidati passo-passo su 5 livelli, più una guida per argomenti.
+<img src="graphics/screenshots/patch-rack.png" width="280" alt="A live patch in RackDroid">
+<img src="graphics/screenshots/toolbar-menus.png" width="280" alt="Toolbar and menus">
 
-## Moduli aggiuntivi (.rdmod)
+*A real screenshot, from a real device — no mockups.*
 
-Oltre ai moduli di base, puoi aggiungere pacchetti (Bogaudio, Valley, Audible,
-Impromptu, Befaco, HetrickCV…) **al volo**, senza aggiornare l'app:
+</div>
 
-- **Dall'app**: tool *Gestore moduli* → *Installa da file* → scegli uno o più
-  file `.rdmod`. Vengono caricati subito; li disinstalli dallo stesso gestore.
-- **Da cartella**: copia i `.rdmod` in `Android/data/org.rackdroid/files/Modules/`
-  e riavvia.
-
-Formato del pacchetto, meccanismo di caricamento nativo e istruzioni per
-**creare** un plugin: vedi **[MODULES.md](MODULES.md)** e il manuale in
-**[docs/rackdroid-manuale.pdf](docs/rackdroid-manuale.pdf)**.
-
-## Build
-
-Progetto Gradle alla radice del repo (arm64-v8a, `minSdk 33`). I sorgenti
-`third_party/` (Rack v2.6.4, Oboe, tutti i plugin) sono **vendorizzati nel
-repo**: un clone pulito compila così com'è, senza init di submodule.
-
-```sh
-export JAVA_HOME=~/jdk21; export ANDROID_HOME=~/android-sdk
-gradle assembleRelease -PdevKeystore    # gradle 8.7+, oppure apri in Android Studio
-```
-
-- `-PdevKeystore` firma con la chiave di sviluppo pubblica (continuità di
-  aggiornamento per il sideload; per Play usare una chiave privata).
-- L'APK di base pesa ~40 MB: contiene solo i moduli base; CMake compila comunque
-  tutti i plugin, ma i `.so` non-base sono esclusi dall'APK e distribuiti come
-  `.rdmod` (`packaging.jniLibs.excludes`, vedi `scripts/make_rdmods.sh`).
-
-## Struttura
-
-```
-app/            modulo Android (Gradle, manifest, MainActivity + UI Kotlin)
-native/
-  CMakeLists.txt  build motore Rack + dipendenze + port layer
-  port/           codice del porting (audio Oboe, menu, browser, plugin loader…)
-  host/           smoke test del motore/UI su Linux
-drums/          RackDroid Drums (pacchetto first-party, codice + pannelli originali)
-graphics/       grafica originale (pannelli, thumbnail, ComponentLibrary rifatta)
-third_party/    Rack, Oboe e sorgenti dei plugin (upstream intatti)
-scripts/        setup.sh (sorgenti) · make_rdmods.sh (impacchetta i .rdmod)
-docs/           manuale utente (PDF + sorgente HTML)
-MODULES.md      formato .rdmod, caricamento e creazione dei plugin
-```
-
-Principio guida: **zero patch ai sorgenti di Rack**. Tutto il codice
-piattaforma-specifico vive in `native/port/`; i file desktop-only sono esclusi
-dal build e rimpiazzati, così l'aggiornamento a nuove versioni upstream resta un
-bump del submodule.
-
-## Licenze, trademark e pubblicazione — importante
-
-- Il codice di Rack è **GPLv3**: questo port è GPLv3 e i sorgenti completi sono
-  nel repository (obbligo di licenza soddisfatto ✓).
-- **Trademark**: l'app si presenta come "RackDroid" (icona propria, stringhe
-  rebrandizzate); il nome/logo "VCV" non è usato ✓.
-- **Grafica**: la ComponentLibrary e i pannelli Core originali sono
-  **CC BY-NC-ND 4.0** (non commerciale). RackDroid usa grafica **rifatta**
-  (`graphics/`, GPLv3) al loro posto per essere distribuibile; i plugin
-  Fundamental/Bogaudio ecc. sono GPLv3 con grafica inclusa ✓.
-- **Firma**: `keystore/rackdroid.keystore` è una chiave di **sviluppo** con
-  password pubblica (`rackdroid`) — continuità di aggiornamento per il sideload,
-  NON autenticità. Per uno store generare una chiave privata (o Play App
-  Signing).
-- **Google Play**: distribuire codice nativo eseguito da **fuori** Play viola le
-  policy; la cartella `.rdmod` / l'installazione da file sono per la build
-  sideload/GitHub. Per Play, consegnare i pacchetti extra via *asset packs*.
+> **Version 0.1.1** · repo: [`nowheel/RackDroid`](https://github.com/nowheel/RackDroid) · unofficial, not affiliated with VCV
 
 ---
 
-RackDroid è un port di VCV Rack (GPLv3). Non affiliato né approvato da VCV.
+## Why RackDroid
+
+- **It's VCV Rack, not a clone.** Same DSP engine, same 66 built-in modules,
+  same `.vcv` patch format — built on unmodified upstream v2.6.4 sources.
+- **Touch-first from day one**, not a shrunk-down desktop UI: drag cables with
+  a finger, long-press a knob to type a value, pinch to zoom, a module palette
+  designed for small screens.
+- **Low native latency** (Oboe/AAudio, full-duplex) — it plays in real time,
+  not a toy.
+- **Grows with you**: start with the 66 built-in modules, then add whole
+  packages (Bogaudio, Valley, Befaco, HetrickCV…) on the fly, without updating
+  the app.
+- **Runs on older hardware too**: supported from Android 10 up.
+
+## What it includes
+
+| | |
+|---|---|
+| 🎚️ **Native audio engine** | Oboe/AAudio, full-duplex, low latency |
+| 🧩 **66 built-in modules** | Core (Audio/MIDI), Fundamental (39 modules: VCO, VCF, VCA, ADSR, LFO, SEQ-3, Delay, Mixer, Scope, Quantizer…), RackDroid Drums (14 original 808-style drum voices) |
+| 👆 **Touch interface** | drag for cables/modules, pinch to zoom, long-press a knob to type a value |
+| 🪟 **Glass toolbar** | File/Edit/View/Engine/Help menus + module palette, plugin manager, undo/redo, layout lock, MIDI, keyboard, recording — collapses into a tab |
+| 🧲 **Module palette** | chips by category (VCO, LFO, VCF, VCA, ENV, SEQ, DRUM, MIX, FX, NOISE, QNT, MIDI, UTIL), draggable previews, ⓘ badge with name/description/tags |
+| 🎹 **MIDI** | on-screen musical keyboard, USB and Bluetooth LE MIDI |
+| ⏺️ **Recording** | output to a WAV file in `Documents/RackDroid/` |
+| 🎓 **30 tutorials** | step-by-step across 5 levels, plus a topic-based guide |
+
+## Additional modules (.rdmod)
+
+Beyond the built-in modules, you can add packages (Bogaudio, Valley, Audible,
+Impromptu, Befaco, HetrickCV…) **on the fly**, without updating the app:
+
+- **From the app**: *Module Manager* tool → *Install from file* → pick one or
+  more `.rdmod` files. They load immediately; uninstall them from the same
+  manager.
+- **From a folder**: copy the `.rdmod` files to
+  `Android/data/org.rackdroid/files/Modules/` and restart.
+
+Package format, the native loading mechanism, and instructions for
+**creating** a plugin: see **[MODULES.md](MODULES.md)** and the manual at
+**[docs/rackdroid-manuale.pdf](docs/rackdroid-manuale.pdf)**.
+
+## Requirements
+
+**Android 10 (API 29)** or later, `arm64-v8a` architecture. Requires
+OpenGL ES 3.0 (basically any phone/tablet from 2018 onward).
+
+## Build
+
+Gradle project at the repo root (arm64-v8a, `minSdk 29`). All `third_party/`
+sources (Rack v2.6.4, Oboe, all plugins) are **vendored in the repo**: a clean
+clone compiles as-is, no submodule init needed.
+
+```sh
+export JAVA_HOME=~/jdk21; export ANDROID_HOME=~/android-sdk
+gradle assembleRelease -PdevKeystore    # gradle 8.7+, or open in Android Studio
+```
+
+- `-PdevKeystore` signs with the public development key (update continuity for
+  sideloading; use a private key for Play).
+- The base APK is ~40 MB: it contains only the built-in modules; CMake still
+  compiles all plugins, but non-base `.so` files are excluded from the APK and
+  distributed as `.rdmod` (`packaging.jniLibs.excludes`, see
+  `scripts/make_rdmods.sh`).
+
+## Structure
+
+```
+app/            Android module (Gradle, manifest, MainActivity + Kotlin UI)
+native/
+  CMakeLists.txt  Rack engine + dependencies + port layer build
+  port/           porting code (Oboe audio, menus, browser, plugin loader…)
+  host/           engine/UI smoke tests on Linux
+drums/          RackDroid Drums (first-party package, original code + panels)
+graphics/       original graphics (panels, thumbnails, rebuilt ComponentLibrary, screenshots)
+third_party/    Rack, Oboe and plugin sources (upstream untouched)
+scripts/        setup.sh (sources) · make_rdmods.sh (packages the .rdmod files)
+docs/           user manual (PDF + HTML source)
+MODULES.md      .rdmod format, loading mechanism and plugin creation
+```
+
+Guiding principle: **zero patches to Rack's sources**. All platform-specific
+code lives in `native/port/`; desktop-only files are excluded from the build
+and replaced, so upgrading to new upstream versions remains a simple submodule
+bump.
+
+## Licenses, trademarks and distribution — important
+
+- Rack's code is **GPLv3**: this port is GPLv3 and the complete sources are in
+  the repository (license obligation satisfied ✓).
+- **Trademark**: the app presents itself as "RackDroid" (custom icon,
+  rebranded strings); the "VCV" name/logo is not used ✓.
+- **Graphics**: the original ComponentLibrary and Core panels are **CC
+  BY-NC-ND 4.0** (non-commercial). RackDroid uses **rebuilt** graphics
+  (`graphics/`, GPLv3) in their place to be distributable; the
+  Fundamental/Bogaudio etc. plugins are GPLv3 with their graphics included ✓.
+- **Signing**: `keystore/rackdroid.keystore` is a **development** key with a
+  public password (`rackdroid`) — for update continuity when sideloading, NOT
+  for authenticity. For a store, generate a private key (or use Play App
+  Signing).
+- **Google Play**: distributing native code executed from **outside** Play
+  violates their policies; the `.rdmod` folder / file installation are for
+  sideload/GitHub builds. For Play, deliver extra packages via *asset packs*.
+
+---
+
+<div align="center">
+
+RackDroid is a port of VCV Rack (GPLv3). Not affiliated with or endorsed by VCV.
+
+</div>
