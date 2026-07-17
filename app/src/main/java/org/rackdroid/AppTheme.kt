@@ -49,7 +49,9 @@ object AppTheme {
 	)
 
 	val blueNight = Palette(
-		id = "blue_night", nameRes = R.string.theme_blue_night,
+		// id must match the rack-theme asset dir name (graphics/themes/<id>/,
+		// gen_themes.py, packSystemAssets) so applyRackTheme finds it.
+		id = "blue", nameRes = R.string.theme_blue_night,
 		surface = Color.parseColor("#161B22"),
 		surfaceInset = Color.parseColor("#232B36"),
 		textPrimary = Color.parseColor("#E4EAF2"),
