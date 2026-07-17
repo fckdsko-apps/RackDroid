@@ -36,6 +36,75 @@ KNOB_RING_HI = "#6C6457"
 HOLE = "#14120E"
 TEXT = "#EDE6D8"
 
+# Panel face gradient + header-strip highlight, and the rack rail/background
+# palette. Previously inline literals in gen_panel()/rail(); lifted to
+# globals so a color theme can reassign them (see THEMES / set_palette).
+# These amber defaults keep the canonical output byte-identical.
+PANEL_GRAD1 = "#3A342B"
+PANEL_GRAD2 = "#292520"
+STRIP_HI = "#FFE8C2"
+RAIL_BG = "#141210"
+RAIL_BG_DARK = "#100E0B"
+RAIL_GRATE = "#1C1915"
+RAIL_GRATE_DARK = "#191612"
+RAIL_COL = "#332E26"
+RAIL_HOLE = "#110F0C"
+RAIL_HI = "#4C4539"
+
+# Alternate color themes for the rack (background/rail + module panels).
+# Amber is the canonical/default look (all values above). Each other theme
+# overrides only the color-bearing globals; metal/text stay neutral. The
+# accent pair drives every accent detail (knob pointers, switch nubs, LEDs,
+# header strip) in cascade, so a small override recolors the whole rack.
+THEMES = {
+    "amber": {},  # canonical defaults — no overrides
+    "blue": {
+        "ACCENT": "#7FC4FF", "ACCENT_DIM": "#4E88BF", "STRIP_HI": "#C7E4FF",
+        "PANEL_BG": "#262B33", "PANEL_BG2": "#1C2027",
+        "PANEL_GRAD1": "#2E3440", "PANEL_GRAD2": "#23282F",
+        "KNOB_BODY_HI": "#3B434E", "KNOB_RING": "#49525E", "KNOB_RING_HI": "#5B6673",
+        "RAIL_BG": "#10141A", "RAIL_BG_DARK": "#0C0F14",
+        "RAIL_GRATE": "#171C24", "RAIL_GRATE_DARK": "#141821",
+        "RAIL_COL": "#2A313B", "RAIL_HOLE": "#0D1116", "RAIL_HI": "#3E4956",
+    },
+    "emerald": {
+        "ACCENT": "#6FE0A0", "ACCENT_DIM": "#3E9E6C", "STRIP_HI": "#BEF2D4",
+        "PANEL_BG": "#26302A", "PANEL_BG2": "#1B231D",
+        "PANEL_GRAD1": "#2C3A30", "PANEL_GRAD2": "#212B24",
+        "KNOB_BODY_HI": "#3B4A40", "KNOB_RING": "#47584C", "KNOB_RING_HI": "#586B5D",
+        "RAIL_BG": "#101612", "RAIL_BG_DARK": "#0C110E",
+        "RAIL_GRATE": "#161F19", "RAIL_GRATE_DARK": "#131A15",
+        "RAIL_COL": "#29352D", "RAIL_HOLE": "#0D120F", "RAIL_HI": "#3C4A40",
+    },
+    "violet": {
+        "ACCENT": "#C9A6F5", "ACCENT_DIM": "#8E6BC0", "STRIP_HI": "#E6D4FF",
+        "PANEL_BG": "#2E2838", "PANEL_BG2": "#221C2B",
+        "PANEL_GRAD1": "#362E40", "PANEL_GRAD2": "#29232F",
+        "KNOB_BODY_HI": "#453B50", "KNOB_RING": "#52495E", "KNOB_RING_HI": "#645872",
+        "RAIL_BG": "#14101A", "RAIL_BG_DARK": "#100C15",
+        "RAIL_GRATE": "#1B1624", "RAIL_GRATE_DARK": "#171320",
+        "RAIL_COL": "#322A3B", "RAIL_HOLE": "#110D16", "RAIL_HI": "#463E56",
+    },
+}
+
+
+# Canonical (amber) values of every themeable global, snapshotted so that
+# set_palette() can always restore the baseline before applying overrides
+# (switching blue -> emerald must not leave blue's values behind).
+_THEMEABLE = ("ACCENT", "ACCENT_DIM", "STRIP_HI", "PANEL_BG", "PANEL_BG2",
+              "PANEL_GRAD1", "PANEL_GRAD2", "KNOB_BODY_HI", "KNOB_RING",
+              "KNOB_RING_HI", "RAIL_BG", "RAIL_BG_DARK", "RAIL_GRATE",
+              "RAIL_GRATE_DARK", "RAIL_COL", "RAIL_HOLE", "RAIL_HI")
+_DEFAULTS = {k: globals()[k] for k in _THEMEABLE}
+
+
+def set_palette(theme):
+    """Reassign the module-level color globals the drawing functions read at
+    call time: restore the amber baseline, then apply the theme's overrides.
+    Idempotent and order-independent. Unknown/'amber' -> canonical."""
+    globals().update(_DEFAULTS)
+    globals().update(THEMES.get(theme, {}))
+
 # nanosvg renders linear/radial gradients (no filters/blur), so all depth
 # cues below are gradient + concentric-shape tricks.
 
@@ -235,11 +304,11 @@ def blank(w, h):
 def rail(w, h, dark=False):
     """Rack background: perforated 'grate' metal tiled across the rack, with
     a mounting rail (holes) at the top and bottom of each 380px row."""
-    bg = "#100E0B" if dark else "#141210"
-    grate = "#191612" if dark else "#1C1915"
-    railcol = "#332E26"
-    holecol = "#110F0C"
-    hi = "#4C4539"
+    bg = RAIL_BG_DARK if dark else RAIL_BG
+    grate = RAIL_GRATE_DARK if dark else RAIL_GRATE
+    railcol = RAIL_COL
+    holecol = RAIL_HOLE
+    hi = RAIL_HI
     ROW = 380.0  # RACK_GRID_HEIGHT
     out = [svg_open(w, h)]
     out.append(f'<rect width="{w}" height="{h}" fill="{bg}"/>')
@@ -356,8 +425,8 @@ def extract_texts(svg_text):
 def gen_panel(name, w, h, texts):
     out = [svg_open(w, h)]
     out.append('<defs>'
-               + lgrad("panel", "#3A342B", "#292520")
-               + lgrad("strip", "#FFE8C2", ACCENT_DIM)
+               + lgrad("panel", PANEL_GRAD1, PANEL_GRAD2)
+               + lgrad("strip", STRIP_HI, ACCENT_DIM)
                # Diagonal glass sheen: soft white reflection fading out
                # before mid-panel (glassmorphism cue, no blur in nanosvg).
                + '<linearGradient id="sheen" x1="0" y1="0" x2="0.65" y2="1">'

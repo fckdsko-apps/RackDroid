@@ -27,7 +27,7 @@ namespace rackdroid {
 static const char* MARKER_NAME = "/.assets-version";
 /* Bump when the system.zip contents change without a Rack version change
    (e.g. new directories added to the Gradle packSystemAssets task). */
-static const char* ASSETS_REVISION = "r26"; // r24: 909/707/606/505 drums; r23: Geomini app typeface; r22: panel/rail contrast fix; r21: glass panels (sheen+translucency); r20: warm-studio palette; r19: modern regenerated art (gradients); r18: RackDroid Drums (first-party, original); r17: Befaco(regen art) + NLC; r16: demo audio driver fix; r15: demo seed refresh; r14: Aria + touch tutorial + demo patches; r13: AudibleInstruments (regen art); r12: Autinn + FrozenWasteland(regen art); r11: 5 new plugin packs; r10: real slider art; r9: mm-unit fix on regenerated SVGs; r8: HetrickCV res; r7: Valley plugin res; r6: perforated grate rail background; r5: original (non-VCV) graphics
+static const char* ASSETS_REVISION = "r27"; // r27: themed rack graphics (themes/<name>/); r24: 909/707/606/505 drums; r23: Geomini app typeface; r22: panel/rail contrast fix; r21: glass panels (sheen+translucency); r20: warm-studio palette; r19: modern regenerated art (gradients); r18: RackDroid Drums (first-party, original); r17: Befaco(regen art) + NLC; r16: demo audio driver fix; r15: demo seed refresh; r14: Aria + touch tutorial + demo patches; r13: AudibleInstruments (regen art); r12: Autinn + FrozenWasteland(regen art); r11: 5 new plugin packs; r10: real slider art; r9: mm-unit fix on regenerated SVGs; r8: HetrickCV res; r7: Valley plugin res; r6: perforated grate rail background; r5: original (non-VCV) graphics
 
 static const char* THUMBS_MARKER_NAME = "/.thumbs-version";
 /* Bump when graphics/browser-thumbs/ is regenerated (rack_ui_smoke
@@ -123,6 +123,46 @@ bool extractSystemAssets(AAssetManager* am, const std::string& systemDir) {
 bool extractThumbnailAssets(AAssetManager* am, const std::string& thumbsDir) {
 	return extractZipAsset(am, "thumbnails.zip", thumbsDir, THUMBS_MARKER_NAME,
 		std::string(THUMBS_REVISION));
+}
+
+
+void applyRackTheme(const std::string& systemDir, const std::string& userDir) {
+	// The rack graphics (background/rail + module panels) come in themed
+	// variants under systemDir/themes/<name>/, each mirroring the canonical
+	// res/ + plugins/*/res/ layout. Kotlin (AppTheme) persists the chosen
+	// theme in userDir/rack-theme.txt. Here -- at startup, BEFORE any panel
+	// SVG is loaded (Rack's Svg::load caches by filename for the process
+	// lifetime, so this must run first) -- we copy the chosen theme's files
+	// over the canonical paths. Runs every launch (cheap: ~250 tiny SVGs),
+	// so a theme change (or a switch back to amber) is always reconciled.
+	std::string themeFile = userDir + "/rack-theme.txt";
+	std::string theme = "amber";
+	if (rack::system::isFile(themeFile)) {
+		std::vector<uint8_t> b = rack::system::readFile(themeFile);
+		theme.assign(b.begin(), b.end());
+		while (!theme.empty() && (theme.back() == '\n' || theme.back() == '\r'
+				|| theme.back() == ' ' || theme.back() == '\t'))
+			theme.pop_back();
+	}
+	std::string themeDir = systemDir + "/themes/" + theme;
+	if (!rack::system::isDirectory(themeDir)) {
+		__android_log_print(ANDROID_LOG_INFO, "rackdroid",
+			"rack theme '%s' not bundled; using canonical graphics", theme.c_str());
+		return;
+	}
+	int n = 0;
+	for (const std::string& src : rack::system::getEntries(themeDir, -1)) {
+		if (rack::system::isDirectory(src))
+			continue;
+		std::string rel = src.substr(themeDir.size()); // leading '/'
+		std::string dst = systemDir + rel;
+		rack::system::createDirectories(rack::system::getDirectory(dst));
+		rack::system::remove(dst); // system::copy won't overwrite an existing file
+		if (rack::system::copy(src, dst))
+			n++;
+	}
+	__android_log_print(ANDROID_LOG_INFO, "rackdroid",
+		"applied rack theme '%s' (%d files)", theme.c_str(), n);
 }
 
 

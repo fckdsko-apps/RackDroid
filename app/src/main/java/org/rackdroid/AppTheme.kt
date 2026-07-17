@@ -104,6 +104,15 @@ object AppTheme {
 		current = palette
 		context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
 			.putString(KEY_PRESET, palette.id).apply()
+		// Also hand the choice to the native side: the rack panels/rail/
+		// background are themed by copying SVGs at startup (asset_extract.cpp
+		// applyRackTheme reads this file from userDir = filesDir/user). Applies
+		// on next launch, so the picker prompts for a restart.
+		runCatching {
+			val f = java.io.File(context.filesDir, "user/rack-theme.txt")
+			f.parentFile?.mkdirs()
+			f.writeText(palette.id)
+		}
 	}
 
 	/** [color] with its alpha replaced by [pct] percent (0-100). Replaces the

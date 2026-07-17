@@ -427,6 +427,9 @@
 	<string name="theme_emerald">Verde smeraldo</string>
 	<string name="theme_violet">Violetto</string>
 	<string name="toast_theme_applied">Tema: %1$s</string>
+	<string name="theme_restart_message">Barra e menu sono a tema. Riavvia l\'app per ricolorare anche i pannelli e lo sfondo del rack.</string>
+	<string name="theme_restart_now">Riavvia ora</string>
+	<string name="theme_restart_later">Più tardi</string>
 	<string name="modules_manager_title">Moduli</string>
 	<string name="install_from_file">＋ Installa da file…</string>
 	<string name="no_modules_installed">Nessun pack extra installato. Tocca “Installa da file” per aggiungere un .rdmod.</string>

@@ -94,6 +94,9 @@ struct RackDroidApp {
 
 		if (!rackdroid::extractSystemAssets(app->activity->assetManager, asset::systemDir))
 			LOGE("asset extraction failed; continuing without system resources");
+		// Apply the persisted rack color theme over the canonical panel/rail
+		// SVGs BEFORE the engine (below) loads and caches any of them.
+		rackdroid::applyRackTheme(asset::systemDir, asset::userDir);
 		// Module browser tile art (ModuleBrowserSheet.kt reads PNGs straight
 		// from filesDir/thumbnails/<pluginSlug>/<modelSlug>.png, matching
 		// each model's "key" field from nativeBrowserModelsJson).

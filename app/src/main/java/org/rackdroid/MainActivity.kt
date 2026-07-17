@@ -718,6 +718,23 @@ class MainActivity : NativeActivity() {
 		dlg.show()
 	}
 
+	/** After a theme change, the toolbar/menus recolor instantly but the rack
+	 * (module panels, rail, background) only updates on the next launch, when
+	 * the native side copies the theme's SVGs into place before loading them.
+	 * Offer to restart now. */
+	private fun promptRestartForRackTheme() {
+		AlertDialog.Builder(this)
+			.setMessage(getString(R.string.theme_restart_message))
+			.setNegativeButton(getString(R.string.theme_restart_later), null)
+			.setPositiveButton(getString(R.string.theme_restart_now)) { _, _ ->
+				val intent = packageManager.getLaunchIntentForPackage(packageName)
+				intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+				startActivity(intent)
+				Runtime.getRuntime().exit(0)
+			}
+			.show()
+	}
+
 	/** Rebuilds the toolbar PopupWindow in place so it picks up the current
 	 * AppTheme.current colors. Cheap and precedented: every Kotlin dialog
 	 * (module manager, browser, credits) already rebuilds itself from
@@ -776,12 +793,17 @@ class MainActivity : NativeActivity() {
 					setPadding(dp(10), 0, dp(4), 0)
 				})
 				setOnClickListener {
+					val changed = preset.id != AppTheme.current.id
 					AppTheme.set(this@MainActivity, preset)
 					dlg.dismiss()
 					rebuildToolbar()
 					pianoView?.applyTheme()
 					Toast.makeText(this@MainActivity,
 						getString(R.string.toast_theme_applied, getString(preset.nameRes)), Toast.LENGTH_SHORT).show()
+					// The chrome (toolbar/menus/palette) is themed live; the
+					// rack panels/rail/background need the native startup copy,
+					// so offer a restart.
+					if (changed) promptRestartForRackTheme()
 				}
 			})
 		}
