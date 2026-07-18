@@ -110,6 +110,10 @@ object ModuleInstaller {
 	private fun loadInstalled(activity: Activity, dir: File): Boolean {
 		val so = dir.listFiles { f -> f.name.endsWith(".so") }?.firstOrNull() ?: return false
 		if (!File(dir, "plugin.json").exists()) return false
+		// Re-imports rescan every installed pack: skip the ones already
+		// registered (dir name == plugin slug) instead of paying a redundant
+		// System.load + dlopen that ends in a WARN on the native side.
+		if ((activity as MainActivity).isPluginLoadedNative(dir.name)) return false
 		// Android refuses to load a writable .so on newer versions ("Attempt
 		// to load writable file … will throw"); make it read-only first.
 		runCatching { so.setReadOnly() }

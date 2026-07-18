@@ -1517,10 +1517,17 @@ class MainActivity : NativeActivity() {
 	private external fun nativeBrowserRequestBuild()
 	private external fun nativeBrowserUnloadPlugin(slug: String)
 	private external fun nativeLoadUserPlugin(dir: String, soname: String): Boolean
+	private external fun nativeIsPluginLoaded(slug: String): Boolean
 
 	/** Called by ModuleInstaller after Java System.load()'s a pack's .so. */
 	fun loadUserPluginNative(dir: String, soname: String): Boolean =
 		runCatching { nativeLoadUserPlugin(dir, soname) }.getOrDefault(false)
+
+	/** Called by ModuleInstaller to skip packs whose slug is already
+	 * registered, avoiding a redundant System.load + dlopen per pack on
+	 * every re-import. */
+	fun isPluginLoadedNative(slug: String): Boolean =
+		runCatching { nativeIsPluginLoaded(slug) }.getOrDefault(false)
 	private external fun nativeKeyboardPress(key: Int)
 	private external fun nativeKeyboardRelease(key: Int)
 	private external fun nativeDialogInt(result: Int)

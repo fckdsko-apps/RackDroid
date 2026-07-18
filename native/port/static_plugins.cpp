@@ -175,5 +175,14 @@ Java_org_rackdroid_MainActivity_nativeLoadUserPlugin(
 	return ok ? JNI_TRUE : JNI_FALSE;
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_org_rackdroid_MainActivity_nativeIsPluginLoaded(
+		JNIEnv* env, jobject, jstring slugJ) {
+	const char* slug = env->GetStringUTFChars(slugJ, NULL);
+	bool loaded = slug && plugin::getPlugin(slug);
+	if (slug) env->ReleaseStringUTFChars(slugJ, slug);
+	return loaded ? JNI_TRUE : JNI_FALSE;
+}
+
 
 } // namespace rackdroid
