@@ -712,6 +712,13 @@ if(RACKDROID_UI)
 		-I${P1_DIR}/dep
 		-I${P1_DIR}/dep/soundtouch/include
 		-I${P1_DIR}/dep/soundtouch/source/SoundTouch)
+	if(NOT ANDROID)
+		# STTypes.h skips the autoconf-generated soundtouch_config.h only
+		# when ANDROID is defined; give the host build an empty one.
+		file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/soundtouch_stub/soundtouch_config.h "")
+		target_compile_options(plugin_packone PRIVATE
+			-I${CMAKE_CURRENT_BINARY_DIR}/soundtouch_stub)
+	endif()
 
 	# Bidoo (49 modules): GPL code; res/ art CC BY-NC-ND -> ships
 	# regenerated art from graphics/bidoo-res. Vendored DSP deps incl. C

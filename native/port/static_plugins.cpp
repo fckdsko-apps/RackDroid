@@ -12,11 +12,14 @@
  * (app lib dir on Android, $ORIGIN runpath for the host smoke test).
  */
 #include <dlfcn.h>
+#include <cstdlib>
 
 #include <jansson.h>
 
+#ifdef ANDROID
 #include <jni.h>
 #include <android/log.h>
+#endif
 
 #include <plugin.hpp>
 #include <plugin/Plugin.hpp>
@@ -130,6 +133,7 @@ static void loadBundledPlugin(const std::string& slug, const std::string& librar
 }
 
 
+#ifdef ANDROID
 /** Load a user-installed plugin pack: <pluginDir> holds plugin.json + res/,
  * and its native library `soname` was already brought into the process by
  * Java System.load() (the only way to satisfy the app linker namespace for
@@ -144,6 +148,7 @@ static bool loadUserPluginAt(const std::string& pluginDir, const std::string& so
 	}
 	return finishLoadPlugin(handle, pluginDir, soname);
 }
+#endif // ANDROID
 
 
 void loadStaticPlugins() {
@@ -153,9 +158,29 @@ void loadStaticPlugins() {
 	// only these base modules.
 	loadBundledPlugin("Fundamental", "libplugin_fundamental.so");
 	loadBundledPlugin("RackDroidDrums", "libplugin_drums.so");
+
+	// Host smoke coverage hook: RACKDROID_EXTRA_PLUGINS is a colon-separated
+	// list of slug=soname pairs (e.g. "Bogaudio=libplugin_bogaudio.so:...").
+	// Each loads through the same bundled path — manifest and res/ must sit
+	// at <systemDir>/plugins/<slug>/ — so `rack_ui_smoke --all-modules` can
+	// exercise every pack, not just the lean base. Unused on Android.
+	if (const char* extra = std::getenv("RACKDROID_EXTRA_PLUGINS")) {
+		std::string list = extra;
+		size_t pos = 0;
+		while (pos < list.size()) {
+			size_t colon = list.find(':', pos);
+			if (colon == std::string::npos) colon = list.size();
+			std::string pair = list.substr(pos, colon - pos);
+			size_t eq = pair.find('=');
+			if (eq != std::string::npos)
+				loadBundledPlugin(pair.substr(0, eq), pair.substr(eq + 1));
+			pos = colon + 1;
+		}
+	}
 }
 
 
+#ifdef ANDROID
 // ---- JNI: user-installed plugin packs (MainActivity) ----
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -183,6 +208,7 @@ Java_org_rackdroid_MainActivity_nativeIsPluginLoaded(
 	if (slug) env->ReleaseStringUTFChars(slugJ, slug);
 	return loaded ? JNI_TRUE : JNI_FALSE;
 }
+#endif // ANDROID
 
 
 } // namespace rackdroid

@@ -483,7 +483,7 @@ class MainActivity : NativeActivity() {
 
 			LICENSES
 			• Engine & modules (VCV Rack, Fundamental, Bogaudio): GPL-3.0-or-later. Complete source:
-			  github.com/nowheel/xmr-stak-cpu-installer (rack-android/)
+			  github.com/nowheel/RackDroid
 			• Component Library, Core & Fundamental panel graphics: original artwork © RackDroid, GPL-3.0.
 			• Bogaudio module graphics: © Matt Demanett, CC BY-SA 4.0.
 			• Fonts: DejaVu (free), Noto/Share Tech Mono/Nunito/DSEG (OFL).
