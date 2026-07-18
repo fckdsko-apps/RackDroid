@@ -16,6 +16,15 @@
 cmake_minimum_required(VERSION 3.22)
 project(rackdroid LANGUAGES C CXX)
 
+# Rack's logger prints __FILE__, which the compiler expands to the absolute
+# path of the developer's checkout — leaked verbatim into the app's log.txt.
+# Remap both the repo root and the build dir (generated/patched sources) so
+# logs and debug info carry repo-relative paths only.
+get_filename_component(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
+add_compile_options(
+	"-ffile-prefix-map=${REPO_ROOT}/="
+	"-ffile-prefix-map=${CMAKE_BINARY_DIR}/=")
+
 # Host-side reproduction of the full Android UI build (rack_ui_smoke), using
 # Mesa's EGL surfaceless platform + GLES3. Requires libegl1-mesa-dev and
 # libgles-dev. Catches on the desktop the same crashes the app would hit.
