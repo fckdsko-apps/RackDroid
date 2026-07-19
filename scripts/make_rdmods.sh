@@ -18,6 +18,11 @@ cd "$(dirname "$0")/.."
 # whose .so predate the current toolchain flags (e.g. 16 KB page align).
 SO=$(ls -dt app/build/intermediates/cxx/RelWithDebInfo/*/obj/arm64-v8a 2>/dev/null | head -1)
 [ -z "$SO" ] && SO=app/build/intermediates/stripped_native_libs/release/stripReleaseDebugSymbols/out/lib/arm64-v8a
+# The obj dir holds UNSTRIPPED RelWithDebInfo libraries — debug info made
+# e.g. Bogaudio's .so 56 MB instead of 3.8 MB. Strip with the same NDK
+# llvm-strip the AGP pipeline uses, so packs match APK-shipped libs.
+STRIP=$(ls "${ANDROID_HOME:-$HOME/android-sdk}"/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip 2>/dev/null | sort -V | tail -1)
+[ -z "$STRIP" ] && { echo "llvm-strip not found under ANDROID_HOME ndk/"; exit 1; }
 OUT="${1:-/tmp/rdmods}"
 mkdir -p "$OUT"
 work=$(mktemp -d)
@@ -28,7 +33,7 @@ pack() {
 	local slug="$1" so="$2" tp="$3" regen="$4"; shift 4
 	local d="$work/$slug"; rm -rf "$d"; mkdir -p "$d"
 	if [ ! -f "$SO/$so" ]; then echo "skip $slug (no $so)"; return; fi
-	cp "$SO/$so" "$d/"
+	"$STRIP" --strip-unneeded -o "$d/$so" "$SO/$so"
 	cp "third_party/$tp/plugin.json" "$d/"
 	[ -d "third_party/$tp/presets" ] && cp -r "third_party/$tp/presets" "$d/" || true
 	if [ "$regen" = "-" ]; then
