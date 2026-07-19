@@ -5,94 +5,137 @@
   "license": "GPL-3.0-or-later",
   "brand": "RackDroid",
   "author": "RackDroid",
-  "authorEmail": "patrik.meneguot@gmail.com",
-  "pluginUrl": "https://github.com/nowheel/xmr-stak-cpu-installer",
-  "sourceUrl": "https://github.com/nowheel/xmr-stak-cpu-installer",
+  "authorEmail": "info@rackdroid.org",
+  "pluginUrl": "https://github.com/nowheel/RackDroid",
+  "sourceUrl": "https://github.com/nowheel/RackDroid",
   "description": "Classic analog drum voices in the 808 tradition, made for RackDroid",
   "modules": [
     {
       "slug": "BD808",
       "name": "BD-808",
       "description": "Bass drum voice: sine with pitch sweep, click and saturation",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "SD808",
       "name": "SD-808",
       "description": "Snare drum voice: two detuned partials plus snappy noise",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "HH808",
       "name": "HH-808",
       "description": "Hi-hat voice: six-oscillator metallic bank, closed chokes open",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "CP808",
       "name": "CP-808",
       "description": "Handclap voice: retriggered noise bursts with reverb tail",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "CB808",
       "name": "CB-808",
       "description": "Cowbell voice: two square partials through a band filter",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "TM808",
       "name": "TM-808",
       "description": "Tom voice: tunable from low tom to conga",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "BD909",
       "name": "BD-909",
       "description": "Bass drum voice: fast deep sweep, hard click and drive",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "SD909",
       "name": "SD-909",
       "description": "Snare drum voice: short shell, tone-controlled bright crack",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "HH909",
       "name": "HH-909",
       "description": "Hi-hat voice: bright six-oscillator bank with sizzle, closed chokes open",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "BD606",
       "name": "BD-606",
       "description": "Bass drum voice: small, tight and boxy",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "HH606",
       "name": "HH-606",
       "description": "Hi-hat voice: thin fizzy four-oscillator bank, closed chokes open",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "SD707",
       "name": "SD-707",
       "description": "Snare drum voice: mid-forward body with a hard noise burst",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "CB707",
       "name": "CB-707",
       "description": "Cowbell voice: brighter pair, faster decay",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     },
     {
       "slug": "TM505",
       "name": "TM-505",
       "description": "Tom voice: plastic swept body, tunable high",
-      "tags": ["Drum", "Synth voice"]
+      "tags": [
+        "Drum",
+        "Synth voice"
+      ]
     }
-  ]
+  ],
+  "manualUrl": "https://rackdroid.org"
 }
