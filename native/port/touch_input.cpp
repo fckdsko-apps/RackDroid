@@ -37,9 +37,18 @@
 #include <app/Scene.hpp>
 #include "window_android.hpp"
 #include "jni_bridge.hpp"
+#include <logger.hpp>
 
 
 namespace rackdroid {
+
+
+/* Cable-park diagnostics have to reach BOTH sinks: logcat for whoever has the
+phone on a cable, and user/log.txt for everyone else, since a release build is
+not debuggable and `run-as` cannot read the private log. Plain INFO() alone
+already cost one debugging round trip here — the messages existed and were
+invisible. */
+#define LOGI(...) do { __android_log_print(ANDROID_LOG_INFO, "rackdroid.cablepark", __VA_ARGS__); INFO(__VA_ARGS__); } while (0)
 
 
 static const double LONG_PRESS_SECONDS = 0.6;
@@ -142,7 +151,7 @@ static rack::app::PortWidget* incompleteCablePort() {
 	rack::widget::Widget* dragged = APP->event->getDraggedWidget();
 	if (rack::app::PortWidget* pw = dynamic_cast<rack::app::PortWidget*>(dragged))
 		return pw;
-	INFO("cablepark: nothing to park (%zu incomplete cables, dragged widget is %s)",
+	LOGI("cablepark: nothing to park (%zu incomplete cables, dragged widget is %s)",
 		cables.size(), dragged ? typeid(*dragged).name() : "nothing");
 	return NULL;
 }
@@ -303,12 +312,12 @@ int touchHandleEvent(AInputEvent* event) {
 				if (!target) {
 					// Landed beside the jack rather than on it: snap to the
 					// nearest port that could actually take this end.
-					target = rackdroid::cableParkNearestPort(pos.x, pos.y, want, 30.f);
+					target = rackdroid::cableParkNearestPort(pos.x, pos.y, want);
 				}
 				if (target)
 					rackdroid::cableParkConnect(g_parkDrag, target);
 				else {
-					INFO("cablepark: drop missed, no port within reach");
+					LOGI("cablepark: drop missed, no port within reach");
 					rackdroid::cableParkFlashRefused(g_parkDrag);
 				}
 				rackdroid::cableParkSetDragging(-1, 0.f, 0.f);
@@ -322,10 +331,22 @@ int touchHandleEvent(AInputEvent* event) {
 			// its half-made cable as usual.
 			if (!st.gesture && st.leftSent) {
 				int slot = rackdroid::cableParkSlotAt(pos.x, pos.y);
-				if (slot >= 0 && !rackdroid::cableParkSlotFilled(slot)) {
-					rack::app::PortWidget* from = incompleteCablePort();
-					if (from)
+				if (slot >= 0) {
+					// Every way of failing here has to say so on screen. Letting
+					// go over a hole and seeing nothing happen reads as "the bar
+					// is broken" whether the hole was full, the gesture never
+					// picked up a cable, or the park genuinely failed.
+					if (rackdroid::cableParkSlotFilled(slot)) {
+						LOGI("cablepark: hole %d is already taken", slot);
+						rackdroid::cableParkFlashRefused(slot);
+					}
+					else if (rack::app::PortWidget* from = incompleteCablePort()) {
 						rackdroid::cableParkStore(slot, from);
+					}
+					else {
+						// incompleteCablePort() already logged why.
+						rackdroid::cableParkFlashRefused(slot);
+					}
 				}
 			}
 			if (!st.gesture) {

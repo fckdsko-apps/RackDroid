@@ -17,6 +17,17 @@ namespace rackdroid {
  * Everything here lives in the port layer -- Rack's own drag is left alone
  * and only observed, so no upstream file is touched. */
 
+/** How far from a jack a drop still counts as hitting it, as a multiple of that
+jack's radius ON SCREEN. It has to be relative: a fixed distance in scene units
+is right at one zoom level only, and once the rack is zoomed out far enough that
+jacks are closer together than the snap distance, every drop lands on whichever
+jack happens to be nearest -- and the highlight drawn with the same fixed radius
+covers the panel in overlapping rings. */
+static const float CABLE_PARK_SNAP_JACKS = 2.2f;
+/** Floor, in scene units: a fingertip cannot aim better than this however far
+out the rack is zoomed. */
+static const float CABLE_PARK_SNAP_MIN = 7.f;
+
 /** Adds the bar widget to the scene. Call once, after the Scene exists. */
 void installCableParkBar();
 
@@ -36,11 +47,24 @@ bool cableParkStore(int slot, rack::app::PortWidget* port);
 OUTPUT (1), or -1 when the slot is empty. */
 int cableParkSlotType(int slot);
 
-/** Nearest port of `wantType` (engine::Port::INPUT/OUTPUT) within `radius` of
-a screen position, or NULL. A jack is a few units across and a fingertip is
-not: without this, a drop that looks on target lands on the module body and
-nothing happens. */
-rack::app::PortWidget* cableParkNearestPort(float x, float y, int wantType, float radius);
+/** On-screen radius of a jack in scene units — `box.size` is in rack-local
+units, so it shrinks with the rack's zoom while a hardcoded radius does not. */
+float cableParkPortRadius(rack::app::PortWidget* pw);
+
+/** How far a drop may land from THIS jack and still connect to it. Shared so
+the highlight drawn during the drag and the port actually chosen on release use
+the SAME reach — if they diverge the bar lights up a target it will not connect
+to, which is worse than no highlight at all. */
+inline float cableParkSnapRadius(rack::app::PortWidget* pw) {
+	float r = cableParkPortRadius(pw) * CABLE_PARK_SNAP_JACKS;
+	return r > CABLE_PARK_SNAP_MIN ? r : CABLE_PARK_SNAP_MIN;
+}
+
+/** Nearest port of `wantType` (engine::Port::INPUT/OUTPUT) within snapping
+reach of a screen position, or NULL. A jack is a few units across and a
+fingertip is not: without this, a drop that looks on target lands on the module
+body and nothing happens. */
+rack::app::PortWidget* cableParkNearestPort(float x, float y, int wantType);
 
 /** Connects the end parked in `slot` to `target`, clearing the slot.
 Returns false if the two ports cannot form a cable (same direction, missing

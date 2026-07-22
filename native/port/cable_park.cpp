@@ -196,6 +196,44 @@ struct CableParkBar : widget::Widget {
 			}
 		}
 
+		// While a parked end is in flight, light up every jack that could take
+		// it. Without this the user aims blind and only learns the answer from
+		// the red flash AFTER letting go -- every bug report on this feature so
+		// far was a correct refusal that simply could not be seen coming.
+		if (g_dragSlot >= 0 && g_slots[g_dragSlot].filled() && APP->scene->rack) {
+			int want = g_slots[g_dragSlot].type == engine::Port::INPUT
+				? engine::Port::OUTPUT : engine::Port::INPUT;
+			// The one that would actually be chosen right now, so the strong
+			// ring is a promise rather than a hint.
+			app::PortWidget* pick =
+				cableParkNearestPort(g_dragX, g_dragY, want);
+			NVGcolor tint = g_slots[g_dragSlot].color;
+			for (app::ModuleWidget* mw : APP->scene->rack->getModules()) {
+				if (!mw)
+					continue;
+				for (app::PortWidget* pw : mw->getPorts()) {
+					if (!pw || pw->type != want)
+						continue;
+					math::Vec c = pw->getAbsoluteOffset(pw->box.size.div(2.f));
+					// Cull off-screen jacks: a big patch has hundreds and this
+					// runs every frame alongside a real-time audio engine.
+					if (c.x < -20.f || c.y < -20.f ||
+						c.x > box.size.x + 20.f || c.y > box.size.y + 20.f)
+						continue;
+					bool chosen = (pw == pick);
+					// Ring the jack at its actual on-screen size. With a fixed
+					// radius the rings overlap into a mesh as soon as the rack
+					// is zoomed out, and the panel underneath disappears.
+					float r = cableParkPortRadius(pw);
+					nvgBeginPath(args.vg);
+					nvgCircle(args.vg, c.x, c.y, chosen ? r * 1.7f : r * 1.15f);
+					nvgStrokeColor(args.vg, nvgTransRGBA(tint, chosen ? 0xFF : 0x55));
+					nvgStrokeWidth(args.vg, chosen ? r * 0.3f : r * 0.14f);
+					nvgStroke(args.vg);
+				}
+			}
+		}
+
 		// Cable being pulled out of a hole towards the finger.
 		if (g_dragSlot >= 0 && g_slots[g_dragSlot].filled()) {
 			float cx = holeX(), cy = holeY(g_dragSlot);
@@ -271,6 +309,11 @@ bool cableParkStore(int slot, app::PortWidget* port) {
 		engine::PortInfo* info = port->getPortInfo();
 		g_slots[slot].portName = info ? info->getName() : "";
 	}
+	// Claim the colour now, not at connect time. Two ends waiting in identical
+	// tan drew as the same cable twice, and the colour the bar showed was not
+	// the colour the finished cable got.
+	if (APP->scene && APP->scene->rack)
+		g_slots[slot].color = APP->scene->rack->getNextCableColor();
 	LOGI("parked %s port %d of module %lld in slot %d",
 		port->type == engine::Port::INPUT ? "input" : "output",
 		port->portId, (long long) port->module->id, slot);
@@ -285,11 +328,19 @@ int cableParkSlotType(int slot) {
 }
 
 
-app::PortWidget* cableParkNearestPort(float x, float y, int wantType, float radius) {
+float cableParkPortRadius(app::PortWidget* pw) {
+	math::Vec o = pw->getAbsoluteOffset(math::Vec(0.f, 0.f));
+	math::Vec e = pw->getAbsoluteOffset(pw->box.size);
+	float r = (e.x - o.x) * 0.5f;
+	return r > 3.f ? r : 3.f;
+}
+
+
+app::PortWidget* cableParkNearestPort(float x, float y, int wantType) {
 	if (!APP->scene || !APP->scene->rack)
 		return NULL;
 	app::PortWidget* best = NULL;
-	float bestDist = radius * radius;
+	float bestDist = -1.f;
 	for (app::ModuleWidget* mw : APP->scene->rack->getModules()) {
 		if (!mw)
 			continue;
@@ -300,7 +351,10 @@ app::PortWidget* cableParkNearestPort(float x, float y, int wantType, float radi
 			math::Vec c = pw->getAbsoluteOffset(pw->box.size.div(2.f));
 			float dx = c.x - x, dy = c.y - y;
 			float d = dx * dx + dy * dy;
-			if (d < bestDist) {
+			float reach = cableParkSnapRadius(pw);
+			if (d > reach * reach)
+				continue;
+			if (bestDist < 0.f || d < bestDist) {
 				bestDist = d;
 				best = pw;
 			}
@@ -340,9 +394,10 @@ bool cableParkConnect(int slot, app::PortWidget* target) {
 	}
 	app::CableWidget* cw = new app::CableWidget;
 	// Rack picks the colour when the USER drags a cable; building one by hand
-	// skips that, and the default-constructed NVGcolor drew as a dead grey
-	// wire that looked disabled. Take the same next colour from the rotation.
-	cw->color = APP->scene->rack->getNextCableColor();
+	// skips that, and the default-constructed NVGcolor drew as a dead grey wire
+	// that looked disabled. Reuse the colour claimed at park time so the cable
+	// the user was looking at in the bar is the cable they end up with.
+	cw->color = s.color;
 	cw->inputPort = in;
 	cw->outputPort = out;
 	// Registers the cable with the engine from the two ports.
