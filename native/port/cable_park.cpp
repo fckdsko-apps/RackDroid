@@ -28,11 +28,16 @@
 #include <string>
 
 #include <android/log.h>
+#include <logger.hpp>
 #include <jni.h>
 
 #include "cable_park.hpp"
 
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "rackdroid.cablepark", __VA_ARGS__)
+// Both sinks, like the other port files: logcat needs adb, while INFO() lands
+// in user/log.txt, which the in-app viewer and the Documents export can reach.
+// Diagnostics only a developer with a cable can read are diagnostics nobody
+// reads.
+#define LOGI(...) do { __android_log_print(ANDROID_LOG_INFO, "rackdroid.cablepark", __VA_ARGS__); INFO(__VA_ARGS__); } while (0)
 
 using namespace rack;
 

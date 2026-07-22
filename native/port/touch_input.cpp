@@ -142,8 +142,7 @@ static rack::app::PortWidget* incompleteCablePort() {
 	rack::widget::Widget* dragged = APP->event->getDraggedWidget();
 	if (rack::app::PortWidget* pw = dynamic_cast<rack::app::PortWidget*>(dragged))
 		return pw;
-	__android_log_print(ANDROID_LOG_INFO, "rackdroid.cablepark",
-		"nothing to park: %zu incomplete cables, dragged widget is %s",
+	INFO("cablepark: nothing to park (%zu incomplete cables, dragged widget is %s)",
 		cables.size(), dragged ? typeid(*dragged).name() : "nothing");
 	return NULL;
 }
@@ -303,8 +302,7 @@ int touchHandleEvent(AInputEvent* event) {
 				if (target)
 					rackdroid::cableParkConnect(g_parkDrag, target);
 				else
-					__android_log_print(ANDROID_LOG_INFO, "rackdroid.cablepark",
-						"drop missed: no port within reach");
+					INFO("cablepark: drop missed, no port within reach");
 				rackdroid::cableParkSetDragging(-1, 0.f, 0.f);
 				g_parkDrag = -1;
 				st.down = false;
