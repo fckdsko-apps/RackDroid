@@ -293,11 +293,17 @@ int touchHandleEvent(AInputEvent* event) {
 			if (g_parkDrag >= 0) {
 				rack::app::PortWidget* target =
 					dynamic_cast<rack::app::PortWidget*>(APP->event->getHoveredWidget());
+				// An incompatible jack under the finger is not an answer: keep
+				// looking for one that could actually take this end, so landing
+				// on an input while holding an input still finds the output
+				// next to it.
+				int want = rackdroid::cableParkSlotType(g_parkDrag) == 0 ? 1 : 0;
+				if (target && target->type != want)
+					target = NULL;
 				if (!target) {
 					// Landed beside the jack rather than on it: snap to the
 					// nearest port that could actually take this end.
-					int want = rackdroid::cableParkSlotType(g_parkDrag) == 0 ? 1 : 0;
-					target = rackdroid::cableParkNearestPort(pos.x, pos.y, want, 26.f);
+					target = rackdroid::cableParkNearestPort(pos.x, pos.y, want, 30.f);
 				}
 				if (target)
 					rackdroid::cableParkConnect(g_parkDrag, target);

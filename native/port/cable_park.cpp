@@ -29,6 +29,7 @@
 
 #include <android/log.h>
 #include <logger.hpp>
+#include <system.hpp>
 #include <jni.h>
 
 #include "cable_park.hpp"
@@ -66,6 +67,10 @@ struct Slot {
 static Slot g_slots[SLOT_COUNT];
 static bool g_visible = false;
 static int g_dragSlot = -1;
+// Slot to flash red, and when it started: a refusal the user cannot see is
+// indistinguishable from a feature that does not work.
+static int g_refuseSlot = -1;
+static double g_refuseTime = 0.0;
 static float g_dragX = 0.f, g_dragY = 0.f;
 
 
@@ -131,9 +136,17 @@ struct CableParkBar : widget::Widget {
 			nvgCircle(args.vg, cx, cy, HOLE_R);
 			nvgFillColor(args.vg, nvgRGB(0x14, 0x12, 0x0E));
 			nvgFill(args.vg);
-			nvgStrokeColor(args.vg, g_slots[i].filled()
-				? g_slots[i].color : nvgRGBA(0x8A, 0x81, 0x73, 0x90));
-			nvgStrokeWidth(args.vg, g_slots[i].filled() ? 2.5f : 1.5f);
+			float refuse = 0.f;
+			if (i == g_refuseSlot) {
+				double age = rack::system::getTime() - g_refuseTime;
+				refuse = age < 1.0 ? (float) (1.0 - age) : 0.f;
+			}
+			NVGcolor ring = g_slots[i].filled()
+				? g_slots[i].color : nvgRGBA(0x8A, 0x81, 0x73, 0x90);
+			if (refuse > 0.f)
+				ring = nvgLerpRGBA(ring, nvgRGB(0xE0, 0x50, 0x40), refuse);
+			nvgStrokeColor(args.vg, ring);
+			nvgStrokeWidth(args.vg, g_slots[i].filled() ? 2.5f + refuse * 2.f : 1.5f);
 			nvgStroke(args.vg);
 
 			if (g_slots[i].filled()) {
@@ -305,7 +318,10 @@ bool cableParkConnect(int slot, app::PortWidget* target) {
 		return false;
 	// A cable needs one input end and one output end.
 	if (s.type == target->type) {
+		// A cable runs from an output to an input; two of the same cannot pair.
 		LOGI("refused: both ends are %s", s.type == engine::Port::INPUT ? "inputs" : "outputs");
+		g_refuseSlot = slot;
+		g_refuseTime = rack::system::getTime();
 		return false;
 	}
 	app::PortWidget* parked = resolvePort(s);
@@ -318,6 +334,8 @@ bool cableParkConnect(int slot, app::PortWidget* target) {
 	app::PortWidget* out = s.type == engine::Port::OUTPUT ? parked : target;
 	if (APP->scene->rack->getCable(out, in)) {
 		LOGI("refused: those ports are already connected");
+		g_refuseSlot = slot;
+		g_refuseTime = rack::system::getTime();
 		return false;
 	}
 	app::CableWidget* cw = new app::CableWidget;
