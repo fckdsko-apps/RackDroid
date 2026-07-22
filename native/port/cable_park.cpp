@@ -316,6 +316,10 @@ bool cableParkConnect(int slot, app::PortWidget* target) {
 		return false;
 	}
 	app::CableWidget* cw = new app::CableWidget;
+	// Rack picks the colour when the USER drags a cable; building one by hand
+	// skips that, and the default-constructed NVGcolor drew as a dead grey
+	// wire that looked disabled. Take the same next colour from the rotation.
+	cw->color = APP->scene->rack->getNextCableColor();
 	cw->inputPort = in;
 	cw->outputPort = out;
 	// Registers the cable with the engine from the two ports.
