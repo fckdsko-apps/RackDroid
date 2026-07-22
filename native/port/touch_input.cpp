@@ -129,10 +129,23 @@ static rack::app::PortWidget* incompleteCablePort() {
 	if (!APP->scene || !APP->scene->rack)
 		return NULL;
 	std::vector<rack::app::CableWidget*> cables = APP->scene->rack->getIncompleteCables();
-	if (cables.empty())
-		return NULL;
-	rack::app::CableWidget* cw = cables.back();
-	return cw->inputPort ? cw->inputPort : cw->outputPort;
+	if (!cables.empty()) {
+		rack::app::CableWidget* cw = cables.back();
+		rack::app::PortWidget* p = cw->inputPort ? cw->inputPort : cw->outputPort;
+		if (p)
+			return p;
+	}
+	// Dragging a cable that was ALREADY plugged in goes through the plug, not
+	// through a freshly made incomplete cable, so the list above can be empty
+	// while a cable end is very much in flight. Fall back to whatever widget
+	// the drag actually started on.
+	rack::widget::Widget* dragged = APP->event->getDraggedWidget();
+	if (rack::app::PortWidget* pw = dynamic_cast<rack::app::PortWidget*>(dragged))
+		return pw;
+	__android_log_print(ANDROID_LOG_INFO, "rackdroid.cablepark",
+		"nothing to park: %zu incomplete cables, dragged widget is %s",
+		cables.size(), dragged ? typeid(*dragged).name() : "nothing");
+	return NULL;
 }
 
 
