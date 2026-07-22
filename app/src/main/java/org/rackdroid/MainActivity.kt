@@ -202,6 +202,21 @@ class MainActivity : NativeActivity() {
 			}
 		val paletteButton = iconButton(R.drawable.ic_tb_modules, getString(R.string.menu_view)) { modulePalette.toggle() }
 		val installButton = iconButton(R.drawable.ic_tb_install, getString(R.string.modules_manager_title)) { showModuleManager() }
+		// Cable parking bar: you cannot pan the rack while dragging a cable, so
+		// this is where a cable end waits while you scroll to its destination.
+		lateinit var cableParkButton: ImageButton
+		var cableParkOn = false
+		cableParkButton = iconButton(R.drawable.ic_tb_cablepark,
+				getString(R.string.cable_park_title)) {
+			cableParkOn = !cableParkOn
+			nativeSetCableParkVisible(cableParkOn)
+			cableParkButton.alpha = if (cableParkOn) 1f else 0.55f
+			cableParkButton.imageTintList = android.content.res.ColorStateList.valueOf(
+				if (cableParkOn) AppTheme.current.accent else AppTheme.current.textPrimary)
+			if (cableParkOn)
+				Toast.makeText(this, getString(R.string.cable_park_hint), Toast.LENGTH_LONG).show()
+		}
+		cableParkButton.alpha = 0.55f
 		val themeButton = iconButton(R.drawable.ic_tb_theme, getString(R.string.theme_picker_title)) { showThemePicker() }
 		val undoButton = iconButton(R.drawable.ic_tb_undo, "Undo") { nativeHistoryAction(0) }
 		val redoButton = iconButton(R.drawable.ic_tb_redo, "Redo") { nativeHistoryAction(1) }
@@ -232,6 +247,7 @@ class MainActivity : NativeActivity() {
 		applyLocks() // restore persisted state (also styles both buttons)
 		iconRow.addView(paletteButton)
 		iconRow.addView(installButton)
+		iconRow.addView(cableParkButton)
 		iconRow.addView(themeButton)
 		iconRow.addView(undoButton)
 		iconRow.addView(redoButton)
@@ -1567,6 +1583,7 @@ class MainActivity : NativeActivity() {
 	}
 
 	private external fun nativeUserPluginsLoaded()
+	private external fun nativeSetCableParkVisible(visible: Boolean)
 
 	/** Called from native once the patch has been restored and the engine is
 	 * running. Building the model list needs every plugin registered, and the

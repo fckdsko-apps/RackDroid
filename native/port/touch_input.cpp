@@ -28,6 +28,13 @@
 #include <system.hpp>
 
 #include "touch_input.hpp"
+#include <typeinfo>
+#include <android/log.h>
+#include "cable_park.hpp"
+#include <app/CableWidget.hpp>
+#include <app/PortWidget.hpp>
+#include <app/RackWidget.hpp>
+#include <app/Scene.hpp>
 #include "window_android.hpp"
 #include "jni_bridge.hpp"
 
@@ -110,6 +117,25 @@ static void startInertia() {
 }
 
 
+/** Slot whose parked cable end the finger is currently pulling out, or -1.
+Lives here rather than in cable_park because it is touch state: the bar only
+needs to know where to draw the cable. */
+static int g_parkDrag = -1;
+
+
+/** The port an in-flight Rack cable drag started from, or NULL. Rack keeps the
+half-made cable in the rack widget; we only ever read it. */
+static rack::app::PortWidget* incompleteCablePort() {
+	if (!APP->scene || !APP->scene->rack)
+		return NULL;
+	std::vector<rack::app::CableWidget*> cables = APP->scene->rack->getIncompleteCables();
+	if (cables.empty())
+		return NULL;
+	rack::app::CableWidget* cw = cables.back();
+	return cw->inputPort ? cw->inputPort : cw->outputPort;
+}
+
+
 static rack::math::Vec scenePos(float x, float y) {
 	float ratio = APP->window ? APP->window->pixelRatio : 1.f;
 	return rack::math::Vec(x, y).div(ratio);
@@ -153,6 +179,16 @@ int touchHandleEvent(AInputEvent* event) {
 			st.downTime = rack::system::getTime();
 			st.downPos = pos;
 			st.lastPos = pos;
+			// Pulling a parked cable end out of the bar: our own drag, Rack
+			// must not see it at all or it would start panning the rack.
+			{
+				int slot = rackdroid::cableParkSlotAt(pos.x, pos.y);
+				if (slot >= 0 && rackdroid::cableParkSlotFilled(slot)) {
+					g_parkDrag = slot;
+					rackdroid::cableParkSetDragging(slot, pos.x, pos.y);
+					return 1;
+				}
+			}
 			// Move the virtual cursor there first, then press.
 			APP->event->handleHover(pos, rack::math::Vec());
 			// Padlock active and the target is frozen: swallow the press.
@@ -181,6 +217,14 @@ int touchHandleEvent(AInputEvent* event) {
 		}
 
 		case AMOTION_EVENT_ACTION_MOVE: {
+			if (g_parkDrag >= 0) {
+				// Hover so the port under the finger lights up as it would in a
+				// normal Rack cable drag; the bar draws the cable itself.
+				APP->event->handleHover(pos, pos.minus(st.lastPos));
+				rackdroid::cableParkSetDragging(g_parkDrag, pos.x, pos.y);
+				st.lastPos = pos;
+				return 1;
+			}
 			if (st.gesture && pointerCount >= 2) {
 				rack::math::Vec p1 = scenePos(AMotionEvent_getX(event, 1), AMotionEvent_getY(event, 1));
 				rack::math::Vec centroid = pos.plus(p1).mult(0.5f);
@@ -233,6 +277,38 @@ int touchHandleEvent(AInputEvent* event) {
 		}
 
 		case AMOTION_EVENT_ACTION_UP: {
+			// Dropping a parked end onto a port completes the cable.
+			if (g_parkDrag >= 0) {
+				rack::app::PortWidget* target =
+					dynamic_cast<rack::app::PortWidget*>(APP->event->getHoveredWidget());
+				if (!target) {
+					// Landed beside the jack rather than on it: snap to the
+					// nearest port that could actually take this end.
+					int want = rackdroid::cableParkSlotType(g_parkDrag) == 0 ? 1 : 0;
+					target = rackdroid::cableParkNearestPort(pos.x, pos.y, want, 26.f);
+				}
+				if (target)
+					rackdroid::cableParkConnect(g_parkDrag, target);
+				else
+					__android_log_print(ANDROID_LOG_INFO, "rackdroid.cablepark",
+						"drop missed: no port within reach");
+				rackdroid::cableParkSetDragging(-1, 0.f, 0.f);
+				g_parkDrag = -1;
+				st.down = false;
+				st.gesture = false;
+				return 1;
+			}
+			// Releasing an in-flight Rack cable drag over an empty hole parks
+			// it: we only record which port it came from, then let Rack discard
+			// its half-made cable as usual.
+			if (!st.gesture && st.leftSent) {
+				int slot = rackdroid::cableParkSlotAt(pos.x, pos.y);
+				if (slot >= 0 && !rackdroid::cableParkSlotFilled(slot)) {
+					rack::app::PortWidget* from = incompleteCablePort();
+					if (from)
+						rackdroid::cableParkStore(slot, from);
+				}
+			}
 			if (!st.gesture) {
 				endLeftDrag(pos);
 				// Tap landed on a text field: no hardware keyboard on
@@ -251,6 +327,10 @@ int touchHandleEvent(AInputEvent* event) {
 		}
 
 		case AMOTION_EVENT_ACTION_CANCEL: {
+			if (g_parkDrag >= 0) {
+				rackdroid::cableParkSetDragging(-1, 0.f, 0.f);
+				g_parkDrag = -1;
+			}
 			endLeftDrag(st.lastPos);
 			st.down = false;
 			st.gesture = false;

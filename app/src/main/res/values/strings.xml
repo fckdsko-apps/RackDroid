@@ -443,6 +443,8 @@
 	<string name="uninstall_message">Its modules leave the palette right away. Any you already placed keep working until you restart.</string>
 	<string name="uninstalled_restart">Uninstalled — modules removed from the palette</string>
 	<!-- Module palette: search field and brand filter (the magnifier chip). -->
+	<string name="cable_park_title">Cable parking</string>
+	<string name="cable_park_hint">Drag a cable end into a hole, scroll to the target, then drag it out onto a port.</string>
 	<string name="palette_search_hint">Search modules</string>
 	<string name="palette_no_matches">No module matches these filters</string>
 	<string name="palette_all_brands">All brands</string>

@@ -45,6 +45,7 @@
 #include "jni_bridge.hpp"
 #include "amidi_driver.hpp"
 #include "label_overlay.hpp"
+#include "cable_park.hpp"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "rackdroid", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "rackdroid", __VA_ARGS__)
@@ -172,6 +173,7 @@ struct RackDroidApp {
 				APP->patch->launch("");
 				APP->engine->startFallbackThread();
 				rackdroid::installLabelOverlay();
+				rackdroid::installCableParkBar();
 				patchLaunched = true;
 				LOGI("Patch launched: %s", APP->patch->path.c_str());
 				// Every plugin is registered and the patch is up: Java can now

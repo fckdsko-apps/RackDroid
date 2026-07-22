@@ -439,6 +439,8 @@
 	<string name="uninstall_message">I suoi moduli spariscono subito dalla palette. Quelli già inseriti restano attivi fino al riavvio.</string>
 	<string name="uninstalled_restart">Disinstallato — moduli rimossi dalla palette</string>
 	<!-- Module palette: search field and brand filter (the magnifier chip). -->
+	<string name="cable_park_title">Parcheggio cavi</string>
+	<string name="cable_park_hint">Trascina un capo del cavo in un buco, scorri fino alla destinazione, poi trascinalo su una porta.</string>
 	<string name="palette_search_hint">Cerca moduli</string>
 	<string name="palette_no_matches">Nessun modulo corrisponde ai filtri</string>
 	<string name="palette_all_brands">Tutte le marche</string>
