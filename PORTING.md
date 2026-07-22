@@ -41,15 +41,17 @@ Obiettivo: vedere il rack renderizzato e interagirci.
       (unico driver registrato → default automatico); TestTonePort rimosso
 - [x] `APP->patch->launch("")` all'avvio: autosave o template.vcv, con
       autosave alla chiusura dell'app
-- [ ] Clipboard reale via JNI al posto degli stub GLFW (copia/incolla preset)
-- [ ] Validazione su dispositivo (rendering, FramebufferWidget/FBO su ES3)
+- [x] Clipboard reale via JNI al posto degli stub GLFW (vedi fase 4)
+- [x] Validazione su dispositivo: Galaxy S22 (Android 16), rendering della
+      scena, cavi e FramebufferWidget (curve ADSR, scope) su ES3 verificati
 
 ## Fase 3 — Input touch (base fatta in fase 2)
 
 - [x] Un dito = mouse sinistro (hover+press/drag/release): manopole, cavi, menu
 - [x] Long-press fermo (0,6 s) = click destro → menu contestuali
 - [x] Due dita = pan (scroll); pinch = zoom (Ctrl+scroll emulato)
-- [ ] Tastiera software per i TextField (JNI, `showSoftInput`)
+- [x] Tastiera software: prompt Android per i TextField (fase 4) e campo di
+      ricerca in-place nella palette (`showSoftInput`, ModulePalette)
 - [ ] Tolleranze di hit-test aumentate per il tocco (port grabbing)
 - [ ] Rifiniture: inerzia dello scroll, doppio tap, drag di moduli dal browser
 
@@ -66,7 +68,8 @@ Obiettivo: vedere il rack renderizzato e interagirci.
 - [x] **Editing testo touch**: tap su un TextField apre un prompt Android con
       tastiera di sistema (ricerca nel browser moduli, Notes, ...)
 - [ ] Storage Access Framework per import/export fuori dalla sandbox app
-- [ ] Import di patch .vcv scaricate (intent filter sul tipo file)
+- [x] Import di patch .vcv da altre app (intent filter VIEW/SEND nel
+      manifest + `MainActivity.handleImportIntent`)
 
 ## Fase 5 — Ecosistema plugin (primo passo fatto)
 
@@ -107,4 +110,10 @@ Obiettivo: vedere il rack renderizzato e interagirci.
 - La rejection del manifest Core in fase 1 è attesa (stub senza modelli)
 - Il branding va cambiato prima di qualunque distribuzione (trademark VCV,
   asset CC BY-NC: vedi README)
-- `gradle wrapper` non è committato: generarlo alla prima build
+- Sincronizzazione a tempo residua: `ModulePalette` usa ancora due
+  `postDelayed` (450/500 ms) per ricaricare la lista modelli dopo
+  l'installazione di un pacchetto. Non critici (al peggio una striscia
+  vuota per un istante), ma sono la stessa classe di problema già corretta
+  all'avvio: una stima temporale al posto di una garanzia di ordine.
+- Preferiti: rimossi insieme al browser a tutto schermo; se servono vanno
+  reintrodotti nella palette (JNI e campo JSON `favorite` sono stati tolti).

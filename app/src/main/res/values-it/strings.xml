@@ -438,5 +438,9 @@
 	<string name="uninstall_title">Disinstallare %1$s?</string>
 	<string name="uninstall_message">I suoi moduli spariscono subito dalla palette. Quelli già inseriti restano attivi fino al riavvio.</string>
 	<string name="uninstalled_restart">Disinstallato — moduli rimossi dalla palette</string>
+	<!-- Module palette: search field and brand filter (the magnifier chip). -->
+	<string name="palette_search_hint">Cerca moduli</string>
+	<string name="palette_no_matches">Nessun modulo corrisponde ai filtri</string>
+	<string name="palette_all_brands">Tutte le marche</string>
 	<string name="module_no_description">Nessuna descrizione disponibile per questo modulo. Le etichette qui sopra suggeriscono cosa fa.</string>
 </resources>

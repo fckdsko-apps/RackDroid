@@ -41,6 +41,13 @@ pack() {
 	else
 		cp -r "graphics/$regen" "$d/res"
 	fi
+	# Module browser tile art for this plugin travels inside its own .rdmod
+	# (graphics/browser-thumbs/<slug>/, slug == plugin.json's "slug" == this
+	# dir name) instead of the base APK's thumbnails.zip (app/build.gradle.kts
+	# packThumbnailAssets bundles only Core/Fundamental/RackDroidDrums now).
+	# ThumbnailCache.get() (ModuleThumbnails.kt) falls back here for keys it
+	# can't find under the bundled thumbnails dir.
+	[ -d "graphics/browser-thumbs/$slug" ] && cp -r "graphics/browser-thumbs/$slug" "$d/thumbs"
 	# extra file/dir copies (RJ runtime data, Befaco IR, Aria overlay/excludes)
 	for spec in "$@"; do eval "$spec"; done
 	( cd "$d" && zip -qr "$OUT/$slug.rdmod" . )
@@ -65,6 +72,10 @@ pack NonlinearCircuits libplugin_nlc.so           nonlinearcircuits -
 pack AriaSalvatrice    libplugin_aria.so          AriaModules      - \
 	'rm -rf "$d/res/signature" "$d/res/Arcane"' \
 	'cp -r graphics/aria-res/. "$d/res/"'
+# Stoermelder's own LICENSE.md is plain GPLv3 over the whole repo, res/
+# included (its LICENSE-dist.md only collects notices for code borrowed from
+# other plugins), so the upstream panels ship as-is.
+pack Stoermelder-P1    libplugin_packone.so       PackOne          -
 
 # --- regenerated art (res from graphics/<pack>-res) ---
 pack FrozenWasteland   libplugin_frozenwasteland.so FrozenWasteland frozenwasteland-res
@@ -72,6 +83,9 @@ pack AudibleInstruments libplugin_audible.so       AudibleInstruments audible-re
 pack ImpromptuModular  libplugin_impromptu.so      ImpromptuModular impromptu-res
 pack Bidoo             libplugin_bidoo.so          Bidoo            bidoo-res
 pack GrandeModular     libplugin_grande.so         GrandeModular    grande-res
+# Count Modula's licence forbids derivative works from using its logo and
+# panel graphics, so this pack MUST ship the regenerated art, never res/.
+pack CountModula       libplugin_countmodula.so    CountModula      countmodula-res
 pack Befaco            libplugin_befaco.so         Befaco           befaco-res \
 	'[ -f third_party/Befaco/res/SpringReverbIR.f32 ] && cp third_party/Befaco/res/SpringReverbIR.f32 "$d/res/" || true'
 

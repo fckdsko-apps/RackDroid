@@ -8,6 +8,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -34,14 +35,21 @@ class ModulePalette(
 	private val requestBuild: () -> Unit,
 	private val chooseAt: (String, Float, Float) -> Unit,
 ) {
+	companion object {
+		/** Catch-all chips, kept as constants because [showAll] has to find the
+		 * ALL chip again in the row to open it. */
+		private const val ALL_CHIP = "ALL"
+		private const val MISC_CHIP = "MISC"
+	}
+
 	private fun dp(v: Int) = (v * activity.resources.displayMetrics.density).toInt()
 
 	private data class Entry(val key: String, val name: String, val brand: String,
 		val tags: List<String>, val description: String, val plugin: String)
 
-	/** Chip label -> tag predicate. Labels are the universal modular
-	 * shorthand, deliberately not localized. */
-	private val categories: List<Pair<String, (Entry) -> Boolean>> = listOf(
+	/** The tag-based categories, in chip order. Labels are the universal
+	 * modular shorthand, deliberately not localized. */
+	private val tagCategories: List<Pair<String, (Entry) -> Boolean>> = listOf(
 		"VCO" to { e -> "Oscillator" in e.tags && "Low-frequency oscillator" !in e.tags },
 		"LFO" to { e -> "Low-frequency oscillator" in e.tags },
 		"VCF" to { e -> "Filter" in e.tags },
@@ -57,18 +65,82 @@ class ModulePalette(
 		"UTIL" to { e -> "Utility" in e.tags },
 	)
 
+	/** Chip label -> predicate, as shown in the bar.
+	 *
+	 * The palette is the ONLY module picker (there is no full-screen browser
+	 * any more), so it must be able to reach EVERY registered model. The tag
+	 * categories above cannot guarantee that: a module whose tags match none
+	 * of them -- untagged, or tagged something we don't list -- would be
+	 * unreachable. Hence the two bookends:
+	 *   ALL  first, the complete list, so nothing is ever more than one tap away
+	 *   MISC last, exactly the models no tag category claims, so browsing
+	 *        category by category is exhaustive rather than quietly lossy. */
+	private val categories: List<Pair<String, (Entry) -> Boolean>> =
+		listOf<Pair<String, (Entry) -> Boolean>>(ALL_CHIP to { _ -> true }) +
+		tagCategories +
+		listOf<Pair<String, (Entry) -> Boolean>>(
+			MISC_CHIP to { e -> tagCategories.none { (_, pred) -> pred(e) } })
+
 	private var popup: PopupWindow? = null
 	private var ghost: PopupWindow? = null
 	private var ghostW = 0
 	private var ghostH = 0
+	private var ghostView: ImageView? = null
+	/** Whether the finger is currently over a valid drop target, so the visual
+	 * state is only re-animated when it actually changes. */
+	private var ghostValid = true
+	private var ghostLastX = 0f
+	private var ghostLastY = 0f
+	/** Screen centre of the tile the drag started from, for the fly-back. */
+	private var dragOriginX = 0f
+	private var dragOriginY = 0f
 	private var entries: List<Entry> = emptyList()
 	private lateinit var strip: RecyclerView
 	private lateinit var chipRow: LinearLayout
 	private var activeChip: TextView? = null
 	private val adapter = TileAdapter()
 
+	// ---- search / brand filter ----
+	// Its own window pinned to the TOP of the screen, not a panel inside the
+	// bottom bar: the soft keyboard takes the bottom half, so a search field
+	// down there is typed into blind. Results sit right under the field, two
+	// rows deep, using the same tiles as the palette.
+	private var searchPopup: PopupWindow? = null
+	private val searchAdapter = TileAdapter(inSearch = true)
+	private lateinit var searchInput: EditText
+	private lateinit var searchGrid: RecyclerView
+	private lateinit var brandRow: LinearLayout
+	/** Stands in for the result grid when nothing matches, so the popup keeps
+	 * its height instead of collapsing under the finger mid-typing. */
+	private lateinit var emptyLabel: TextView
+	private var searchButton: TextView? = null
+	/** Predicate of the open category chip; null when none is open. */
+	private var activePred: ((Entry) -> Boolean)? = null
+	private var query: String = ""
+	private var brandFilter: String? = null
+
+	private fun filtersActive() = query.isNotBlank() || brandFilter != null
+
 	fun toggle() {
 		if (popup != null) hide() else show()
+	}
+
+	/** Open the bar with the complete module list already showing. This is what
+	 * Rack's "add module" gesture (long-press on empty rack) now lands on --
+	 * it replaces the old full-screen browser sheet, so it has to present the
+	 * whole catalogue, not a category the user has to guess at. */
+	fun showAll() {
+		show()
+		// show() may still be laying the bar out (it posts to the decor view),
+		// and the chips do not exist until it has; open ALL once they do.
+		chipRow.post {
+			runCatching {
+				val chip = (0 until chipRow.childCount)
+					.map { chipRow.getChildAt(it) as TextView }
+					.firstOrNull { it.text == ALL_CHIP } ?: return@runCatching
+				if (activeChip !== chip) chip.performClick()
+			}
+		}
 	}
 
 	/** Re-read the model list after new packs are installed at runtime. Forces
@@ -79,14 +151,18 @@ class ModulePalette(
 		requestBuild()
 		android.os.Handler(activity.mainLooper).postDelayed({
 			runCatching { loadEntries() }
-			activeChip?.let { chip ->
-				// A category is open: re-filter it so new modules appear now.
-				chip.performClick(); chip.performClick()
-			}
+			// A newly installed pack brings its own brand with it.
+			runCatching { buildBrandChips() }
+			// A category is open: re-filter it so new modules appear now.
+			runCatching { refresh() }
+			runCatching { refreshSearch() }
 		}, 450)
 	}
 
 	fun hide() {
+		// Closing the bar closes its search window too, keyboard included --
+		// otherwise it would float over a rack with no palette behind it.
+		closeSearch()
 		popup?.dismiss()
 		popup = null
 	}
@@ -98,7 +174,9 @@ class ModulePalette(
 		chip.background = chipBg(false)
 		chip.setTextColor(AppTheme.current.textPrimary)
 		activeChip = null
+		activePred = null
 		if (::strip.isInitialized) strip.visibility = View.GONE
+		if (::emptyLabel.isInitialized) emptyLabel.visibility = View.GONE
 	}
 
 	/** Palette container: a downward swipe closes the OPEN tile strip (not the
@@ -167,6 +245,21 @@ class ModulePalette(
 				}, 0.04f)
 		}
 		chipRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
+		// Leading 🔍 chip: opens the panel above. Kept inside the same scrolling
+		// row so it scrolls away with the categories instead of eating width.
+		searchButton = TextView(activity).apply {
+			text = "🔍"
+			textSize = 12f
+			setTypeface(font, Typeface.BOLD)
+			setTextColor(AppTheme.current.textPrimary)
+			background = chipBg(false)
+			setPadding(dp(12), dp(7), dp(12), dp(7))
+			layoutParams = LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+			).apply { setMargins(dp(4), dp(6), dp(4), dp(8)) }
+			setOnClickListener { toggleSearch() }
+		}
+		chipRow.addView(searchButton)
 		for ((label, pred) in categories) {
 			chipRow.addView(TextView(activity).apply {
 				text = label
@@ -231,23 +324,285 @@ class ModulePalette(
 			chip.background = chipBg(false)
 			chip.setTextColor(AppTheme.current.textPrimary)
 			activeChip = null
+			activePred = null
 			strip.visibility = View.GONE
+			if (::emptyLabel.isInitialized) emptyLabel.visibility = View.GONE
 			return
 		}
 		activeChip?.background = chipBg(false)
 		activeChip?.setTextColor(AppTheme.current.textPrimary)
 		activeChip = chip
+		activePred = pred
 		chip.background = chipBg(true)
 		chip.setTextColor(AppTheme.current.onAccent)
+		refresh()
+	}
 
+	/** Bottom bar: the open category, nothing else. Search and brand live in
+	 * their own window now, so this no longer has to compose three filters. */
+	private fun refresh() {
+		val pred = activePred ?: return
 		if (entries.isEmpty())
 			loadEntries()
-		// Beginner-friendly ordering: the stock VCV modules first, then A-Z.
-		val items = entries.filter(pred).sortedWith(
-			compareBy({ it.brand != "VCV" }, { it.name }))
+		val items = entries.asSequence().filter(pred)
+			// Beginner-friendly ordering: the stock VCV modules first, then A-Z.
+			.sortedWith(compareBy({ it.brand != "VCV" }, { it.name }))
+			.toList()
 		adapter.submit(items)
-		strip.visibility = View.VISIBLE
-		strip.scheduleLayoutAnimation()
+		strip.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
+		if (items.isNotEmpty()) strip.scheduleLayoutAnimation()
+	}
+
+	/** Search window: whatever matches the text and the brand chip, across the
+	 * whole catalogue. Deliberately NOT intersected with the category open in
+	 * the bottom bar -- typing a name should find it wherever it lives. */
+	private fun refreshSearch() {
+		if (!::searchGrid.isInitialized)
+			return
+		if (entries.isEmpty())
+			loadEntries()
+		val q = query.trim().lowercase()
+		val items = entries.asSequence()
+			.filter { brandFilter == null || it.brand == brandFilter }
+			.filter {
+				q.isEmpty() || it.name.lowercase().contains(q) ||
+					it.brand.lowercase().contains(q) ||
+					it.tags.any { t -> t.lowercase().contains(q) }
+			}
+			.sortedWith(compareBy({ it.brand != "VCV" }, { it.name }))
+			.toList()
+		searchAdapter.submit(items)
+		// Crossfade grid <-> "no matches" instead of snapping between them.
+		crossfade(searchGrid, items.isNotEmpty())
+		crossfade(emptyLabel, items.isEmpty())
+		if (items.isNotEmpty()) searchGrid.scheduleLayoutAnimation()
+	}
+
+	/** Fades a view in or out instead of flipping visibility, so swapping the
+	 * grid for the "no matches" line does not flash. */
+	private fun crossfade(v: View, show: Boolean) {
+		if (show && v.visibility == View.VISIBLE) return
+		if (!show && v.visibility == View.GONE) return
+		v.animate().cancel()
+		if (show) {
+			v.alpha = 0f
+			v.visibility = View.VISIBLE
+			v.animate().alpha(1f).setDuration(130L).start()
+		} else {
+			v.animate().alpha(0f).setDuration(110L)
+				.withEndAction { v.visibility = View.GONE }.start()
+		}
+	}
+
+	private fun toggleSearch() {
+		if (searchPopup != null) closeSearch() else openSearch()
+	}
+
+	/** Raises the search window at the top of the screen.
+	 *
+	 * Focusable, unlike the palette bar: a window that cannot hold the text
+	 * cursor gives the soft keyboard nothing to type into. That is also why it
+	 * sits up here -- the keyboard owns the bottom half of the screen, so a
+	 * field down there would be typed into blind. */
+	private fun openSearch() {
+		if (popup == null) show() // filters need the entries the bar loads
+		if (entries.isEmpty()) loadEntries()
+		val font = AppFont.get(activity)
+
+		searchInput = EditText(activity).apply {
+			hint = activity.getString(R.string.palette_search_hint)
+			textSize = 15f
+			typeface = font
+			setTextColor(AppTheme.current.textPrimary)
+			setHintTextColor(AppTheme.current.textSecondary)
+			background = GradientDrawable().apply {
+				cornerRadius = dp(14).toFloat()
+				setColor(AppTheme.current.surfaceInset)
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 12))
+			}
+			setPadding(dp(14), dp(10), dp(14), dp(10))
+			isSingleLine = true
+			imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+			setText(query)
+			setSelection(query.length)
+			addTextChangedListener(object : android.text.TextWatcher {
+				override fun afterTextChanged(s: android.text.Editable?) {
+					query = s?.toString().orEmpty()
+					refreshSearch()
+				}
+				override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+				override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+			})
+		}
+		val closeButton = TextView(activity).apply {
+			text = "✕"
+			textSize = 15f
+			gravity = Gravity.CENTER
+			setTypeface(font, Typeface.BOLD)
+			setTextColor(AppTheme.current.textPrimary)
+			background = chipBg(false)
+			setPadding(dp(13), dp(10), dp(13), dp(10))
+			layoutParams = LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+			).apply { setMargins(dp(8), 0, 0, 0) }
+			// Clears the filters when there is something to clear, closes the
+			// window when there is not -- one button, no dead taps.
+			setOnClickListener { if (filtersActive()) clearFilters() else closeSearch() }
+		}
+		brandRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
+		// Two rows of tiles, scrolling sideways: same tile as the palette, twice
+		// the hit surface per screenful.
+		searchGrid = RecyclerView(activity).apply {
+			layoutManager = androidx.recyclerview.widget.GridLayoutManager(
+				activity, 2, androidx.recyclerview.widget.GridLayoutManager.HORIZONTAL, false)
+			adapter = searchAdapter
+			setBackgroundColor(Color.TRANSPARENT)
+			setPadding(dp(6), dp(6), dp(6), dp(6))
+			clipToPadding = false
+			// Same staggered entrance the category strip uses, so results
+			// arriving as you type read as one family with the rest of the UI.
+			layoutAnimation = android.view.animation.LayoutAnimationController(
+				android.view.animation.AnimationSet(true).apply {
+					addAnimation(android.view.animation.AlphaAnimation(0f, 1f))
+					addAnimation(android.view.animation.ScaleAnimation(
+						0.88f, 1f, 0.88f, 1f,
+						android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+						android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f))
+					duration = 150
+					interpolator = android.view.animation.DecelerateInterpolator()
+				}, 0.03f)
+			layoutParams = LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, dp(292))
+		}
+		emptyLabel = TextView(activity).apply {
+			text = activity.getString(R.string.palette_no_matches)
+			textSize = 13f
+			typeface = font
+			gravity = Gravity.CENTER
+			setTextColor(AppTheme.current.textSecondary)
+			visibility = View.GONE
+			// Matches the grid's height so the window does not jump while typing.
+			layoutParams = LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, dp(292))
+		}
+		val card = LinearLayout(activity).apply {
+			orientation = LinearLayout.VERTICAL
+			background = GradientDrawable().apply {
+				cornerRadius = dp(20).toFloat()
+				setColor(AppTheme.withAlpha(AppTheme.current.surface, 92))
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 15))
+			}
+			clipToOutline = true
+			setPadding(dp(10), dp(10), dp(10), dp(6))
+			addView(LinearLayout(activity).apply {
+				orientation = LinearLayout.HORIZONTAL
+				addView(searchInput, LinearLayout.LayoutParams(0,
+					ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+				addView(closeButton)
+			})
+			addView(HorizontalScrollView(activity).apply {
+				isHorizontalScrollBarEnabled = false
+				addView(brandRow)
+				layoutParams = LinearLayout.LayoutParams(
+					ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+				).apply { topMargin = dp(8) }
+			})
+			addView(searchGrid)
+			addView(emptyLabel)
+		}
+		val holder = FrameLayout(activity).apply {
+			setPadding(dp(8), 0, dp(8), 0)
+			addView(card)
+		}
+		val p = PopupWindow(holder,
+			ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+		p.isFocusable = true
+		p.setOnDismissListener {
+			searchPopup = null
+			syncSearchButton()
+		}
+		searchPopup = p
+		buildBrandChips()
+		refreshSearch()
+		syncSearchButton()
+
+		val decor = activity.window.decorView
+		val top = ViewCompat.getRootWindowInsets(decor)
+			?.getInsets(WindowInsetsCompat.Type.systemBars())?.top ?: 0
+		runCatching {
+			p.showAtLocation(decor, Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, top + dp(8))
+			card.alpha = 0f
+			card.translationY = dp(-24).toFloat()
+			card.animate().alpha(1f).translationY(0f).setDuration(200L)
+				.setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+			searchInput.requestFocus()
+			searchInput.post {
+				runCatching {
+					(activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+						as android.view.inputmethod.InputMethodManager)
+						.showSoftInput(searchInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+				}
+			}
+		}
+	}
+
+	private fun closeSearch() {
+		if (::searchInput.isInitialized) runCatching {
+			(activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+				as android.view.inputmethod.InputMethodManager)
+				.hideSoftInputFromWindow(searchInput.windowToken, 0)
+		}
+		searchPopup?.dismiss()
+		searchPopup = null
+		syncSearchButton()
+	}
+
+	private fun syncSearchButton() {
+		searchButton?.let {
+			val on = searchPopup != null || filtersActive()
+			it.background = chipBg(on)
+			it.setTextColor(if (on) AppTheme.current.onAccent else AppTheme.current.textPrimary)
+		}
+	}
+
+	private fun clearFilters() {
+		query = ""
+		brandFilter = null
+		if (::searchInput.isInitialized) searchInput.setText("")
+		buildBrandChips()
+		refreshSearch()
+		syncSearchButton()
+	}
+
+	/** Brand chips, derived from whatever is actually installed -- a side-loaded
+	 * pack must show up here without any hard-coded list to update. */
+	private fun buildBrandChips() {
+		if (!::brandRow.isInitialized) return
+		if (entries.isEmpty()) loadEntries()
+		brandRow.removeAllViews()
+		val font = AppFont.get(activity)
+		val brands = entries.map { it.brand }.filter { it.isNotBlank() }.distinct()
+			.sortedWith(compareBy({ it != "VCV" }, { it }))
+		fun brandChip(label: String, value: String?) = TextView(activity).apply {
+			text = label
+			textSize = 11f
+			setTypeface(font, Typeface.BOLD)
+			val on = brandFilter == value
+			background = chipBg(on)
+			setTextColor(if (on) AppTheme.current.onAccent else AppTheme.current.textPrimary)
+			setPadding(dp(12), dp(6), dp(12), dp(6))
+			layoutParams = LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+			).apply { setMargins(dp(3), dp(2), dp(3), dp(2)) }
+			setOnClickListener {
+				brandFilter = if (brandFilter == value) null else value
+				buildBrandChips()
+				refreshSearch()
+				syncSearchButton()
+			}
+		}
+		brandRow.addView(brandChip(activity.getString(R.string.palette_all_brands), null))
+		for (b in brands) brandRow.addView(brandChip(b, b))
 	}
 
 	private fun loadEntries() {
@@ -321,14 +676,24 @@ class ModulePalette(
 
 	// ---- drag & drop ----
 
-	private fun showGhost(key: String, atX: Float, atY: Float) {
+	/** True when a finger at `rawY` is clear of the window the drag started in,
+	 * i.e. over the rack. The bottom bar is below the rack, the search window
+	 * above it, so the two look opposite ways. Shared by the ghost's live
+	 * feedback and the drop itself, so what you see is what you get. */
+	private fun isOverRack(rawY: Float, inSearch: Boolean, fallback: View): Boolean {
+		val owner = (if (inSearch) searchPopup else popup)?.contentView ?: fallback
+		val loc = IntArray(2)
+		owner.getLocationOnScreen(loc)
+		return if (inSearch) rawY > loc[1] + owner.height else rawY < loc[1]
+	}
+
+	private fun showGhost(key: String, atX: Float, atY: Float, valid: Boolean) {
 		val bmp = ThumbnailCache.get(activity.filesDir, key, dp(120)) ?: return
 		ghostH = dp(120)
 		ghostW = if (bmp.height > 0) ghostH * bmp.width / bmp.height else dp(40)
 		val iv = ImageView(activity).apply {
 			setImageBitmap(bmp)
 			scaleType = ImageView.ScaleType.FIT_CENTER
-			alpha = 0.9f
 			background = GradientDrawable().apply {
 				cornerRadius = dp(6).toFloat()
 				setStroke(dp(2), AppTheme.withAlpha(AppTheme.current.accent, 40))
@@ -337,26 +702,87 @@ class ModulePalette(
 		val g = PopupWindow(iv, ghostW, ghostH)
 		g.isTouchable = false
 		ghost = g
+		ghostView = iv
+		ghostValid = valid
+		ghostLastX = atX
+		ghostLastY = atY
 		runCatching {
 			// Ghost CENTERED on the finger, so what you see is where it lands.
 			g.showAtLocation(activity.window.decorView, Gravity.TOP or Gravity.START,
 				atX.toInt() - ghostW / 2, atY.toInt() - ghostH / 2)
+			iv.alpha = if (valid) 0.92f else 0.4f
 			iv.scaleX = 0.6f; iv.scaleY = 0.6f
 			iv.animate().scaleX(1f).scaleY(1f).setDuration(140L)
 				.setInterpolator(android.view.animation.OvershootInterpolator()).start()
 		}
 	}
 
-	private fun moveGhost(x: Float, y: Float) {
+	private fun moveGhost(x: Float, y: Float, valid: Boolean, view: View) {
+		// Position tracks the finger 1:1 -- no smoothing. Interpolating a
+		// dragged object's position reads as lag, not as smoothness.
 		ghost?.update(x.toInt() - ghostW / 2, y.toInt() - ghostH / 2, -1, -1)
+		val iv = ghostView ?: return
+		// Tilt with horizontal speed, like something being carried. Small and
+		// clamped: this is weight, not a flourish.
+		val tilt = ((x - ghostLastX) * 0.5f).coerceIn(-9f, 9f)
+		ghostLastX = x
+		ghostLastY = y
+		iv.rotation = iv.rotation * 0.7f + tilt * 0.3f
+		if (valid == ghostValid)
+			return
+		// Crossing the drop boundary is the one thing the user cannot guess:
+		// say it with opacity AND a tick, before they commit by lifting.
+		ghostValid = valid
+		iv.animate().alpha(if (valid) 0.92f else 0.4f)
+			.scaleX(if (valid) 1f else 0.9f).scaleY(if (valid) 1f else 0.9f)
+			.setDuration(110L).start()
+		runCatching {
+			view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+		}
 	}
 
-	private fun hideGhost() {
-		ghost?.dismiss()
+	/** Ends the drag with an outcome the user can read: a placed module shrinks
+	 * into the rack, a refused one falls back to where it came from. Silently
+	 * dismissing the ghost either way left "did that work?" unanswered. */
+	private fun dropGhost(placed: Boolean, originX: Float, originY: Float) {
+		val g = ghost ?: return
+		val iv = ghostView
 		ghost = null
+		ghostView = null
+		if (iv == null) {
+			runCatching { g.dismiss() }
+			return
+		}
+		if (placed) {
+			iv.animate().alpha(0f).scaleX(0.65f).scaleY(0.65f).rotation(0f)
+				.setDuration(130L)
+				.withEndAction { runCatching { g.dismiss() } }.start()
+			return
+		}
+		// Refused: slide the window back to the tile, then fade.
+		val startX = ghostLastX - ghostW / 2f
+		val startY = ghostLastY - ghostH / 2f
+		val anim = android.animation.ValueAnimator.ofFloat(0f, 1f).setDuration(180L)
+		anim.interpolator = android.view.animation.DecelerateInterpolator()
+		anim.addUpdateListener { a ->
+			val t = a.animatedValue as Float
+			runCatching {
+				g.update((startX + (originX - ghostW / 2f - startX) * t).toInt(),
+					(startY + (originY - ghostH / 2f - startY) * t).toInt(), -1, -1)
+			}
+		}
+		iv.animate().alpha(0f).rotation(0f).setDuration(180L).start()
+		anim.addListener(object : android.animation.AnimatorListenerAdapter() {
+			override fun onAnimationEnd(a: android.animation.Animator) { runCatching { g.dismiss() } }
+		})
+		anim.start()
 	}
 
-	private inner class TileAdapter : RecyclerView.Adapter<TileAdapter.Holder>() {
+	/** @param inSearch tiles living in the top search window rather than the
+	 * bottom bar. Only the drop test differs: the rack is BELOW that window and
+	 * ABOVE this one. */
+	private inner class TileAdapter(private val inSearch: Boolean = false)
+			: RecyclerView.Adapter<TileAdapter.Holder>() {
 		private var items: List<Entry> = emptyList()
 
 		fun submit(list: List<Entry>) {
@@ -443,6 +869,11 @@ class ModulePalette(
 				showInfo(e)
 			}
 			var dragging = false
+			// A drag that showed the ghost must swallow the click that Android
+			// still delivers on release: otherwise a refused drop places the
+			// module at screen centre anyway, contradicting the ghost we just
+			// animated back to the tile.
+			var dragged = false
 			holder.root.setOnLongClickListener { v ->
 				dragging = true
 				v.parent?.requestDisallowInterceptTouchEvent(true)
@@ -451,27 +882,47 @@ class ModulePalette(
 			}
 			holder.root.setOnTouchListener { v, ev ->
 				when (ev.actionMasked) {
+					// Every new gesture starts clean: leaving this set from a
+					// previous drag would swallow the NEXT tap (the click never
+					// fires after a long drag, so it cannot self-clear).
+					MotionEvent.ACTION_DOWN -> dragged = false
 					MotionEvent.ACTION_MOVE -> if (dragging) {
-						if (ghost == null)
-							showGhost(e.key, ev.rawX, ev.rawY)
+						val valid = isOverRack(ev.rawY, inSearch, v)
+						if (ghost == null) {
+							dragged = true
+							// Remember where the tile sits: a refused drop flies back
+							// to it rather than vanishing.
+							val loc = IntArray(2)
+							v.getLocationOnScreen(loc)
+							dragOriginX = loc[0] + v.width / 2f
+							dragOriginY = loc[1] + v.height / 2f
+							showGhost(e.key, ev.rawX, ev.rawY, valid)
+						}
 						else
-							moveGhost(ev.rawX, ev.rawY)
+							moveGhost(ev.rawX, ev.rawY, valid, v)
 					}
 					MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
 						if (dragging) {
 							dragging = false
-							val loc = IntArray(2)
-							(popup?.contentView ?: v).getLocationOnScreen(loc)
+							val placed = ev.actionMasked == MotionEvent.ACTION_UP &&
+								isOverRack(ev.rawY, inSearch, v)
 							// Module top-left lands at the ghost's top-left (aim point).
-							if (ev.actionMasked == MotionEvent.ACTION_UP && ev.rawY < loc[1])
+							if (placed) {
 								chooseAt(e.key, ev.rawX - ghostW / 2f, ev.rawY - ghostH / 2f)
-							hideGhost()
+								runCatching {
+									v.performHapticFeedback(
+										android.view.HapticFeedbackConstants.CONTEXT_CLICK)
+								}
+								if (inSearch) closeSearch()
+							}
+							dropGhost(placed, dragOriginX, dragOriginY)
 						}
 					}
 				}
 				false // let clicks and RecyclerView scrolling work normally
 			}
 			holder.root.setOnClickListener {
+				if (dragged) return@setOnClickListener
 				it.animate().scaleX(0.88f).scaleY(0.88f).setDuration(90L)
 					.withEndAction { it.animate().scaleX(1f).scaleY(1f).setDuration(140L)
 						.setInterpolator(android.view.animation.OvershootInterpolator()).start() }
@@ -479,6 +930,10 @@ class ModulePalette(
 				// Quick tap: place at the center of the screen.
 				val dm = activity.resources.displayMetrics
 				chooseAt(e.key, dm.widthPixels / 2f, dm.heightPixels / 2.4f)
+				// Searching is a "find this one thing" flow: once it is placed,
+				// get the window and the keyboard out of the way so the user can
+				// actually see what landed. The bottom bar keeps its strip open.
+				if (inSearch) closeSearch()
 			}
 		}
 

@@ -32,7 +32,7 @@ static const char* ASSETS_REVISION = "r27"; // r27: themed rack graphics (themes
 static const char* THUMBS_MARKER_NAME = "/.thumbs-version";
 /* Bump when graphics/browser-thumbs/ is regenerated (rack_ui_smoke
    --export-thumbnails). Independent of ASSETS_REVISION above. */
-static const char* THUMBS_REVISION = "t18"; // t18: WebP thumbnails (73->17MB); t17: 909/707/606/505 drums; t16: Geomini labels; t15: panel/rail contrast fix; t14: glass panels; t13: warm-studio palette; t12: modern art restyle; t11: RackDroid Drums thumbnails
+static const char* THUMBS_REVISION = "t19"; // t19: only bundled plugins (Core/Fundamental/RackDroidDrums) ship here now -- the rest travel inside their own .rdmod (see app/build.gradle.kts packThumbnailAssets, scripts/make_rdmods.sh); t18: WebP thumbnails (73->17MB); t17: 909/707/606/505 drums; t16: Geomini labels; t15: panel/rail contrast fix; t14: glass panels; t13: warm-studio palette; t12: modern art restyle; t11: RackDroid Drums thumbnails
 
 
 /** Shared extraction loop: streams a zip asset (via libarchive) into

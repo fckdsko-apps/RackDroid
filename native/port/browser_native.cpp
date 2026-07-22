@@ -5,19 +5,18 @@
  * can't capture it. This bridge takes a different, simpler approach: rather
  * than serializing live widget state every frame, it hides the canvas
  * browser the moment it opens and hands Java a one-shot JSON snapshot of
- * every model (brand/name/tags/favorite), built once and cached forever
+ * every model (brand/name/tags), built once and cached forever
  * (the plugin list never changes after startup). Java does its own
  * search/filtering client-side against that snapshot -- no round trip per
  * keystroke.
  *
- * Two actions flow back, both marshalled onto the render thread (Rack
- * widgets aren't thread-safe) via a pending-slot-plus-mutex, processed in
+ * Actions flow back marshalled onto the render thread (Rack widgets aren't
+ * thread-safe) via a pending-slot-plus-mutex, processed in
  * processNativeBrowser() next frame -- same shape as menu_native.cpp's
  * atomic pending flags, just carrying a string payload:
- *  - choose(slug): instantiate + place the module (mirrors
+ *  - chooseAt(slug, x, y): instantiate + place the module (mirrors
  *    Browser.cpp's chooseModel(), minus the mouse-drag choreography).
- *  - setFavorite(slug, bool): persisted via settings::moduleInfos, the same
- *    store the desktop browser's favorite star uses.
+ *  - unloadPlugin(slug): drop a plugin from the registry on pack uninstall.
  */
 #include <atomic>
 #include <mutex>
@@ -63,11 +62,10 @@ struct BrowserBridge {
 	std::mutex actionMutex;
 	std::string pendingChoose;   // "pluginSlug/modelSlug", empty = none
 	// Screen-pixel drop position for the choose (module palette drag&drop);
-	// negative = no position, place at the rack's current mouse pos.
+	// negative = no position, place at the rack's current mouse pos. Reachable
+	// when a tile is dropped past the left/top edge of the screen.
 	float pendingChooseX = -1.f;
 	float pendingChooseY = -1.f;
-	std::string pendingFavSlug;
-	int pendingFavValue = -1;    // -1 = none pending, else 0/1
 	// Slug of a plugin to drop from the registry live (module pack uninstall),
 	// so its models vanish from the browser/palette without a restart.
 	std::string pendingUnload;
@@ -128,7 +126,6 @@ static void buildModelsJson() {
 			json_object_set_new(o, "plugin", json_string(p->name.c_str()));
 			json_object_set_new(o, "version", json_string(p->version.c_str()));
 			json_object_set_new(o, "license", json_string(p->license.c_str()));
-			json_object_set_new(o, "favorite", json_boolean(m->isFavorite()));
 			json_t* tags = json_array();
 			for (int tagId : m->tagIds)
 				json_array_append_new(tags, json_string(tag::getTag(tagId).c_str()));
@@ -210,8 +207,6 @@ void processNativeBrowser() {
 
 	std::string choose;
 	float chooseX = -1.f, chooseY = -1.f;
-	std::string favSlug;
-	int favValue = -1;
 	std::string unload;
 	{
 		std::lock_guard<std::mutex> lock(g.actionMutex);
@@ -219,11 +214,6 @@ void processNativeBrowser() {
 		chooseX = g.pendingChooseX;
 		chooseY = g.pendingChooseY;
 		g.pendingChooseX = g.pendingChooseY = -1.f;
-		if (g.pendingFavValue >= 0) {
-			favSlug.swap(g.pendingFavSlug);
-			favValue = g.pendingFavValue;
-			g.pendingFavValue = -1;
-		}
 		unload.swap(g.pendingUnload);
 	}
 
@@ -267,15 +257,6 @@ void processNativeBrowser() {
 			LOGE("choose failed: %s", e.what());
 		}
 	}
-
-	if (favValue >= 0) {
-		plugin::Model* model = findModel(favSlug);
-		if (model) {
-			model->setFavorite(favValue != 0);
-			// Keep the cached snapshot in sync so a re-open reflects it.
-			g.modelsBuilt = false;
-		}
-	}
 }
 
 
@@ -287,16 +268,6 @@ Java_org_rackdroid_MainActivity_nativeBrowserModelsJson(JNIEnv* env, jobject) {
 	// ever read here as a whole, immutable std::string snapshot -- no lock
 	// needed for this single pointer-sized read.
 	return env->NewStringUTF(g.modelsJson.c_str());
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_org_rackdroid_MainActivity_nativeBrowserChoose(JNIEnv* env, jobject, jstring key) {
-	const char* chars = env->GetStringUTFChars(key, NULL);
-	{
-		std::lock_guard<std::mutex> lock(g.actionMutex);
-		g.pendingChoose = chars ? chars : "";
-	}
-	env->ReleaseStringUTFChars(key, chars);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -324,17 +295,6 @@ Java_org_rackdroid_MainActivity_nativeBrowserUnloadPlugin(JNIEnv* env, jobject, 
 		g.pendingUnload = chars ? chars : "";
 	}
 	env->ReleaseStringUTFChars(slug, chars);
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_org_rackdroid_MainActivity_nativeBrowserSetFavorite(JNIEnv* env, jobject, jstring key, jboolean fav) {
-	const char* chars = env->GetStringUTFChars(key, NULL);
-	{
-		std::lock_guard<std::mutex> lock(g.actionMutex);
-		g.pendingFavSlug = chars ? chars : "";
-		g.pendingFavValue = fav ? 1 : 0;
-	}
-	env->ReleaseStringUTFChars(key, chars);
 }
 
 

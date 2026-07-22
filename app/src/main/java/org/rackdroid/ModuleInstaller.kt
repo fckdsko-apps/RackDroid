@@ -39,7 +39,13 @@ object ModuleInstaller {
 	 * pack. Call once at startup, after the native engine has initialised
 	 * and before the module list JSON is built. */
 	fun loadUserPlugins(activity: Activity): Int {
-		writeReadme(activity)
+		// The README is a convenience for the user, never a prerequisite. The
+		// drop folder can end up owned by another uid (created by adb, a file
+		// manager, a backup tool), which makes this write throw -- that must
+		// not abort the import/load below, which is the whole point of this
+		// call and does not need to write there at all.
+		runCatching { writeReadme(activity) }
+			.onFailure { jlog("could not write Modules/README.txt: ${it.message}") }
 		importNewPacks(activity)
 		var loaded = 0
 		installedDir(activity).listFiles { f -> f.isDirectory }?.forEach { dir ->
@@ -88,9 +94,18 @@ object ModuleInstaller {
 		dir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
 
 	private fun importNewPacks(activity: Activity) {
-		val packs = modulesDir(activity).listFiles { f ->
+		val dir = modulesDir(activity)
+		// listFiles() returns null when the folder is missing or unreadable
+		// (again: possible when another uid created it). Silently treating
+		// that as "no packs to import" hides the one failure the user would
+		// actually need to act on, so say it out loud.
+		val packs = dir.listFiles { f ->
 			f.isFile && (f.name.endsWith(".rdmod") || f.name.endsWith(".zip"))
-		} ?: return
+		}
+		if (packs == null) {
+			jlog("cannot read module drop folder $dir - no packs imported")
+			return
+		}
 		for (pack in packs) {
 			try {
 				val slug = peekSlug(pack) ?: continue

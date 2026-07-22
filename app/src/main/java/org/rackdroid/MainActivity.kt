@@ -55,7 +55,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /** Cross-window blur (the glass card look) needs isCrossWindowBlurEnabled,
  *  API 31+ only -- calling it on API 29/30 throws NoSuchMethodError. Shared
- *  by every glass surface (MainActivity, ModuleBrowserSheet, HelpUi). */
+ *  by every glass surface (MainActivity, ModulePalette, HelpUi). */
 fun crossWindowBlurEnabled(windowManager: android.view.WindowManager): Boolean =
 	android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
 		windowManager.isCrossWindowBlurEnabled
@@ -102,12 +102,14 @@ class MainActivity : NativeActivity() {
 		initMidi()
 		handleImportIntent(intent)
 
-		// Load any user-installed / side-loaded module packs (after the
-		// native engine has registered the bundled plugins), THEN build the
-		// model list and show the palette so both include the new packs.
-		uiHandler.postDelayed({ runCatching { ModuleInstaller.loadUserPlugins(this) } }, 2800)
-		uiHandler.postDelayed({ runCatching { nativeBrowserRequestBuild() } }, 3400)
-		uiHandler.postDelayed({ runCatching { modulePalette.show() } }, 4000)
+		// Side-loaded module packs are NOT loaded from here any more: the native
+		// startup path calls loadUserPluginsFromNative() below and waits, so the
+		// packs are registered BEFORE the autosaved patch is restored. Doing it
+		// on a timer here raced the patch restore, and losing that race was not
+		// merely cosmetic -- see loadUserPluginsFromNative.
+		// The model list and the palette are NOT put up on a timer either: the
+		// native side calls patchReadyFromNative() once the patch is up, which
+		// is the event these actually depend on.
 
 		// First launch: walk the user through their first patch. Shown once;
 		// dismissing the wizard sets the flag (see Wizard.dismiss).
@@ -515,28 +517,50 @@ class MainActivity : NativeActivity() {
 
 	/** Copies both logs where any file manager can read them
 	 * (Documents/RackDroid/), for when even the in-app viewer is unreachable.
-	 * MediaStore needs no permission for files this app contributes. */
+	 * MediaStore needs no permission for files this app contributes.
+	 *
+	 * Reuses the existing entry instead of delete-then-insert: an app may only
+	 * delete MediaStore rows it OWNS, and ownership is lost when the app is
+	 * reinstalled (owner_package_name goes NULL). The delete therefore matched
+	 * nothing, every export inserted a fresh row, and MediaStore uniquified the
+	 * name -- leaking "log (1).txt", "log (2).txt", ... one file per onPause,
+	 * until it ran out of candidates and threw "Failed to build unique file". */
 	private fun exportLogs() {
+		val coll = android.provider.MediaStore.Files.getContentUri("external")
+		val prefs = getSharedPreferences("logexport", Context.MODE_PRIVATE)
 		for (name in listOf("log.txt", "java-log.txt")) {
-			try {
-				val src = File(filesDir, "user/$name")
-				if (!src.exists()) continue
-				val coll = android.provider.MediaStore.Files.getContentUri("external")
-				val cols = android.provider.MediaStore.MediaColumns.RELATIVE_PATH
-				val disp = android.provider.MediaStore.MediaColumns.DISPLAY_NAME
-				contentResolver.delete(coll, "$cols=? AND $disp=?",
-					arrayOf("Documents/RackDroid/", name))
-				val values = android.content.ContentValues().apply {
-					put(disp, name)
-					put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
-					put(cols, "Documents/RackDroid/")
+			val src = File(filesDir, "user/$name")
+			if (!src.exists()) continue
+			// Remember the entry we created rather than looking it up by name.
+			// Two reasons a name lookup cannot work: under scoped storage a
+			// query only returns non-media files this app OWNS, so a leftover
+			// row from an earlier install (owner NULL) is invisible to us AND
+			// still holds the name; MediaStore then uniquifies our insert to
+			// "log (1).txt", which the next lookup for "log.txt" misses again.
+			var uri = prefs.getString(name, null)?.let { android.net.Uri.parse(it) }
+			// Two passes at most: reuse the remembered entry, and if it has gone
+			// stale (user deleted it, storage cleared) claim a fresh one once.
+			for (attempt in 0..1) {
+				if (uri == null) {
+					uri = runCatching {
+						contentResolver.insert(coll, android.content.ContentValues().apply {
+							put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+							put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+							put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Documents/RackDroid/")
+						})
+					}.getOrNull() ?: break
+					prefs.edit().putString(name, uri.toString()).apply()
 				}
-				val uri = contentResolver.insert(coll, values) ?: continue
-				contentResolver.openOutputStream(uri)?.use { out ->
-					src.inputStream().use { it.copyTo(out) }
-				}
-			} catch (t: Throwable) {
-				android.util.Log.e("rackdroid.java", "log export failed: $name", t)
+				// "wt" truncates: plain "w" would leave the tail of a previous,
+				// longer log behind when the new one is shorter.
+				val written = runCatching {
+					contentResolver.openOutputStream(uri!!, "wt")?.use { out ->
+						src.inputStream().use { it.copyTo(out) }
+					} != null
+				}.getOrDefault(false)
+				if (written) break
+				prefs.edit().remove(name).apply()
+				uri = null
 			}
 		}
 	}
@@ -1223,18 +1247,17 @@ class MainActivity : NativeActivity() {
 
 	/** Called from native (browser_native.cpp) when Rack's own module
 	 * browser opens; the canvas widget is already hidden by the time this
-	 * arrives. No payload: ModuleBrowserSheet pulls the model list itself
-	 * via nativeBrowserModelsJson (cached natively, built once). */
+	 * arrives.
+	 *
+	 * This used to raise a full-screen browser sheet. There is now a single
+	 * module picker -- the bottom palette -- so the gesture opens that instead,
+	 * on its ALL category (the palette pulls the model list itself via
+	 * nativeBrowserModelsJson, cached natively and built once). */
 	fun showNativeBrowser() {
 		uiHandler.post {
 			try {
-				jlog("showNativeBrowser")
-				ModuleBrowserSheet(
-					activity = this,
-					getModelsJson = { nativeBrowserModelsJson() },
-					chooseModel = { key -> nativeBrowserChoose(key) },
-					setFavorite = { key, fav -> nativeBrowserSetFavorite(key, fav) },
-				).show()
+				jlog("showNativeBrowser -> palette")
+				modulePalette.showAll()
 			} catch (t: Throwable) {
 				jlog("showNativeBrowser FAILED: ${android.util.Log.getStackTraceString(t)}")
 			}
@@ -1511,13 +1534,51 @@ class MainActivity : NativeActivity() {
 	private external fun nativeBackPressed()
 	private external fun nativeToolbarTap(index: Int)
 	private external fun nativeBrowserModelsJson(): String
-	private external fun nativeBrowserChoose(key: String)
-	private external fun nativeBrowserSetFavorite(key: String, favorite: Boolean)
 	private external fun nativeBrowserChooseAt(key: String, x: Float, y: Float)
 	private external fun nativeBrowserRequestBuild()
 	private external fun nativeBrowserUnloadPlugin(slug: String)
 	private external fun nativeLoadUserPlugin(dir: String, soname: String): Boolean
 	private external fun nativeIsPluginLoaded(slug: String): Boolean
+
+	/** Called from native (jni_bridge) during startup, BEFORE the autosaved
+	 * patch is restored; the native side blocks until nativeUserPluginsLoaded()
+	 * comes back.
+	 *
+	 * Ordering matters more than it looks. A pack's .so can only be brought in
+	 * by Java System.load(), so this cannot be done natively -- but if the
+	 * patch is restored first, Rack finds its side-loaded modules missing and
+	 * puts up a modal "this patch includes modules that are not installed"
+	 * prompt. That prompt blocks the UI thread, which is exactly the thread
+	 * that would have loaded the packs: the module the dialog calls missing is
+	 * the one whose loading the dialog itself is preventing. The patch then
+	 * loses those modules on every single launch. */
+	fun loadUserPluginsFromNative() {
+		runOnUiThread {
+			try {
+				ModuleInstaller.loadUserPlugins(this)
+			} catch (t: Throwable) {
+				jlog("loading side-loaded module packs failed: $t")
+			} finally {
+				// Must fire whatever happened, or startup stalls until the
+				// native watchdog gives up.
+				runCatching { nativeUserPluginsLoaded() }
+			}
+		}
+	}
+
+	private external fun nativeUserPluginsLoaded()
+
+	/** Called from native once the patch has been restored and the engine is
+	 * running. Building the model list needs every plugin registered, and the
+	 * palette needs that list -- both were previously fired on 3.4 s / 4 s
+	 * timers, which is a guess about how long startup takes, not a fact about
+	 * it. Slow device or slow patch and the palette came up empty. */
+	fun patchReadyFromNative() {
+		uiHandler.post {
+			runCatching { nativeBrowserRequestBuild() }
+			runCatching { modulePalette.show() }
+		}
+	}
 
 	/** Called by ModuleInstaller after Java System.load()'s a pack's .so. */
 	fun loadUserPluginNative(dir: String, soname: String): Boolean =

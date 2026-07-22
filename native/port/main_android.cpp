@@ -97,7 +97,7 @@ struct RackDroidApp {
 		// Apply the persisted rack color theme over the canonical panel/rail
 		// SVGs BEFORE the engine (below) loads and caches any of them.
 		rackdroid::applyRackTheme(asset::systemDir, asset::userDir);
-		// Module browser tile art (ModuleBrowserSheet.kt reads PNGs straight
+		// Module browser tile art (ModuleThumbnails.kt reads PNGs straight
 		// from filesDir/thumbnails/<pluginSlug>/<modelSlug>.png, matching
 		// each model's "key" field from nativeBrowserModelsJson).
 		std::string thumbsDir = filesDir + "/thumbnails";
@@ -162,12 +162,21 @@ struct RackDroidApp {
 				return;
 			}
 			if (!patchLaunched) {
+				// Side-loaded .rdmod packs must be registered BEFORE the patch
+				// is restored, or Rack reports their modules as missing and
+				// drops them from the patch. Blocks (pumping the looper) until
+				// Java has loaded them; see jni_bridge's loadUserPluginsBlocking
+				// and MainActivity.loadUserPluginsFromNative.
+				rackdroid::loadUserPluginsBlocking();
 				// Loads the last patch or falls back to the template.
 				APP->patch->launch("");
 				APP->engine->startFallbackThread();
 				rackdroid::installLabelOverlay();
 				patchLaunched = true;
 				LOGI("Patch launched: %s", APP->patch->path.c_str());
+				// Every plugin is registered and the patch is up: Java can now
+				// build the model list and show the palette.
+				rackdroid::nativePatchReady();
 			}
 		}
 		else {

@@ -178,7 +178,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// --export-thumbnails <outdir>: render one PNG per registered model, for
-	// the native Android module browser's grid (ModuleBrowserSheet.kt).
+	// the native Android module browser's grid (ModuleThumbnails.kt).
 	// Each module is added to the rack via the same RackWidget::addModule
 	// used by the real add-module path (not a disconnected preview tree
 	// like Browser.cpp's ModelBox) so main_android.cpp's runtime param/port

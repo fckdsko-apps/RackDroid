@@ -78,15 +78,27 @@ val packSystemAssets = tasks.register<Zip>("packSystemAssets") {
 	destinationDirectory.set(layout.buildDirectory.dir("generated/assets"))
 }
 
-// Module browser tile art (ModuleBrowserSheet.kt): one PNG per model,
+// Module browser tile art (ModuleThumbnails.kt): one PNG per model,
 // generated once by `rack_ui_smoke --export-thumbnails` (see
 // native/host/main_ui_host.cpp) and committed under graphics/browser-thumbs/,
 // same convention as graphics/regen_graphics.py's SVG output. Packed
 // separately from system.zip so it can be revisioned/extracted independently
 // (native/port/asset_extract.cpp) — it's pure UI art, unrelated to the engine
 // assets and an order of magnitude larger.
+//
+// Only the plugins actually bundled in the APK (Core, Fundamental,
+// RackDroidDrums) ship their thumbnails here. Every other plugin's
+// thumbnails travel inside its own .rdmod instead (scripts/make_rdmods.sh
+// packs graphics/browser-thumbs/<slug>/ as thumbs/ in the pack), since the
+// tile art is useless until that plugin is actually installed —
+// bundling all of them in the base APK was pure dead weight for anyone who
+// never side-loads that pack. ThumbnailCache.get() (ModuleThumbnails.kt)
+// falls back to a side-loaded pack's own thumbs/ dir when a key isn't found
+// here.
 val packThumbnailAssets = tasks.register<Zip>("packThumbnailAssets") {
-	from(rootProject.file("graphics/browser-thumbs"))
+	from(rootProject.file("graphics/browser-thumbs")) {
+		include("Core/**", "Fundamental/**", "RackDroidDrums/**")
+	}
 	archiveFileName.set("thumbnails.zip")
 	destinationDirectory.set(layout.buildDirectory.dir("generated/assets"))
 }

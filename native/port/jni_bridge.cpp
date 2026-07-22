@@ -44,10 +44,13 @@ static jmethodID midMenuDismiss;
 static jmethodID midBrowserShow;
 static jmethodID midSharePatch;
 static jmethodID midShowHelp;
+static jmethodID midLoadUserPlugins;
+static jmethodID midPatchReady;
 
 // ---- dialog result handoff (UI thread -> pumping glue thread) ----
 static void (*pumpOnce)(int timeoutMs) = NULL; // installed by main_android
 static std::atomic<bool> dialogDone{false};
+static std::atomic<bool> userPluginsDone{false};
 static std::atomic<bool> pumping{false};
 static int dialogResultInt = 0;
 static bool dialogResultHasStr = false;
@@ -64,33 +67,37 @@ bool dialogIsPumping() {
 }
 
 
-/** Pumps glue events until the Java side reports the dialog result.
+/** Pumps glue events until the Java side sets `done`.
 Returns false on timeout/reentry (callers fall back to their default). */
-static bool pumpUntilDialogDone() {
+static bool pumpUntilFlag(std::atomic<bool>& done, double timeoutSec, const char* what) {
 	if (!pumpOnce)
 		return false;
 	if (pumping.exchange(true))
-		return false; // nested dialog from a pumped event: refuse
+		return false; // nested wait from a pumped event: refuse
 	// Callers off the glue thread (a plugin's worker/audio thread) have no
 	// looper to pump; a plain wait is correct there — only the glue thread
 	// owns the input queue whose starvation causes the ANR.
 	bool onGlueThread = ALooper_forThread() != NULL;
 	double start = rack::system::getTime();
-	while (!dialogDone.load()) {
+	while (!done.load()) {
 		if (onGlueThread)
 			pumpOnce(50);
 		else
 			std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		// Safety valve: a lost dialog (activity recreated, Java exception)
+		// Safety valve: a lost reply (activity recreated, Java exception)
 		// must not wedge the render thread forever.
-		if (rack::system::getTime() - start > 300.0) {
-			LOGE("dialog result never arrived; abandoning");
+		if (rack::system::getTime() - start > timeoutSec) {
+			LOGE("%s reply never arrived; abandoning", what);
 			pumping = false;
 			return false;
 		}
 	}
 	pumping = false;
 	return true;
+}
+
+static bool pumpUntilDialogDone() {
+	return pumpUntilFlag(dialogDone, 300.0, "dialog");
 }
 
 
@@ -114,6 +121,8 @@ void jniInit(ANativeActivity* activity) {
 	midBrowserShow = env->GetMethodID(activityCls, "showNativeBrowser", "()V");
 	midSharePatch = env->GetMethodID(activityCls, "sharePatchFromNative", "(Ljava/lang/String;)V");
 	midShowHelp = env->GetMethodID(activityCls, "showHelpFromNative", "(I)V");
+	midLoadUserPlugins = env->GetMethodID(activityCls, "loadUserPluginsFromNative", "()V");
+	midPatchReady = env->GetMethodID(activityCls, "patchReadyFromNative", "()V");
 	if (env->ExceptionCheck()) {
 		env->ExceptionClear();
 		LOGE("jniInit: MainActivity methods missing; dialogs/clipboard disabled");
@@ -251,6 +260,35 @@ std::string clipboardGet() {
 }
 
 
+void nativePatchReady() {
+	JNIEnv* env = getEnv();
+	if (!env || !midPatchReady)
+		return;
+	env->CallVoidMethod(activityObj, midPatchReady);
+	if (env->ExceptionCheck())
+		env->ExceptionClear();
+}
+
+
+void loadUserPluginsBlocking() {
+	JNIEnv* env = getEnv();
+	if (!env || !midLoadUserPlugins) {
+		LOGE("cannot load user plugins: JNI bridge not ready");
+		return;
+	}
+	userPluginsDone = false;
+	env->CallVoidMethod(activityObj, midLoadUserPlugins);
+	if (env->ExceptionCheck()) {
+		env->ExceptionClear();
+		return;
+	}
+	// Shorter leash than a dialog: this runs on the startup path, so a Java
+	// side that never answers must degrade to "no side-loaded packs" quickly
+	// rather than hold the patch (and the whole app) hostage.
+	pumpUntilFlag(userPluginsDone, 30.0, "user plugin load");
+}
+
+
 int dialogMessage(int level, int buttons, const std::string& message) {
 	JNIEnv* env = getEnv();
 	if (!env || !midClipboardSet)
@@ -311,7 +349,14 @@ bool dialogFile(bool save, const std::string& dir, const std::string& filename, 
 }
 
 
-// ---- results posted by MainActivity's dialog handlers (UI thread) ----
+// ---- results posted by MainActivity (UI thread) ----
+
+/** MainActivity signals that loadUserPlugins() has finished, so the startup
+path may proceed to launch the patch with every side-loaded pack registered. */
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeUserPluginsLoaded(JNIEnv* env, jobject thiz) {
+	userPluginsDone = true;
+}
 
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeDialogInt(JNIEnv* env, jobject thiz, jint result) {

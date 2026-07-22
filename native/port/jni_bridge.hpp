@@ -36,6 +36,17 @@ void nativeSharePatch(const std::string& path);
 /** Open the Java help UI: 0 = guide sheet, 1 = step-by-step wizard. */
 void nativeShowHelp(int which);
 
+/** Tells Java the patch is restored and the engine is running, so it can
+build the model list and raise the palette. Non-blocking. */
+void nativePatchReady();
+
+/** Runs MainActivity.loadUserPluginsFromNative() and BLOCKS the calling glue
+thread until it reports back (pumping the looper meanwhile), so side-loaded
+.rdmod packs are registered before the patch is restored. A pack's .so can
+only be brought in by Java System.load() (Android linker namespaces), so this
+has to round-trip through the UI thread rather than being done natively. */
+void loadUserPluginsBlocking();
+
 // Clipboard (thread-safe; dispatches to the Java UI thread internally)
 void clipboardSet(const std::string& text);
 std::string clipboardGet();
