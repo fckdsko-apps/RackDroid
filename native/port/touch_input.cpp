@@ -307,8 +307,10 @@ int touchHandleEvent(AInputEvent* event) {
 				}
 				if (target)
 					rackdroid::cableParkConnect(g_parkDrag, target);
-				else
+				else {
 					INFO("cablepark: drop missed, no port within reach");
+					rackdroid::cableParkFlashRefused(g_parkDrag);
+				}
 				rackdroid::cableParkSetDragging(-1, 0.f, 0.f);
 				g_parkDrag = -1;
 				st.down = false;

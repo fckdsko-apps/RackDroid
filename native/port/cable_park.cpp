@@ -358,6 +358,14 @@ bool cableParkConnect(int slot, app::PortWidget* target) {
 }
 
 
+void cableParkFlashRefused(int slot) {
+	if (slot < 0 || slot >= SLOT_COUNT)
+		return;
+	g_refuseSlot = slot;
+	g_refuseTime = rack::system::getTime();
+}
+
+
 void cableParkClear(int slot) {
 	if (slot < 0 || slot >= SLOT_COUNT)
 		return;

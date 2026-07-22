@@ -47,6 +47,10 @@ Returns false if the two ports cannot form a cable (same direction, missing
 module, already connected). */
 bool cableParkConnect(int slot, rack::app::PortWidget* target);
 
+/** Flash a hole red: the drop was refused or found nothing. Feedback the user
+can see, since the reason otherwise only exists in the log. */
+void cableParkFlashRefused(int slot);
+
 void cableParkClear(int slot);
 
 /** While the user drags a parked end out of the bar, so the bar can draw the
