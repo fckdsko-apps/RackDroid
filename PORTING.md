@@ -52,7 +52,11 @@ Obiettivo: vedere il rack renderizzato e interagirci.
 - [x] Due dita = pan (scroll); pinch = zoom (Ctrl+scroll emulato)
 - [x] Tastiera software: prompt Android per i TextField (fase 4) e campo di
       ricerca in-place nella palette (`showSoftInput`, ModulePalette)
-- [ ] Tolleranze di hit-test aumentate per il tocco (port grabbing)
+- [~] Tolleranze di hit-test: fatte per il parcheggio cavi (aggancio alla
+      porta compatibile piu' vicina, `cableParkNearestPort`); le porte del
+      rack in generale usano ancora l'hit-test stretto di Rack
+- [ ] Evidenziare le porte compatibili durante il trascinamento di un cavo:
+      oggi l'utente non vede dove puo' rilasciare e tira a indovinare
 - [ ] Rifiniture: inerzia dello scroll, doppio tap, drag di moduli dal browser
 
 ## Fase 4 — MIDI, dialoghi e file ✅ (build; da validare su dispositivo)
