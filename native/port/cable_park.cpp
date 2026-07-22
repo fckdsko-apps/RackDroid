@@ -21,6 +21,11 @@
 #include <engine/Module.hpp>
 #include <widget/Widget.hpp>
 #include <window/Window.hpp>
+#include <asset.hpp>
+#include <engine/PortInfo.hpp>
+#include <plugin/Model.hpp>
+#include <memory>
+#include <string>
 
 #include <android/log.h>
 #include <jni.h>
@@ -45,6 +50,10 @@ struct Slot {
 	int64_t moduleId = -1;
 	int portId = -1;
 	int type = -1;              // engine::Port::INPUT / OUTPUT
+	// Captured when parking: the module can be renamed or deleted while the
+	// end waits, and the label should still say what you put in there.
+	std::string moduleName;
+	std::string portName;
 	NVGcolor color = nvgRGB(0xC8, 0x98, 0x5C);
 	bool filled() const { return moduleId >= 0; }
 };
@@ -72,6 +81,18 @@ static app::PortWidget* resolvePort(const Slot& s) {
 	if (!mw)
 		return NULL;
 	return s.type == engine::Port::INPUT ? mw->getInput(s.portId) : mw->getOutput(s.portId);
+}
+
+
+/** Geomini if the assets are there, DejaVu otherwise -- same fallback the
+panel label overlay uses. */
+static int labelFont(const widget::Widget::DrawArgs& args) {
+	static std::shared_ptr<window::Font> font;
+	if (!font)
+		font = APP->window->loadFont(rack::asset::system("res/fonts/Geomini.ttf"));
+	if (!font || !font->handle)
+		font = APP->window->loadFont(rack::asset::system("res/fonts/DejaVuSans.ttf"));
+	return font && font->handle ? font->handle : 0;
 }
 
 
@@ -116,6 +137,44 @@ struct CableParkBar : widget::Widget {
 				nvgCircle(args.vg, cx, cy, HOLE_R * 0.45f);
 				nvgFillColor(args.vg, g_slots[i].color);
 				nvgFill(args.vg);
+			}
+		}
+
+		// Cable still attached to the port it came from. Drawn every frame from
+		// the port's CURRENT position, so it follows the rack as you pan and
+		// zoom -- that motion is the whole point: it shows you where the end
+		// belongs while you go looking for its destination.
+		nvgFontSize(args.vg, 8.f);
+		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+		for (int i = 0; i < SLOT_COUNT; i++) {
+			if (!g_slots[i].filled())
+				continue;
+			float cx = holeX(), cy = holeY(i);
+			app::PortWidget* pw = resolvePort(g_slots[i]);
+			if (pw) {
+				math::Vec e = pw->getAbsoluteOffset(pw->box.size.div(2.f));
+				nvgBeginPath(args.vg);
+				nvgMoveTo(args.vg, cx, cy);
+				nvgQuadTo(args.vg, (cx + e.x) * 0.5f, (cy + e.y) * 0.5f + 45.f, e.x, e.y);
+				nvgStrokeColor(args.vg, nvgTransRGBA(g_slots[i].color, 0xB0));
+				nvgStrokeWidth(args.vg, 4.f);
+				nvgLineCap(args.vg, NVG_ROUND);
+				nvgStroke(args.vg);
+			}
+			// Which module and which jack is waiting here.
+			float tx = BAR_W + 8.f;
+			nvgFontFaceId(args.vg, labelFont(args));
+			nvgFillColor(args.vg, nvgRGBA(0, 0, 0, 190));
+			nvgText(args.vg, tx + 0.4f, cy - 5.f + 0.4f, g_slots[i].moduleName.c_str(), NULL);
+			nvgFillColor(args.vg, nvgRGB(0xED, 0xE6, 0xD8));
+			nvgText(args.vg, tx, cy - 5.f, g_slots[i].moduleName.c_str(), NULL);
+			if (!g_slots[i].portName.empty()) {
+				std::string sub = g_slots[i].portName +
+					(g_slots[i].type == engine::Port::INPUT ? " in" : " out");
+				nvgFillColor(args.vg, nvgRGBA(0, 0, 0, 190));
+				nvgText(args.vg, tx + 0.4f, cy + 6.f + 0.4f, sub.c_str(), NULL);
+				nvgFillColor(args.vg, g_slots[i].color);
+				nvgText(args.vg, tx, cy + 6.f, sub.c_str(), NULL);
 			}
 		}
 
@@ -189,6 +248,11 @@ bool cableParkStore(int slot, app::PortWidget* port) {
 	g_slots[slot].moduleId = port->module->id;
 	g_slots[slot].portId = port->portId;
 	g_slots[slot].type = port->type;
+	g_slots[slot].moduleName = port->module->model ? port->module->model->name : "?";
+	{
+		engine::PortInfo* info = port->getPortInfo();
+		g_slots[slot].portName = info ? info->getName() : "";
+	}
 	LOGI("parked %s port %d of module %lld in slot %d",
 		port->type == engine::Port::INPUT ? "input" : "output",
 		port->portId, (long long) port->module->id, slot);
