@@ -144,15 +144,17 @@ static float pillCY() {
 }
 
 /** Draws the chevron inside the handle. `pointLeft` = "‹" (collapse, tuck the
-bar to the edge); otherwise "›" (expand, pull it back out). */
+bar to the edge); otherwise "›" (expand, pull it back out). Sized to match the
+toolbar's own chevron: 13-unit arms (each ~13 px), rotated 90 deg since ours
+points sideways rather than up. */
 static void drawChevron(NVGcontext* vg, float cx, float cy, bool pointLeft) {
-	float dx = pointLeft ? 4.f : -4.f;
+	float dx = pointLeft ? 2.f : -2.f;
 	nvgBeginPath(vg);
-	nvgMoveTo(vg, cx + dx, cy - 6.f);
+	nvgMoveTo(vg, cx + dx, cy - 4.f);
 	nvgLineTo(vg, cx - dx, cy);
-	nvgLineTo(vg, cx + dx, cy + 6.f);
+	nvgLineTo(vg, cx + dx, cy + 4.f);
 	nvgStrokeColor(vg, nvgRGBA(0xED, 0xE6, 0xD8, 0xE0));
-	nvgStrokeWidth(vg, 2.2f);
+	nvgStrokeWidth(vg, 1.6f);
 	nvgLineCap(vg, NVG_ROUND);
 	nvgLineJoin(vg, NVG_ROUND);
 	nvgStroke(vg);
