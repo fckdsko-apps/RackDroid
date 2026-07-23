@@ -14,7 +14,7 @@ between Android APIs and the native engine, not app logic of its own.
 |---|---|
 | `MainActivity.kt` (1787) | The hub: permissions, clipboard, blocking dialogs (mirroring `osdialog`), USB MIDI (`MidiManager`) + BLE-MIDI scanning, toolbar, ~20 `external fun` JNI declarations. |
 | `ModulePalette.kt` (942) | **The only module picker.** Bottom bar of category chips (ALL / tag categories / MISC) opening a tile strip, plus a separate search window pinned to the TOP of the screen (text + brand chips, two rows of results) — top because the soft keyboard owns the bottom half. Tap or long-press-drag a tile to place. |
-| `HelpUi.kt` (849) | In-app help/tutorial sheets (`GuideSheet`, `GuideTopicSheet`, `TutorialLibrarySheet`, `Wizard`). |
+| `HelpUi.kt` (~1050) | In-app help/tutorial sheets (`GuideSheet`, `GuideTopicSheet`, `TutorialLibrarySheet`, `Wizard`) plus `Tour` — the first-run spotlight coach-mark tour of the GUI (auto-shown once via the `tour_done` pref; the patch `Wizard` is now only in Help ▸ Tutorials). `Tour` spotlights regions with a `PorterDuff.CLEAR` hole in a full-screen focusable `PopupWindow`; the toolbar rect comes from `MainActivity.toolbarBounds()`. |
 | `ModuleInstaller.kt` (189) | `.rdmod` side-load manager — see "Plugin install flow" below. |
 | `PianoKeyboardView.kt` (163) | Multi-touch on-screen keyboard, feeds Rack's built-in "Computer keyboard/mouse" driver via `keyboard_native.cpp`. |
 | `AppTheme.kt` (126) | Kotlin-**chrome** colour roles only (toolbar/sheets — NOT rack panel art, that's `graphics/`). 4 presets, persisted to SharedPreferences + `rack-theme.txt` (read by `asset_extract.cpp`). |
