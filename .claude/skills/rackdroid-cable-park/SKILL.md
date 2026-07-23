@@ -8,9 +8,19 @@ version: 0.1.0
 
 You cannot pan the rack while dragging a cable, so wiring two modules that are
 never on screen together was close to impossible on a phone. Drop a cable end
-into one of five holes on the left, scroll wherever you like, then drag it back
-out onto the target port. Toggled from a toolbar button
-(`nativeSetCableParkVisible`).
+into a hole on the left, scroll wherever you like, then drag it back out onto
+the target port. Toggled from a toolbar button (`nativeSetCableParkVisible`).
+
+**The bar grows on demand: `MIN_HOLES` (3) up to `MAX_SLOTS` (10).** `g_slots`
+is sized to the max; `visibleHoles()` decides how many are shown each frame —
+enough to keep every filled hole visible (min 3), plus one spare while a cable
+is in flight and every visible hole is full. That spare is the hole the next end
+drops into; without an in-flight incomplete cable it does not appear (so pulling
+a parked end out, which is our own drag with no incomplete cable, never sprouts
+one). Holes are anchored from the top so the first three stay centred and extra
+ones grow downward — an existing hole must never shift under a finger mid-drop.
+`cableParkSlotAt` only matches within `visibleHoles()`, so nothing off the bar
+is droppable.
 
 ## How it works, and why that way
 
