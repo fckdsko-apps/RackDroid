@@ -36,12 +36,17 @@ end off and letting go in the rack (`pos.x > CABLE_PARK_BAR_W`) clears its slot;
 letting go back over the bar keeps it parked. A parked end whose module is
 deleted is also dropped, in `step()`.
 
-**Hide arrow.** A left chevron in a cap at the top of the bar hides it
-(`cableParkHideButtonAt`, checked before the hole grab). Because the toolbar
-toggle button tracks its own `cableParkOn`, hiding natively must call back
-(`nativeCableParkHidden` → Kotlin `cableParkHiddenFromNative`) or the button
-desyncs and takes two taps to reopen the bar. That callback follows the same
-`midXxx` / `CallVoidMethod` pattern as `nativePatchReady` — see [[rackdroid-app-layer]].
+**Collapse handle.** A glass pill with a chevron at the top of the bar (matching
+the toolbar's own collapse handle, `glassPill()`), `cableParkArrowAt` +
+`cableParkToggleCollapsed`, checked before the hole grab. It **collapses to just
+the pill** (`g_collapsed`) rather than hiding — the chevron flips "‹" ↔ "›" and
+the pill stays at a fixed spot above hole 0 so it never jumps. Collapse is a
+distinct state from the toolbar's visible/invisible toggle, so it does NOT need
+to call back to Kotlin — the feature stays on while collapsed. (An earlier
+version fully hid and used a `nativeCableParkHidden` callback to keep the toolbar
+button in sync; collapsing removed the need.) While collapsed, `cableParkSlotAt`
+returns -1 (nothing droppable), and `cableParkSetVisible(true)` always opens
+expanded.
 
 ## How it works, and why that way
 
