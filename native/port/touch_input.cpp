@@ -341,6 +341,10 @@ int touchHandleEvent(AInputEvent* event) {
 						rackdroid::cableParkFlashRefused(slot);
 					}
 					else if (rack::app::PortWidget* from = incompleteCablePort()) {
+						size_t before = APP->scene->rack->getCompleteCables().size();
+						size_t inc = APP->scene->rack->getIncompleteCables().size();
+						LOGI("cablepark: at park, complete=%zu incomplete=%zu, from is %s port %d",
+							before, inc, from->type == rack::engine::Port::INPUT ? "input" : "output", from->portId);
 						rackdroid::cableParkStore(slot, from);
 					}
 					else {
