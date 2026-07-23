@@ -388,10 +388,13 @@ bool cableParkConnect(int slot, app::PortWidget* target) {
 	app::PortWidget* in = s.type == engine::Port::INPUT ? parked : target;
 	app::PortWidget* out = s.type == engine::Port::OUTPUT ? parked : target;
 	if (APP->scene->rack->getCable(out, in)) {
-		LOGI("refused: those ports are already connected");
-		g_refuseSlot = slot;
-		g_refuseTime = rack::system::getTime();
-		return false;
+		// The link the user is dropping this end onto already exists, so the
+		// end has effectively reached its destination. Empty the hole rather
+		// than flashing and keeping it: a parked end that will not leave the
+		// bar even though its cable is right there reads as a duplicate.
+		LOGI("slot %d target already connected; clearing", slot);
+		cableParkClear(slot);
+		return true;
 	}
 	app::CableWidget* cw = new app::CableWidget;
 	// Rack picks the colour when the USER drags a cable; building one by hand
