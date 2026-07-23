@@ -141,15 +141,20 @@ struct CableParkBar : widget::Widget {
 				double age = rack::system::getTime() - g_refuseTime;
 				refuse = age < 1.0 ? (float) (1.0 - age) : 0.f;
 			}
-			NVGcolor ring = g_slots[i].filled()
+			// A slot being dragged out has left its hole -- the end is on the
+			// finger now, so the hole must read as empty. Drawing the resting
+			// plug here as well as the in-flight cable below is what made a
+			// pulled-out end look doubled.
+			bool resting = g_slots[i].filled() && i != g_dragSlot;
+			NVGcolor ring = resting
 				? g_slots[i].color : nvgRGBA(0x8A, 0x81, 0x73, 0x90);
 			if (refuse > 0.f)
 				ring = nvgLerpRGBA(ring, nvgRGB(0xE0, 0x50, 0x40), refuse);
 			nvgStrokeColor(args.vg, ring);
-			nvgStrokeWidth(args.vg, g_slots[i].filled() ? 2.5f + refuse * 2.f : 1.5f);
+			nvgStrokeWidth(args.vg, resting ? 2.5f + refuse * 2.f : 1.5f);
 			nvgStroke(args.vg);
 
-			if (g_slots[i].filled()) {
+			if (resting) {
 				// Plug sitting in the hole.
 				nvgBeginPath(args.vg);
 				nvgCircle(args.vg, cx, cy, HOLE_R * 0.45f);
@@ -165,7 +170,10 @@ struct CableParkBar : widget::Widget {
 		nvgFontSize(args.vg, 8.f);
 		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
 		for (int i = 0; i < SLOT_COUNT; i++) {
-			if (!g_slots[i].filled())
+			// The dragged slot's cable is drawn to the finger below, not to its
+			// hole -- skip its resting stub and label so it does not read as a
+			// second cable branching from the hole.
+			if (!g_slots[i].filled() || i == g_dragSlot)
 				continue;
 			float cx = holeX(), cy = holeY(i);
 			app::PortWidget* pw = resolvePort(g_slots[i]);
@@ -234,14 +242,21 @@ struct CableParkBar : widget::Widget {
 			}
 		}
 
-		// Cable being pulled out of a hole towards the finger.
+		// The end being pulled out, drawn as ONE cable from its fixed source
+		// port to the finger. It starts at the source, not the hole: the loose
+		// end has lifted OUT of the hole and is following the finger, so the
+		// hole is empty and there is a single strand, not two meeting at the
+		// hole (which is what read as the cable "doubling").
 		if (g_dragSlot >= 0 && g_slots[g_dragSlot].filled()) {
-			float cx = holeX(), cy = holeY(g_dragSlot);
+			app::PortWidget* pw = resolvePort(g_slots[g_dragSlot]);
+			math::Vec start = pw
+				? pw->getAbsoluteOffset(pw->box.size.div(2.f))
+				: math::Vec(holeX(), holeY(g_dragSlot));
 			nvgBeginPath(args.vg);
-			nvgMoveTo(args.vg, cx, cy);
+			nvgMoveTo(args.vg, start.x, start.y);
 			// Slack in the middle, like Rack's own cables.
-			float mx = (cx + g_dragX) * 0.5f;
-			float my = (cy + g_dragY) * 0.5f + 40.f;
+			float mx = (start.x + g_dragX) * 0.5f;
+			float my = (start.y + g_dragY) * 0.5f + 40.f;
 			nvgQuadTo(args.vg, mx, my, g_dragX, g_dragY);
 			nvgStrokeColor(args.vg, g_slots[g_dragSlot].color);
 			nvgStrokeWidth(args.vg, 5.f);
