@@ -116,13 +116,23 @@ class MainActivity : NativeActivity() {
 		// native side calls patchReadyFromNative() once the patch is up, which
 		// is the event these actually depend on.
 
-		// First launch: walk the user through their first patch. Shown once;
-		// dismissing the wizard sets the flag (see Wizard.dismiss).
-
-		if (!getSharedPreferences("guide", Context.MODE_PRIVATE).getBoolean("wizard_done", false))
+		// First launch: a spotlight tour of the whole interface (toolbar,
+		// palette, cable-park bar, gestures). Shown once; finishing/skipping it
+		// sets "tour_done". The patch-building Wizard stays in Help ▸ Tutorials.
+		if (!getSharedPreferences("guide", Context.MODE_PRIVATE).getBoolean("tour_done", false))
 			uiHandler.postDelayed({
-				runCatching { (wizard ?: Wizard(this).also { wizard = it }).show() }
+				runCatching { Tour(this).show() }
 			}, 2500)
+	}
+
+	/** Screen bounds of the toolbar card, so the interface tour can spotlight
+	 * it. Null until the toolbar popup is laid out. */
+	fun toolbarBounds(): android.graphics.Rect? {
+		val v = buttonPopup?.contentView ?: return null
+		if (!v.isAttachedToWindow || v.width == 0) return null
+		val loc = IntArray(2)
+		v.getLocationOnScreen(loc)
+		return android.graphics.Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
 	}
 
 	/** Native Android top toolbar, covering the tiny canvas MenuBar strip:

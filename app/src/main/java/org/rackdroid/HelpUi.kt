@@ -2,12 +2,20 @@ package org.rackdroid
 
 import android.app.Activity
 import android.app.Dialog
+import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
@@ -186,6 +194,32 @@ class GuideSheet(private val activity: Activity) {
 			setTypeface(font, Typeface.BOLD)
 			setPadding(dp(4), 0, 0, dp(6))
 		})
+		var dialog: Dialog? = null
+		// Replay the first-run interface tour (doneFlag = null: does not touch
+		// the once-only flag, so it can be run again and again).
+		content.addView(LinearLayout(activity).apply {
+			orientation = LinearLayout.HORIZONTAL
+			gravity = Gravity.CENTER_VERTICAL
+			background = GradientDrawable().apply {
+				cornerRadius = dp(16).toFloat()
+				setColor(AppTheme.current.surfaceInset)
+				setStroke(dp(1), AppTheme.withAlpha(AppTheme.current.accent, 40))
+			}
+			setPadding(dp(16), dp(14), dp(16), dp(14))
+			layoutParams = LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+			).apply { topMargin = dp(10) }
+			addView(TextView(activity).apply { text = "🧭"; textSize = 24f; setPadding(0, 0, dp(16), 0) })
+			addView(TextView(activity).apply {
+				text = activity.getString(R.string.tour_replay)
+				setTextColor(AppTheme.current.textPrimary); textSize = 16f
+				setTypeface(font, Typeface.BOLD)
+			}, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+			addView(TextView(activity).apply {
+				text = "›"; textSize = 20f; setTextColor(AppTheme.current.textDisabled)
+			})
+			setOnClickListener { dialog?.dismiss(); Tour(activity, doneFlag = null).show() }
+		})
 		for (topic in GUIDE_TOPICS) {
 			val card = LinearLayout(activity).apply {
 				orientation = LinearLayout.HORIZONTAL
@@ -227,7 +261,9 @@ class GuideSheet(private val activity: Activity) {
 			card.setOnClickListener { GuideTopicSheet(activity, topic).show() }
 			content.addView(card)
 		}
-		glassDialog(activity, content).show()
+		val dlg = glassDialog(activity, content)
+		dialog = dlg
+		dlg.show()
 	}
 }
 
@@ -845,6 +881,205 @@ class Wizard(
 		// only; the Pro tutorial has no auto-show to suppress).
 		if (doneFlag != null)
 			activity.getSharedPreferences("guide", android.content.Context.MODE_PRIVATE)
+				.edit().putBoolean(doneFlag, true).apply()
+	}
+}
+
+
+/** First-run interface tour: a full-screen scrim with a rounded spotlight cut
+ * over one region of the UI at a time (toolbar, module palette, cable-park bar)
+ * and a glass caption card explaining it. Focusable, so its own taps drive it
+ * and the app underneath is left untouched until the tour ends. Separate from
+ * the patch-building Wizard — this one teaches the interface, not a patch. */
+class Tour(
+	private val activity: Activity,
+	private val doneFlag: String? = "tour_done",
+) {
+	// spot: 0 = none (centred card, no cut), 1 = toolbar, 2 = palette, 3 = cable park
+	private data class Step(val title: Int, val body: Int, val spot: Int)
+	private val steps = listOf(
+		Step(R.string.tour_s1_t, R.string.tour_s1_b, 0),
+		Step(R.string.tour_s2_t, R.string.tour_s2_b, 1),
+		Step(R.string.tour_s3_t, R.string.tour_s3_b, 2),
+		Step(R.string.tour_s4_t, R.string.tour_s4_b, 3),
+		Step(R.string.tour_s5_t, R.string.tour_s5_b, 0),
+		Step(R.string.tour_s6_t, R.string.tour_s6_b, 0),
+	)
+
+	private fun dp(v: Int) = (v * activity.resources.displayMetrics.density).toInt()
+	private var step = 0
+	private var popup: PopupWindow? = null
+	private lateinit var scrim: ScrimView
+	private lateinit var card: LinearLayout
+	private lateinit var titleView: TextView
+	private lateinit var bodyView: TextView
+	private lateinit var stepLabel: TextView
+	private lateinit var nextBtn: TextView
+
+	/** Draws the dark scrim with a rounded hole (PorterDuff CLEAR) over the
+	 * spotlighted region, plus an accent ring around it. */
+	private inner class ScrimView(a: Activity) : View(a) {
+		var spot: RectF? = null
+		private val scrimPaint = Paint().apply { color = 0xC8000000.toInt() }
+		private val clearPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+			xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+		}
+		private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+			style = Paint.Style.STROKE
+			strokeWidth = dp(2).toFloat()
+			color = AppTheme.current.accent
+		}
+		override fun onDraw(canvas: Canvas) {
+			val r = dp(14).toFloat()
+			val save = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
+			canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), scrimPaint)
+			spot?.let { canvas.drawRoundRect(it, r, r, clearPaint) }
+			canvas.restoreToCount(save)
+			spot?.let { canvas.drawRoundRect(it, r, r, ringPaint) }
+		}
+	}
+
+	fun show() {
+		if (popup != null)
+			return
+		val font = AppFont.get(activity)
+		fun tv(size: Float, color: Int, bold: Boolean = false) = TextView(activity).apply {
+			textSize = size; setTextColor(color)
+			setTypeface(font, if (bold) Typeface.BOLD else Typeface.NORMAL)
+		}
+
+		scrim = ScrimView(activity).apply {
+			isClickable = true
+			setOnClickListener { advance() } // tapping the dimmed area advances
+		}
+		val root = FrameLayout(activity)
+		root.addView(scrim, FrameLayout.LayoutParams(
+			ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+
+		card = LinearLayout(activity).apply {
+			orientation = LinearLayout.VERTICAL
+			isClickable = true // swallow taps on the card so they don't advance
+			background = GradientDrawable().apply {
+				cornerRadius = dp(20).toFloat()
+				setColor(AppTheme.withAlpha(AppTheme.current.surface, 96))
+				setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 20))
+			}
+			setPadding(dp(20), dp(15), dp(20), dp(11))
+		}
+		val header = LinearLayout(activity).apply {
+			orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+		}
+		titleView = tv(16f, AppTheme.current.accent, bold = true).apply {
+			layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+		}
+		stepLabel = tv(12f, AppTheme.current.textSecondary)
+		header.addView(titleView); header.addView(stepLabel)
+		card.addView(header)
+		bodyView = tv(14.5f, AppTheme.current.textPrimary).apply { setPadding(0, dp(9), 0, dp(12)) }
+		card.addView(bodyView)
+		val buttons = LinearLayout(activity).apply {
+			orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+		}
+		val skip = tv(13.5f, AppTheme.current.textSecondary).apply {
+			text = activity.getString(R.string.tour_skip)
+			setPadding(dp(4), dp(8), dp(16), dp(8))
+			setOnClickListener { finish() }
+		}
+		val spacer = View(activity).apply {
+			layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+		}
+		nextBtn = tv(15f, AppTheme.current.accent, bold = true).apply {
+			setPadding(dp(16), dp(8), dp(4), dp(8))
+			setOnClickListener { advance() }
+		}
+		buttons.addView(skip); buttons.addView(spacer); buttons.addView(nextBtn)
+		card.addView(buttons)
+
+		val cardW = (activity.resources.displayMetrics.widthPixels * 0.9f).toInt()
+			.coerceAtMost(dp(560))
+		root.addView(card, FrameLayout.LayoutParams(
+			cardW, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+		val p = PopupWindow(root,
+			ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+		p.isFocusable = true
+		popup = p
+		render()
+		activity.window.decorView.post {
+			runCatching {
+				p.showAtLocation(activity.window.decorView, Gravity.NO_GRAVITY, 0, 0)
+				root.alpha = 0f
+				root.animate().alpha(1f).setDuration(240L).start()
+			}
+		}
+	}
+
+	private fun advance() {
+		if (step < steps.size - 1) { step++; render() } else finish()
+	}
+
+	private fun render() {
+		val s = steps[step]
+		titleView.text = activity.getString(s.title)
+		bodyView.text = activity.getString(s.body)
+		stepLabel.text = activity.getString(R.string.wizard_step_of, step + 1, steps.size)
+		nextBtn.text = activity.getString(
+			if (step == steps.size - 1) R.string.wizard_done else R.string.wizard_next)
+
+		val rect = spotRect(s.spot)
+		scrim.spot = rect
+		scrim.invalidate()
+		positionCard(rect)
+
+		card.alpha = 0f; card.translationY = dp(14).toFloat()
+		card.animate().alpha(1f).translationY(0f).setDuration(240L)
+			.setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+	}
+
+	/** Puts the card in the biggest clear band: opposite the spotlight, or the
+	 * centre when there is none. */
+	private fun positionCard(spot: RectF?) {
+		val lp = card.layoutParams as FrameLayout.LayoutParams
+		val h = activity.resources.displayMetrics.heightPixels.toFloat()
+		lp.leftMargin = 0; lp.rightMargin = 0; lp.topMargin = 0; lp.bottomMargin = 0
+		when {
+			spot == null -> lp.gravity = Gravity.CENTER
+			spot.centerY() < h * 0.4f -> { // spot near top → card in the lower band
+				lp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+				lp.bottomMargin = dp(120)
+			}
+			spot.centerY() > h * 0.6f -> { // spot near bottom → card in the upper band
+				lp.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+				lp.topMargin = dp(150)
+			}
+			else -> { // spot in the middle band (cable park) → card low
+				lp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+				lp.bottomMargin = dp(120)
+			}
+		}
+		card.layoutParams = lp
+	}
+
+	private fun spotRect(spot: Int): RectF? {
+		val dm = activity.resources.displayMetrics
+		val w = dm.widthPixels.toFloat(); val h = dm.heightPixels.toFloat()
+		val bars = ViewCompat.getRootWindowInsets(activity.window.decorView)
+			?.getInsets(WindowInsetsCompat.Type.systemBars())
+		val top = (bars?.top ?: 0).toFloat(); val bottom = (bars?.bottom ?: 0).toFloat()
+		return when (spot) {
+			1 -> (activity as? MainActivity)?.toolbarBounds()?.let { RectF(it).apply { inset(-dp(2).toFloat(), -dp(2).toFloat()) } }
+				?: RectF(dp(6).toFloat(), top + dp(4), w - dp(6), top + dp(160))
+			2 -> RectF(dp(5).toFloat(), h - bottom - dp(80), w - dp(5), h - bottom - dp(4))
+			3 -> RectF(0f, h * 0.30f, dp(50).toFloat(), h * 0.70f)
+			else -> null
+		}
+	}
+
+	private fun finish() {
+		popup?.let { runCatching { it.dismiss() } }
+		popup = null
+		if (doneFlag != null)
+			activity.getSharedPreferences("guide", Context.MODE_PRIVATE)
 				.edit().putBoolean(doneFlag, true).apply()
 	}
 }

@@ -64,6 +64,21 @@
 	<string name="wizard_next">Next</string>
 	<string name="wizard_prev">Back</string>
 	<string name="wizard_done">Finish</string>
+	<!-- First-run interface tour (spotlight coach-marks) -->
+	<string name="tour_skip">Skip</string>
+	<string name="tour_replay">Interface tour</string>
+	<string name="tour_s1_t">Welcome to RackDroid</string>
+	<string name="tour_s1_b">A full modular synth in your pocket. Here is a quick tour of the screen — six steps. You can skip anytime.</string>
+	<string name="tour_s2_t">The toolbar</string>
+	<string name="tour_s2_b">Up top: the menus (File, Edit, View, Engine, Help) and the tool icons — module palette, module manager, cable parking, undo/redo, layout locks, MIDI, on-screen keyboard, record. The ⌄ arrow folds it away.</string>
+	<string name="tour_s3_t">Adding modules</string>
+	<string name="tour_s3_b">The bar at the bottom is the module palette: tap a category chip or the 🔍 to search, then tap or drag a tile onto the rack. The ⓘ on a tile shows its name, description and tags.</string>
+	<string name="tour_s4_t">Cable parking</string>
+	<string name="tour_s4_b">On the left: park a cable end in a hole, scroll to the far module, then drag it out onto the port — compatible ports light up. It grows from 3 to 10 holes; the handle at the top collapses it.</string>
+	<string name="tour_s5_t">The rack — gestures</string>
+	<string name="tour_s5_b">Drag from a port to a port to patch. Drag a module\'s panel to move it. Pinch to zoom, drag the background to scroll. Long-press a knob to type a value; long-press empty space to open the module browser.</string>
+	<string name="tour_s6_t">That\'s it</string>
+	<string name="tour_s6_b">You start on a demo patch that already makes sound. To go deeper, open Help ▸ Guide and Help ▸ Tutorials (30 guided paths). Have fun!</string>
 	<string name="wizard_s0">Welcome! Let\'s build your first sound in six short steps. You can keep using the rack while this card is open.</string>
 	<string name="wizard_s1">Open the module browser: long-press any EMPTY spot on the rack (the dark perforated background).</string>
 	<string name="wizard_s2">Type VCO in the search box and tap the first tile. That places an oscillator — the source of your sound.</string>

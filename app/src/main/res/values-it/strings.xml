@@ -60,6 +60,21 @@
 	<string name="wizard_next">Avanti</string>
 	<string name="wizard_prev">Indietro</string>
 	<string name="wizard_done">Fine</string>
+	<!-- Tour dell'interfaccia al primo avvio (spotlight) -->
+	<string name="tour_skip">Salta</string>
+	<string name="tour_replay">Tour dell\'interfaccia</string>
+	<string name="tour_s1_t">Benvenuto in RackDroid</string>
+	<string name="tour_s1_b">Un sintetizzatore modulare completo in tasca. Ecco un rapido giro dello schermo — sei passi. Puoi saltare quando vuoi.</string>
+	<string name="tour_s2_t">La barra degli strumenti</string>
+	<string name="tour_s2_b">In alto: i menu (File, Modifica, Visualizza, Motore, Aiuto) e le icone dei tool — palette moduli, gestore moduli, parcheggio cavi, annulla/ripeti, blocchi del layout, MIDI, tastiera a schermo, registrazione. La freccetta ⌄ la richiude.</string>
+	<string name="tour_s3_t">Aggiungere moduli</string>
+	<string name="tour_s3_b">La barra in basso è la palette dei moduli: tocca un chip di categoria o la 🔍 per cercare, poi tocca o trascina una tessera sul rack. La ⓘ su una tessera mostra nome, descrizione e tag.</string>
+	<string name="tour_s4_t">Parcheggio cavi</string>
+	<string name="tour_s4_b">A sinistra: parcheggia un capo del cavo in un buco, scorri fino al modulo lontano, poi tiralo fuori sulla porta — le porte compatibili si illuminano. Cresce da 3 a 10 buchi; la maniglia in cima lo richiude.</string>
+	<string name="tour_s5_t">Il rack — i gesti</string>
+	<string name="tour_s5_b">Trascina da una porta a un\'altra per collegare. Trascina il pannello di un modulo per spostarlo. Pizzica per lo zoom, trascina lo sfondo per scorrere. Tieni premuta una manopola per digitare un valore; tieni premuto uno spazio vuoto per aprire il browser dei moduli.</string>
+	<string name="tour_s6_t">Tutto qui</string>
+	<string name="tour_s6_b">Parti da una patch dimostrativa che suona già. Per approfondire, apri Aiuto ▸ Guida e Aiuto ▸ Tutorial (30 percorsi guidati). Buon divertimento!</string>
 	<string name="wizard_s0">Benvenuto! Costruiamo il tuo primo suono in sei brevi passi. Puoi continuare a usare il rack mentre questa scheda è aperta.</string>
 	<string name="wizard_s1">Apri il browser dei moduli: tieni premuto un punto VUOTO del rack (lo sfondo scuro forato).</string>
 	<string name="wizard_s2">Scrivi VCO nella ricerca e tocca la prima tile. Hai piazzato un oscillatore: la sorgente del suono.</string>

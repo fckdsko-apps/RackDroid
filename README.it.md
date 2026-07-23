@@ -50,7 +50,7 @@ come su un rack hardware. Nessun compromesso: è il motore audio di
 | 🧵 **Parcheggio cavi** | una barra sul bordo sinistro dove un capo del cavo aspetta mentre scorri fino alla destinazione — cresce da 3 fino a 10 buchi man mano che li riempi, illumina le porte compatibili mentre miri, si richiude in una maniglia |
 | 🎹 **MIDI** | tastiera musicale a schermo, MIDI USB e Bluetooth LE |
 | ⏺️ **Registrazione** | uscita su file WAV in `Documents/RackDroid/` |
-| 🎓 **30 tutorial** | guidati passo-passo su 5 livelli, più una guida per argomenti |
+| 🎓 **Apprendimento guidato** | un tour dell'interfaccia a spotlight al primo avvio, 30 tutorial passo-passo su 5 livelli, più una guida per argomenti |
 
 ## Moduli aggiuntivi (.rdmod)
 

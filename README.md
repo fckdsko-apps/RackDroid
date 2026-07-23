@@ -49,7 +49,7 @@ audio engine, made native for your phone.
 | 🧵 **Cable parking** | a left-edge bar where a cable end waits while you scroll to its destination — grows from 3 up to 10 holes as you fill them, lights up compatible ports while you aim, collapses to a handle |
 | 🎹 **MIDI** | on-screen musical keyboard, USB and Bluetooth LE MIDI |
 | ⏺️ **Recording** | output to a WAV file in `Documents/RackDroid/` |
-| 🎓 **30 tutorials** | step-by-step across 5 levels, plus a topic-based guide |
+| 🎓 **Guided learning** | a spotlight interface tour on first run, 30 step-by-step tutorials across 5 levels, plus a topic-based guide |
 
 ## Additional modules (.rdmod)
 
