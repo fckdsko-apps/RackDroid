@@ -1604,16 +1604,6 @@ class MainActivity : NativeActivity() {
 			if (cableParkOn) AppTheme.current.accent else AppTheme.current.textPrimary)
 	}
 
-	/** The bar hid itself (its in-bar arrow was tapped); match the toolbar
-	 * toggle so it does not take two taps to bring the bar back. */
-	@Suppress("unused")
-	fun cableParkHiddenFromNative() {
-		uiHandler.post {
-			cableParkOn = false
-			styleCableParkButton()
-		}
-	}
-
 	/** Called by ModuleInstaller after Java System.load()'s a pack's .so. */
 	fun loadUserPluginNative(dir: String, soname: String): Boolean =
 		runCatching { nativeLoadUserPlugin(dir, soname) }.getOrDefault(false)

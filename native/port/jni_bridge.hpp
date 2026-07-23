@@ -40,10 +40,6 @@ void nativeShowHelp(int which);
 build the model list and raise the palette. Non-blocking. */
 void nativePatchReady();
 
-/** Tell the app the cable-park bar hid itself (its in-bar arrow was tapped), so
-the toolbar toggle button can update to match. */
-void nativeCableParkHidden();
-
 /** Runs MainActivity.loadUserPluginsFromNative() and BLOCKS the calling glue
 thread until it reports back (pumping the looper meanwhile), so side-loaded
 .rdmod packs are registered before the patch is restored. A pack's .so can

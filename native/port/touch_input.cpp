@@ -206,11 +206,11 @@ int touchHandleEvent(AInputEvent* event) {
 			// and the spare hole flashes for a frame if that value was over the
 			// bar (e.g. just after a park).
 			rackdroid::cableParkSetInflightPos(pos.x, pos.y);
-			// Tapping the bar's hide arrow tucks the bar away. Checked before the
-			// hole grab so a tap on the arrow is never read as a park interaction.
-			if (rackdroid::cableParkHideButtonAt(pos.x, pos.y)) {
-				rackdroid::cableParkSetVisible(false);
-				rackdroid::nativeCableParkHidden();
+			// Tapping the bar's handle collapses it to just that handle, or
+			// expands it again. Checked before the hole grab so the handle is
+			// never read as a park interaction.
+			if (rackdroid::cableParkArrowAt(pos.x, pos.y)) {
+				rackdroid::cableParkToggleCollapsed();
 				return 1;
 			}
 			// Pulling a parked cable end out of the bar: our own drag, Rack

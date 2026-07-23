@@ -46,7 +46,6 @@ static jmethodID midSharePatch;
 static jmethodID midShowHelp;
 static jmethodID midLoadUserPlugins;
 static jmethodID midPatchReady;
-static jmethodID midCableParkHidden;
 
 // ---- dialog result handoff (UI thread -> pumping glue thread) ----
 static void (*pumpOnce)(int timeoutMs) = NULL; // installed by main_android
@@ -124,7 +123,6 @@ void jniInit(ANativeActivity* activity) {
 	midShowHelp = env->GetMethodID(activityCls, "showHelpFromNative", "(I)V");
 	midLoadUserPlugins = env->GetMethodID(activityCls, "loadUserPluginsFromNative", "()V");
 	midPatchReady = env->GetMethodID(activityCls, "patchReadyFromNative", "()V");
-	midCableParkHidden = env->GetMethodID(activityCls, "cableParkHiddenFromNative", "()V");
 	if (env->ExceptionCheck()) {
 		env->ExceptionClear();
 		LOGE("jniInit: MainActivity methods missing; dialogs/clipboard disabled");
@@ -267,16 +265,6 @@ void nativePatchReady() {
 	if (!env || !midPatchReady)
 		return;
 	env->CallVoidMethod(activityObj, midPatchReady);
-	if (env->ExceptionCheck())
-		env->ExceptionClear();
-}
-
-
-void nativeCableParkHidden() {
-	JNIEnv* env = getEnv();
-	if (!env || !midCableParkHidden)
-		return;
-	env->CallVoidMethod(activityObj, midCableParkHidden);
 	if (env->ExceptionCheck())
 		env->ExceptionClear();
 }

@@ -24,6 +24,7 @@
 #include <asset.hpp>
 #include <engine/PortInfo.hpp>
 #include <plugin/Model.hpp>
+#include <cmath>
 #include <memory>
 #include <string>
 
@@ -70,6 +71,9 @@ struct Slot {
 
 static Slot g_slots[MAX_SLOTS];
 static bool g_visible = false;
+// Collapsed to just its handle (the bar tucked away but not gone), toggled by
+// the handle chevron. Separate from g_visible, which is the toolbar on/off.
+static bool g_collapsed = false;
 static int g_dragSlot = -1;
 // Slot to flash red, and when it started: a refusal the user cannot see is
 // indistinguishable from a feature that does not work.
@@ -130,12 +134,39 @@ static float holeY(int i) {
 
 static float holeX() { return BAR_W * 0.5f; }
 
-// Extra room at the top of the bar for the hide arrow.
-static const float ARROW_CAP = 24.f;
+// The collapse/expand handle: a glass pill with a chevron, matching the
+// toolbar's own collapse handle. It sits at a fixed spot above hole 0 so it
+// does not move between the collapsed and expanded states.
+static const float PILL_W = 38.f;
+static const float PILL_H = 30.f;
+static float pillCY() {
+	return holeY(0) - HOLE_GAP * 0.5f - 12.f - PILL_H * 0.5f;
+}
 
-/** Centre of the hide arrow, in screen units -- a fixed cap above hole 0. */
-static float arrowY() {
-	return holeY(0) - HOLE_GAP * 0.5f - 10.f - ARROW_CAP * 0.5f;
+/** Draws the chevron inside the handle. `pointLeft` = "‹" (collapse, tuck the
+bar to the edge); otherwise "›" (expand, pull it back out). */
+static void drawChevron(NVGcontext* vg, float cx, float cy, bool pointLeft) {
+	float dx = pointLeft ? 4.f : -4.f;
+	nvgBeginPath(vg);
+	nvgMoveTo(vg, cx + dx, cy - 6.f);
+	nvgLineTo(vg, cx - dx, cy);
+	nvgLineTo(vg, cx + dx, cy + 6.f);
+	nvgStrokeColor(vg, nvgRGBA(0xED, 0xE6, 0xD8, 0xE0));
+	nvgStrokeWidth(vg, 2.2f);
+	nvgLineCap(vg, NVG_ROUND);
+	nvgLineJoin(vg, NVG_ROUND);
+	nvgStroke(vg);
+}
+
+/** Draws the glass pill background (same smoked glass as the toolbar handle). */
+static void drawPill(NVGcontext* vg, float cx, float cy) {
+	nvgBeginPath(vg);
+	nvgRoundedRect(vg, cx - PILL_W * 0.5f, cy - PILL_H * 0.5f, PILL_W, PILL_H, PILL_H * 0.5f);
+	nvgFillColor(vg, nvgRGBA(0x1B, 0x18, 0x13, 0xE6));
+	nvgFill(vg);
+	nvgStrokeColor(vg, nvgRGBA(0xFF, 0xFF, 0xFF, 0x1E));
+	nvgStrokeWidth(vg, 1.f);
+	nvgStroke(vg);
 }
 
 
@@ -189,12 +220,21 @@ struct CableParkBar : widget::Widget {
 	void draw(const DrawArgs& args) override {
 		if (!g_visible)
 			return;
+
+		// Collapsed: nothing but the handle pill remains, its chevron pointing
+		// out ("›") so it reads as "pull the bar back out".
+		if (g_collapsed) {
+			drawPill(args.vg, holeX(), pillCY());
+			drawChevron(args.vg, holeX(), pillCY(), false);
+			return;
+		}
+
 		int holes = visibleHoles();
 		// Bar body: same smoked-glass slab as the Kotlin surfaces. Sized to the
-		// currently visible holes so it grows and shrinks with them, plus a cap
-		// at the top that holds the hide arrow.
-		float top = holeY(0) - HOLE_GAP * 0.5f - 10.f - ARROW_CAP;
-		float height = holes * HOLE_GAP + 20.f + ARROW_CAP;
+		// currently visible holes so it grows and shrinks with them, extended up
+		// to meet the handle pill at the top.
+		float top = pillCY();
+		float height = holeY(holes - 1) + HOLE_GAP * 0.5f + 10.f - top;
 		nvgBeginPath(args.vg);
 		nvgRoundedRect(args.vg, 4.f, top, BAR_W - 8.f, height, 16.f);
 		nvgFillColor(args.vg, nvgRGBA(0x1B, 0x18, 0x13, 0xE0));
@@ -203,20 +243,10 @@ struct CableParkBar : widget::Widget {
 		nvgStrokeWidth(args.vg, 1.f);
 		nvgStroke(args.vg);
 
-		// Hide arrow: a left-pointing chevron that tucks the bar off the screen
-		// edge. Tapping it is handled in the touch layer (cableParkHideButtonAt).
-		{
-			float ax = holeX(), ay = arrowY();
-			nvgBeginPath(args.vg);
-			nvgMoveTo(args.vg, ax + 4.f, ay - 6.f);
-			nvgLineTo(args.vg, ax - 4.f, ay);
-			nvgLineTo(args.vg, ax + 4.f, ay + 6.f);
-			nvgStrokeColor(args.vg, nvgRGBA(0xED, 0xE6, 0xD8, 0xC8));
-			nvgStrokeWidth(args.vg, 2.f);
-			nvgLineCap(args.vg, NVG_ROUND);
-			nvgLineJoin(args.vg, NVG_ROUND);
-			nvgStroke(args.vg);
-		}
+		// Collapse handle: the same glass pill as the toolbar's, chevron pointing
+		// in ("‹") to tuck the bar away. Tap handled in the touch layer.
+		drawPill(args.vg, holeX(), pillCY());
+		drawChevron(args.vg, holeX(), pillCY(), true);
 
 		for (int i = 0; i < holes; i++) {
 			float cx = holeX(), cy = holeY(i);
@@ -378,13 +408,31 @@ void cableParkSetVisible(bool visible) {
 	g_visible = visible;
 	if (!visible)
 		g_dragSlot = -1;
+	else
+		g_collapsed = false; // re-enabling from the toolbar always opens it
 }
 
 bool cableParkVisible() { return g_visible; }
 
+/** True if a screen position is on the collapse/expand handle (in either
+state, since the handle stays put). */
+bool cableParkArrowAt(float x, float y) {
+	if (!g_visible)
+		return false;
+	float cx = holeX(), cy = pillCY();
+	return std::fabs(x - cx) <= PILL_W * 0.5f + 4.f &&
+		std::fabs(y - cy) <= PILL_H * 0.5f + 6.f;
+}
+
+void cableParkToggleCollapsed() {
+	g_collapsed = !g_collapsed;
+	if (g_collapsed)
+		g_dragSlot = -1;
+}
+
 
 int cableParkSlotAt(float x, float y) {
-	if (!g_visible || x > BAR_W)
+	if (!g_visible || g_collapsed || x > BAR_W)
 		return -1;
 	// Only the holes currently on screen are droppable; the spare that appears
 	// while parking is included by visibleHoles() so it can be dropped onto.
@@ -397,13 +445,6 @@ int cableParkSlotAt(float x, float y) {
 			return i;
 	}
 	return -1;
-}
-
-bool cableParkHideButtonAt(float x, float y) {
-	if (!g_visible)
-		return false;
-	float dx = x - holeX(), dy = y - arrowY();
-	return dx * dx + dy * dy <= (HOLE_R + 4.f) * (HOLE_R + 4.f);
 }
 
 bool cableParkSlotFilled(int slot) {
