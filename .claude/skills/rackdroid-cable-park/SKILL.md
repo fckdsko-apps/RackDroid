@@ -22,6 +22,27 @@ ones grow downward — an existing hole must never shift under a finger mid-drop
 `cableParkSlotAt` only matches within `visibleHoles()`, so nothing off the bar
 is droppable.
 
+**The spare appears only once the cable is over the bar**, not the instant any
+cable is grabbed. The touch layer reports the dragged end's position
+(`cableParkSetInflightPos`), set on every MOVE **and on DOWN** — the DOWN anchor
+matters: the cable Rack makes on the press is checked before the first MOVE, and
+without a fresh position it kept the last drag's value (often over the bar right
+after a park) and the spare flashed for a frame. `parkableOverBar()` gates the
+spare on `g_inflightX <= CABLE_PARK_BAR_W`, the same edge that separates a
+"cancel" from a "discard" (below).
+
+**Pull-out drops discard in the void, cancel over the bar.** Carrying a parked
+end off and letting go in the rack (`pos.x > CABLE_PARK_BAR_W`) clears its slot;
+letting go back over the bar keeps it parked. A parked end whose module is
+deleted is also dropped, in `step()`.
+
+**Hide arrow.** A left chevron in a cap at the top of the bar hides it
+(`cableParkHideButtonAt`, checked before the hole grab). Because the toolbar
+toggle button tracks its own `cableParkOn`, hiding natively must call back
+(`nativeCableParkHidden` → Kotlin `cableParkHiddenFromNative`) or the button
+desyncs and takes two taps to reopen the bar. That callback follows the same
+`midXxx` / `CallVoidMethod` pattern as `nativePatchReady` — see [[rackdroid-app-layer]].
+
 ## How it works, and why that way
 
 **A slot stores the port's IDENTITY, never a `PortWidget*`** — module id, port
