@@ -36,11 +36,16 @@ end off and letting go in the rack (`pos.x > CABLE_PARK_BAR_W`) clears its slot;
 letting go back over the bar keeps it parked. A parked end whose module is
 deleted is also dropped, in `step()`.
 
-**Collapse handle.** A glass pill with a chevron at the top of the bar (matching
-the toolbar's own collapse handle, `glassPill()`), `cableParkArrowAt` +
-`cableParkToggleCollapsed`, checked before the hole grab. It **collapses to just
-the pill** (`g_collapsed`) rather than hiding — the chevron flips "‹" ↔ "›" and
-the pill stays at a fixed spot above hole 0 so it never jumps. Collapse is a
+**Shown by default.** `g_visible` and Kotlin `cableParkOn` both default true, so
+the bar is up at startup with the toolbar button lit; they stay in sync because
+neither calls the other on init (native just defaults true).
+
+**Collapse handle.** `cableParkArrowAt` + `cableParkToggleCollapsed`, checked
+before the hole grab. Expanded, the close chevron "‹" sits INSIDE the bar in a
+top cap (`HANDLE_CAP`) with a hairline under it — not a pill bulging out.
+Collapsed (`g_collapsed`), only a glass pill (matching the toolbar's
+`glassPill()`) with the outward "›" remains, at the same `handleY()` so it never
+jumps. The chevron is sized to match `ic_tb_chevron` as the toolbar renders it. Collapse is a
 distinct state from the toolbar's visible/invisible toggle, so it does NOT need
 to call back to Kotlin — the feature stays on while collapsed. (An earlier
 version fully hid and used a `nativeCableParkHidden` callback to keep the toolbar
