@@ -28,6 +28,10 @@ static const float CABLE_PARK_SNAP_JACKS = 2.2f;
 out the rack is zoomed. */
 static const float CABLE_PARK_SNAP_MIN = 7.f;
 
+/** Width of the bar, in screen units. Shared so the touch layer can tell "over
+the bar" (a cancel / a drop target) from "in the rack void" (a discard). */
+static const float CABLE_PARK_BAR_W = 46.f;
+
 /** Adds the bar widget to the scene. Call once, after the Scene exists. */
 void installCableParkBar();
 
@@ -81,5 +85,9 @@ void cableParkClear(int slot);
 line to the finger. Pass -1 to stop. */
 void cableParkSetDragging(int slot, float x, float y);
 int cableParkDraggingSlot();
+
+/** Report where an in-flight Rack cable end currently is (screen units), so the
+bar can reveal its spare hole only once the cable is dragged over it. */
+void cableParkSetInflightPos(float x, float y);
 
 } // namespace rackdroid

@@ -52,7 +52,7 @@ static const int MAX_SLOTS = 10;
 static const int MIN_HOLES = 3;
 // Screen units (Rack's own, i.e. pre-pixelRatio) -- the Scene is laid out in
 // them, so the bar keeps its size on every density.
-static const float BAR_W = 46.f;
+static const float BAR_W = CABLE_PARK_BAR_W;
 static const float HOLE_R = 13.f;
 static const float HOLE_GAP = 46.f;
 
@@ -78,6 +78,11 @@ static double g_refuseTime = 0.0;
 static float g_dragX = 0.f, g_dragY = 0.f;
 
 
+// Where the in-flight cable end currently is, in screen units, reported by the
+// touch layer while a left drag is active. Used to reveal the spare hole only
+// once the cable is actually over the bar.
+static float g_inflightX = 1e6f, g_inflightY = 0.f;
+
 /** True while a cable end is being dragged that could be parked -- Rack keeps it
 as an incomplete cable. Pulling a parked end back out is our own drag and leaves
 no incomplete cable, so it does not count (you need no spare hole to pull out). */
@@ -86,9 +91,16 @@ static bool parkableCableInFlight() {
 		!APP->scene->rack->getIncompleteCables().empty();
 }
 
+/** True when a parkable cable is being dragged AND its end is over the bar. The
+spare hole is an invitation to drop right here, so it should only appear once the
+user brings the cable onto the bar -- not every time any cable moves anywhere. */
+static bool parkableOverBar() {
+	return parkableCableInFlight() && g_inflightX <= BAR_W;
+}
+
 /** How many holes to show right now: MIN_HOLES, grown to keep every filled hole
-visible, and grown one further (up to MAX_SLOTS) while a cable is in flight and
-every visible hole is full -- that extra hole is the one the user drops onto. */
+visible, and grown one further (up to MAX_SLOTS) while a cable is dragged onto
+the bar and every visible hole is full -- that extra hole is the drop target. */
 static int visibleHoles() {
 	int highest = -1;
 	for (int i = 0; i < MAX_SLOTS; i++)
@@ -97,7 +109,7 @@ static int visibleHoles() {
 	int n = highest + 1;
 	if (n < MIN_HOLES)
 		n = MIN_HOLES;
-	if (n < MAX_SLOTS && parkableCableInFlight()) {
+	if (n < MAX_SLOTS && parkableOverBar()) {
 		bool allFull = true;
 		for (int i = 0; i < n; i++)
 			if (!g_slots[i].filled()) { allFull = false; break; }
@@ -514,6 +526,11 @@ void cableParkSetDragging(int slot, float x, float y) {
 }
 
 int cableParkDraggingSlot() { return g_dragSlot; }
+
+void cableParkSetInflightPos(float x, float y) {
+	g_inflightX = x;
+	g_inflightY = y;
+}
 
 
 } // namespace rackdroid

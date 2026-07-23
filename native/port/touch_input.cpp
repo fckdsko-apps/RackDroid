@@ -282,6 +282,9 @@ int touchHandleEvent(AInputEvent* event) {
 			if (st.down && st.leftSent) {
 				rack::math::Vec delta = pos.minus(st.lastPos);
 				APP->event->handleHover(pos, delta);
+				// Tell the bar where an in-flight cable end is, so it only
+				// reveals its spare hole once the cable is dragged over it.
+				rackdroid::cableParkSetInflightPos(pos.x, pos.y);
 				st.lastPos = pos;
 			}
 			return 1;
@@ -298,6 +301,10 @@ int touchHandleEvent(AInputEvent* event) {
 		}
 
 		case AMOTION_EVENT_ACTION_UP: {
+			// Report the release point so a drop onto the spare hole still sees
+			// it (visibleHoles keys the spare on the in-flight end being on the
+			// bar, and this is the last position before the cable is discarded).
+			rackdroid::cableParkSetInflightPos(pos.x, pos.y);
 			// Dropping a parked end onto a port completes the cable.
 			if (g_parkDrag >= 0) {
 				rack::app::PortWidget* target =
@@ -316,9 +323,17 @@ int touchHandleEvent(AInputEvent* event) {
 				}
 				if (target)
 					rackdroid::cableParkConnect(g_parkDrag, target);
+				else if (pos.x <= rackdroid::CABLE_PARK_BAR_W) {
+					// Let go again over the bar: a cancel. Keep it parked.
+					LOGI("cablepark: pull-out cancelled, slot %d stays", g_parkDrag);
+				}
 				else {
-					LOGI("cablepark: drop missed, no port within reach");
-					rackdroid::cableParkFlashRefused(g_parkDrag);
+					// Carried off and dropped in the rack void: discard it. An
+					// end the user pulled out and abandoned is one they no longer
+					// want -- leaving it in its hole is the "why is this still
+					// here" that flash-and-keep used to cause.
+					LOGI("cablepark: dropped in the void, discarding slot %d", g_parkDrag);
+					rackdroid::cableParkClear(g_parkDrag);
 				}
 				rackdroid::cableParkSetDragging(-1, 0.f, 0.f);
 				g_parkDrag = -1;
