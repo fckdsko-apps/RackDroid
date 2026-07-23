@@ -45,7 +45,11 @@ using namespace rack;
 namespace rackdroid {
 
 
-static const int SLOT_COUNT = 5;
+// The bar starts with MIN_HOLES and grows a hole at a time, up to MAX_SLOTS, as
+// they fill -- a spare hole is revealed while a cable is in flight and every
+// visible hole is taken, so there is always somewhere to drop the next end.
+static const int MAX_SLOTS = 10;
+static const int MIN_HOLES = 3;
 // Screen units (Rack's own, i.e. pre-pixelRatio) -- the Scene is laid out in
 // them, so the bar keeps its size on every density.
 static const float BAR_W = 46.f;
@@ -64,7 +68,7 @@ struct Slot {
 	bool filled() const { return moduleId >= 0; }
 };
 
-static Slot g_slots[SLOT_COUNT];
+static Slot g_slots[MAX_SLOTS];
 static bool g_visible = false;
 static int g_dragSlot = -1;
 // Slot to flash red, and when it started: a refusal the user cannot see is
@@ -74,11 +78,42 @@ static double g_refuseTime = 0.0;
 static float g_dragX = 0.f, g_dragY = 0.f;
 
 
-/** Vertical centre of hole `i`, in screen units. */
+/** True while a cable end is being dragged that could be parked -- Rack keeps it
+as an incomplete cable. Pulling a parked end back out is our own drag and leaves
+no incomplete cable, so it does not count (you need no spare hole to pull out). */
+static bool parkableCableInFlight() {
+	return APP->scene && APP->scene->rack &&
+		!APP->scene->rack->getIncompleteCables().empty();
+}
+
+/** How many holes to show right now: MIN_HOLES, grown to keep every filled hole
+visible, and grown one further (up to MAX_SLOTS) while a cable is in flight and
+every visible hole is full -- that extra hole is the one the user drops onto. */
+static int visibleHoles() {
+	int highest = -1;
+	for (int i = 0; i < MAX_SLOTS; i++)
+		if (g_slots[i].filled())
+			highest = i;
+	int n = highest + 1;
+	if (n < MIN_HOLES)
+		n = MIN_HOLES;
+	if (n < MAX_SLOTS && parkableCableInFlight()) {
+		bool allFull = true;
+		for (int i = 0; i < n; i++)
+			if (!g_slots[i].filled()) { allFull = false; break; }
+		if (allFull)
+			n++;
+	}
+	return n;
+}
+
+/** Vertical centre of hole `i`, in screen units. Hole 0 is anchored so the
+first MIN_HOLES sit centred on screen; extra holes grow downward and never shift
+the ones above them (a moving target mid-drop is worse than an off-centre bar). */
 static float holeY(int i) {
 	float h = APP->scene ? APP->scene->box.size.y : 800.f;
-	float total = (SLOT_COUNT - 1) * HOLE_GAP;
-	return h * 0.5f - total * 0.5f + i * HOLE_GAP;
+	float first = h * 0.5f - (MIN_HOLES - 1) * HOLE_GAP * 0.5f;
+	return first + i * HOLE_GAP;
 }
 
 static float holeX() { return BAR_W * 0.5f; }
@@ -119,7 +154,7 @@ struct CableParkBar : widget::Widget {
 		// deletion (or New/empty patch) does. Widget stepping is single-threaded
 		// and patch load is synchronous, so step() never runs mid-reload.
 		if (APP->scene && APP->scene->rack) {
-			for (int i = 0; i < SLOT_COUNT; i++) {
+			for (int i = 0; i < MAX_SLOTS; i++) {
 				if (g_slots[i].filled() &&
 					!APP->scene->rack->getModule(g_slots[i].moduleId)) {
 					LOGI("slot %d module %lld deleted; clearing parked end",
@@ -134,18 +169,20 @@ struct CableParkBar : widget::Widget {
 	void draw(const DrawArgs& args) override {
 		if (!g_visible)
 			return;
-		float h = box.size.y;
-		// Bar body: same smoked-glass slab as the Kotlin surfaces.
+		int holes = visibleHoles();
+		// Bar body: same smoked-glass slab as the Kotlin surfaces. Sized to the
+		// currently visible holes so it grows and shrinks with them.
+		float top = holeY(0) - HOLE_GAP * 0.5f - 10.f;
+		float height = holes * HOLE_GAP + 20.f;
 		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 4.f, h * 0.5f - (SLOT_COUNT * HOLE_GAP) * 0.5f - 10.f,
-			BAR_W - 8.f, SLOT_COUNT * HOLE_GAP + 20.f, 16.f);
+		nvgRoundedRect(args.vg, 4.f, top, BAR_W - 8.f, height, 16.f);
 		nvgFillColor(args.vg, nvgRGBA(0x1B, 0x18, 0x13, 0xE0));
 		nvgFill(args.vg);
 		nvgStrokeColor(args.vg, nvgRGBA(0xFF, 0xFF, 0xFF, 0x18));
 		nvgStrokeWidth(args.vg, 1.f);
 		nvgStroke(args.vg);
 
-		for (int i = 0; i < SLOT_COUNT; i++) {
+		for (int i = 0; i < holes; i++) {
 			float cx = holeX(), cy = holeY(i);
 			// Jack: dark bore with a metal ring, mirroring the panel art so the
 			// holes read as sockets rather than as buttons.
@@ -186,7 +223,7 @@ struct CableParkBar : widget::Widget {
 		// belongs while you go looking for its destination.
 		nvgFontSize(args.vg, 8.f);
 		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-		for (int i = 0; i < SLOT_COUNT; i++) {
+		for (int i = 0; i < MAX_SLOTS; i++) {
 			// The dragged slot's cable is drawn to the finger below, not to its
 			// hole -- skip its resting stub and label so it does not read as a
 			// second cable branching from the hole.
@@ -313,7 +350,10 @@ bool cableParkVisible() { return g_visible; }
 int cableParkSlotAt(float x, float y) {
 	if (!g_visible || x > BAR_W)
 		return -1;
-	for (int i = 0; i < SLOT_COUNT; i++) {
+	// Only the holes currently on screen are droppable; the spare that appears
+	// while parking is included by visibleHoles() so it can be dropped onto.
+	int holes = visibleHoles();
+	for (int i = 0; i < holes; i++) {
 		float dy = y - holeY(i);
 		float dx = x - holeX();
 		// Generous radius: fingers are not mouse pointers.
@@ -324,12 +364,12 @@ int cableParkSlotAt(float x, float y) {
 }
 
 bool cableParkSlotFilled(int slot) {
-	return slot >= 0 && slot < SLOT_COUNT && g_slots[slot].filled();
+	return slot >= 0 && slot < MAX_SLOTS && g_slots[slot].filled();
 }
 
 
 bool cableParkStore(int slot, app::PortWidget* port) {
-	if (slot < 0 || slot >= SLOT_COUNT || !port || !port->module)
+	if (slot < 0 || slot >= MAX_SLOTS || !port || !port->module)
 		return false;
 	if (g_slots[slot].filled())
 		return false;
@@ -355,7 +395,7 @@ bool cableParkStore(int slot, app::PortWidget* port) {
 
 
 int cableParkSlotType(int slot) {
-	if (slot < 0 || slot >= SLOT_COUNT || !g_slots[slot].filled())
+	if (slot < 0 || slot >= MAX_SLOTS || !g_slots[slot].filled())
 		return -1;
 	return g_slots[slot].type;
 }
@@ -398,7 +438,7 @@ app::PortWidget* cableParkNearestPort(float x, float y, int wantType) {
 
 
 bool cableParkConnect(int slot, app::PortWidget* target) {
-	if (slot < 0 || slot >= SLOT_COUNT || !target || !target->module)
+	if (slot < 0 || slot >= MAX_SLOTS || !target || !target->module)
 		return false;
 	const Slot& s = g_slots[slot];
 	if (!s.filled())
@@ -451,7 +491,7 @@ bool cableParkConnect(int slot, app::PortWidget* target) {
 
 
 void cableParkFlashRefused(int slot) {
-	if (slot < 0 || slot >= SLOT_COUNT)
+	if (slot < 0 || slot >= MAX_SLOTS)
 		return;
 	g_refuseSlot = slot;
 	g_refuseTime = rack::system::getTime();
@@ -459,7 +499,7 @@ void cableParkFlashRefused(int slot) {
 
 
 void cableParkClear(int slot) {
-	if (slot < 0 || slot >= SLOT_COUNT)
+	if (slot < 0 || slot >= MAX_SLOTS)
 		return;
 	g_slots[slot] = Slot();
 	if (g_dragSlot == slot)
