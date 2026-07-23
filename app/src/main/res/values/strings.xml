@@ -130,6 +130,8 @@
 	<string name="guide_t3_s3_b">Drag from a port to a port to connect. Drag a plug away to move or remove the cable. One output can feed many inputs; an input accepts one cable.</string>
 	<string name="guide_t3_s4_t">Cable colors</string>
 	<string name="guide_t3_s4_b">View ▸ Cable colors lets you set the rotation of colors — handy to tell pitch, gate and audio runs apart in a dense patch.</string>
+	<string name="guide_t3_s5_t">Cable parking</string>
+	<string name="guide_t3_s5_b">Two modules never fit on screen at once? Use the parking bar on the left (the cable-parking toolbar button toggles it; it is on at start). Drop a cable end into a hole, scroll to the far module, then drag it back out — compatible ports light up so you can aim. It starts with 3 holes and grows up to 10 as you fill them. Drop a pulled-out end in empty space to discard it; the chevron at the top collapses the bar to a handle.</string>
 
 	<string name="guide_t4_title">Oscillators</string>
 	<string name="guide_t4_sub">VCO vs LFO, waveforms, detune and FM</string>

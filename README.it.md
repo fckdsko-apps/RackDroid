@@ -29,7 +29,8 @@ come su un rack hardware. Nessun compromesso: è il motore audio di
 - **Pensato per il tocco fin dall'inizio**, non una UI desktop rimpicciolita:
   cavi che si trascinano col dito, manopole che si tengono premute per
   digitare un valore, pizzico per lo zoom, palette moduli pensata per schermi
-  piccoli.
+  piccoli, e una **barra di parcheggio cavi** che risolve il problema dei "due
+  moduli che non stanno mai insieme sullo schermo".
 - **Latenza nativa bassa** (Oboe/AAudio, full-duplex) — suona in tempo reale,
   non un giocattolo.
 - **Cresce con te**: parti con i 66 moduli inclusi, poi aggiungi pacchetti
@@ -46,6 +47,7 @@ come su un rack hardware. Nessun compromesso: è il motore audio di
 | 👆 **Interfaccia touch** | trascini per cavi/moduli, pizzichi per zoom, tieni premuta una manopola per digitare un valore |
 | 🪟 **Barra strumenti a vetro** | menu File/Modifica/Visualizza/Motore/Aiuto + palette moduli, gestore plugin, annulla/ripeti, blocco layout, MIDI, tastiera, registrazione — si richiude in una linguetta |
 | 🧲 **Palette dei moduli** | chip per categoria (VCO, LFO, VCF, VCA, ENV, SEQ, DRUM, MIX, FX, NOISE, QNT, MIDI, UTIL), anteprime trascinabili, badge ⓘ con nome/descrizione/tag |
+| 🧵 **Parcheggio cavi** | una barra sul bordo sinistro dove un capo del cavo aspetta mentre scorri fino alla destinazione — cresce da 3 fino a 10 buchi man mano che li riempi, illumina le porte compatibili mentre miri, si richiude in una maniglia |
 | 🎹 **MIDI** | tastiera musicale a schermo, MIDI USB e Bluetooth LE |
 | ⏺️ **Registrazione** | uscita su file WAV in `Documents/RackDroid/` |
 | 🎓 **30 tutorial** | guidati passo-passo su 5 livelli, più una guida per argomenti |

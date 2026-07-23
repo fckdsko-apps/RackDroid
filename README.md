@@ -28,7 +28,8 @@ audio engine, made native for your phone.
   same `.vcv` patch format — built on unmodified upstream v2.6.4 sources.
 - **Touch-first from day one**, not a shrunk-down desktop UI: drag cables with
   a finger, long-press a knob to type a value, pinch to zoom, a module palette
-  designed for small screens.
+  designed for small screens, and a **cable-parking bar** that solves the "two
+  modules never fit on screen at once" problem.
 - **Low native latency** (Oboe/AAudio, full-duplex) — it plays in real time,
   not a toy.
 - **Grows with you**: start with the 66 built-in modules, then add whole
@@ -45,6 +46,7 @@ audio engine, made native for your phone.
 | 👆 **Touch interface** | drag for cables/modules, pinch to zoom, long-press a knob to type a value |
 | 🪟 **Glass toolbar** | File/Edit/View/Engine/Help menus + module palette, plugin manager, undo/redo, layout lock, MIDI, keyboard, recording — collapses into a tab |
 | 🧲 **Module palette** | chips by category (VCO, LFO, VCF, VCA, ENV, SEQ, DRUM, MIX, FX, NOISE, QNT, MIDI, UTIL), draggable previews, ⓘ badge with name/description/tags |
+| 🧵 **Cable parking** | a left-edge bar where a cable end waits while you scroll to its destination — grows from 3 up to 10 holes as you fill them, lights up compatible ports while you aim, collapses to a handle |
 | 🎹 **MIDI** | on-screen musical keyboard, USB and Bluetooth LE MIDI |
 | ⏺️ **Recording** | output to a WAV file in `Documents/RackDroid/` |
 | 🎓 **30 tutorials** | step-by-step across 5 levels, plus a topic-based guide |

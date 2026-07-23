@@ -49,7 +49,7 @@
   .cover h1{ font-size:40pt; margin:6px 0 0; color:var(--dark); letter-spacing:-0.5px; }
   .cover .sub{ font-size:14pt; color:var(--amber); font-weight:600; margin-top:2px; }
   .cover .meta{ margin-top:26px; color:var(--muted); font-size:10.5pt; }
-  .cover .rule{ width:70px; height:4px; background:var(--amber); border-radius:2px; margin:18px 0; }
+  .cover .rule{ width:70px; height:0; border-top:4px solid var(--amber); border-radius:2px; margin:18px 0; }
   a{ color:var(--accent); text-decoration:none; }
   .toc a{ color:var(--ink); }
   .toc{ font-size:10pt; }
@@ -118,6 +118,26 @@
 </ul>
 <div class="callout"><b>Colore dei cavi:</b> la loro tensione (quanto “cadono”) e opacità si regolano dal menu <span class="tool">Visualizza</span> — vedi capitolo 5.</div>
 
+<h3>Parcheggio cavi</h3>
+<p>
+  Su un telefono non puoi scorrere il rack mentre trascini un cavo, quindi collegare due moduli
+  che non stanno mai insieme sullo schermo sarebbe quasi impossibile. La <b>barra di parcheggio</b>
+  sul bordo sinistro dà a un capo del cavo un posto dove aspettare: lascialo in un buco, scorri
+  dove vuoi, poi tiralo fuori sulla porta di destinazione. È <b>attiva all'avvio</b> e si accende/spegne
+  dal pulsante <span class="tool">parcheggio cavi</span> nella barra dei tool.
+</p>
+<ul>
+  <li><b>Parcheggia:</b> trascina un capo del cavo su un buco della barra e rilascia. Il buco mostra il nome
+      del modulo e della porta, e un cavetto verso la porta di origine, così sai sempre cos'è.</li>
+  <li><b>Ripesca:</b> trascina il capo fuori dal buco. Mentre lo tiri, <b>tutte le porte compatibili si illuminano</b>
+      e quella su cui atterreresti si evidenzia — rilascia lì per collegare.</li>
+  <li><b>Buchi dinamici:</b> parte con 3 buchi e ne aggiunge uno alla volta (fino a 10) man mano che li riempi;
+      il buco in più compare quando porti un nuovo cavo <b>sopra la barra</b> e gli altri sono pieni.</li>
+  <li><b>Scarta:</b> tira fuori un capo e lascialo nel vuoto del rack per eliminarlo. Cancellare un modulo
+      svuota da solo i buchi che lo riferivano.</li>
+  <li><b>Richiudi:</b> la freccetta in cima alla barra la collassa in una piccola maniglia; toccala per riaprirla.</li>
+</ul>
+
 <h2>3 · La barra degli strumenti</h2>
 <p>
   In alto galleggia una card a vetro con due righe: i <b>menu</b> e i <b>tool</b>.
@@ -134,6 +154,8 @@
   <tr><th>Icona</th><th>Funzione</th></tr>
   <tr><td>Griglia</td><td><b>Palette dei moduli</b>: mostra/nasconde la barra dei moduli in basso.</td></tr>
   <tr><td>Download</td><td><b>Gestore moduli</b>: installa pacchetti <code>.rdmod</code> da file e disinstalla quelli installati.</td></tr>
+  <tr><td>Presa/cavo</td><td><b>Parcheggio cavi</b>: mostra/nasconde la barra dove un capo del cavo aspetta mentre scorri (attiva all'avvio). Vedi capitolo 2.</td></tr>
+  <tr><td>Tavolozza</td><td><b>Tema</b>: cambia i colori dell'interfaccia (barra, menu, fogli).</td></tr>
   <tr><td>↶ / ↷</td><td><b>Annulla / Ripeti</b> l'ultima azione.</td></tr>
   <tr><td>Lucchetto contorno</td><td><b>Blocca layout</b>: congela posizione dei moduli e cavi (le manopole restano attive).</td></tr>
   <tr><td>Lucchetto pieno</td><td><b>Blocca tutto</b>: congela anche i parametri. Attivo = ambra. Stato salvato tra le sessioni.</td></tr>

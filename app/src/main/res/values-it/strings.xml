@@ -126,6 +126,8 @@
 	<string name="guide_t3_s3_b">Trascina da una porta a un\'altra per collegare. Trascina via la spina per spostare o staccare il cavo. Un\'uscita può alimentare più ingressi; un ingresso accetta un solo cavo.</string>
 	<string name="guide_t3_s4_t">Colori dei cavi</string>
 	<string name="guide_t3_s4_b">Visualizza ▸ Cable colors imposta la rotazione dei colori: comodo per distinguere a colpo d\'occhio pitch, gate e audio in una patch fitta.</string>
+	<string name="guide_t3_s5_t">Parcheggio cavi</string>
+	<string name="guide_t3_s5_b">Due moduli non stanno mai insieme sullo schermo? Usa la barra di parcheggio a sinistra (il pulsante parcheggio cavi nella barra dei tool la accende/spegne; è attiva all\'avvio). Lascia un capo del cavo in un buco, scorri fino al modulo lontano, poi tiralo fuori: le porte compatibili si illuminano per aiutarti a mirare. Parte con 3 buchi e cresce fino a 10 man mano che li riempi. Lascia un capo tirato fuori nel vuoto per eliminarlo; la freccetta in cima collassa la barra in una maniglia.</string>
 
 	<string name="guide_t4_title">Oscillatori</string>
 	<string name="guide_t4_sub">VCO vs LFO, forme d\'onda, detune e FM</string>
