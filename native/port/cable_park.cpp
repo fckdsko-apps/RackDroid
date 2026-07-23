@@ -111,6 +111,23 @@ struct CableParkBar : widget::Widget {
 		// Follows rotation/resize here, where the context is guaranteed.
 		if (APP->scene)
 			box.size = APP->scene->box.size;
+		// Drop any parked end whose module has been deleted. It has nowhere to
+		// return to, so leaving it in the hole just dangles a reference to a
+		// module that no longer exists. Keyed on the module id, which survives a
+		// patch reload (ids are restored from JSON), so a reload that destroys
+		// and recreates the same modules does not clear these -- only a real
+		// deletion (or New/empty patch) does. Widget stepping is single-threaded
+		// and patch load is synchronous, so step() never runs mid-reload.
+		if (APP->scene && APP->scene->rack) {
+			for (int i = 0; i < SLOT_COUNT; i++) {
+				if (g_slots[i].filled() &&
+					!APP->scene->rack->getModule(g_slots[i].moduleId)) {
+					LOGI("slot %d module %lld deleted; clearing parked end",
+						i, (long long) g_slots[i].moduleId);
+					cableParkClear(i);
+				}
+			}
+		}
 		widget::Widget::step();
 	}
 
