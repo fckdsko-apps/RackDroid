@@ -74,9 +74,10 @@ fun crossWindowBlurEnabled(windowManager: android.view.WindowManager): Boolean =
 class MainActivity : NativeActivity() {
 
 	private val uiHandler = Handler(Looper.getMainLooper())
-	// Cable-park toolbar toggle. Held at class scope so the bar's own hide arrow
-	// (which flips visibility natively) can keep the button in sync.
-	private var cableParkOn = false
+	// Cable-park toolbar toggle. Held at class scope so styleCableParkButton can
+	// reach it. Defaults on: the bar is shown at startup (native g_visible also
+	// defaults true), so the button starts lit and in sync.
+	private var cableParkOn = true
 	private var cableParkButton: ImageButton? = null
 	private var midiManager: MidiManager? = null
 	private val midiDevices = HashMap<Int, MidiDevice>()
