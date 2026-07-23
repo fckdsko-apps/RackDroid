@@ -49,6 +49,10 @@ void cableParkToggleCollapsed();
 /** True if that hole currently holds a cable end. */
 bool cableParkSlotFilled(int slot);
 
+/** Lowest empty slot index, or -1 if the bar is full. Parking always targets
+this so the holes stay packed from the top. */
+int cableParkFirstFree();
+
 /** Records the port an in-flight cable drag came from into `slot`.
 Returns false if the slot is taken or there is no cable being dragged. */
 bool cableParkStore(int slot, rack::app::PortWidget* port);

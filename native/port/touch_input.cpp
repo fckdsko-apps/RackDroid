@@ -360,12 +360,12 @@ int touchHandleEvent(AInputEvent* event) {
 			if (!st.gesture && st.leftSent) {
 				int slot = rackdroid::cableParkSlotAt(pos.x, pos.y);
 				if (slot >= 0) {
-					// Every way of failing here has to say so on screen. Letting
-					// go over a hole and seeing nothing happen reads as "the bar
-					// is broken" whether the hole was full, the gesture never
-					// picked up a cable, or the park genuinely failed.
-					if (rackdroid::cableParkSlotFilled(slot)) {
-						LOGI("cablepark: hole %d is already taken", slot);
+					// Dropped on the bar: the end always goes to the first free
+					// hole, so the holes stay packed from the top (drop anywhere,
+					// no gaps). Every way of failing still has to say so on screen.
+					int free = rackdroid::cableParkFirstFree();
+					if (free < 0) {
+						LOGI("cablepark: bar is full");
 						rackdroid::cableParkFlashRefused(slot);
 					}
 					else if (rack::app::PortWidget* from = incompleteCablePort()) {
@@ -373,11 +373,11 @@ int touchHandleEvent(AInputEvent* event) {
 						size_t inc = APP->scene->rack->getIncompleteCables().size();
 						LOGI("cablepark: at park, complete=%zu incomplete=%zu, from is %s port %d",
 							before, inc, from->type == rack::engine::Port::INPUT ? "input" : "output", from->portId);
-						rackdroid::cableParkStore(slot, from);
+						rackdroid::cableParkStore(free, from);
 					}
 					else {
 						// incompleteCablePort() already logged why.
-						rackdroid::cableParkFlashRefused(slot);
+						rackdroid::cableParkFlashRefused(free);
 					}
 				}
 			}

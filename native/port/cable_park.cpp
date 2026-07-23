@@ -104,33 +104,42 @@ static bool parkableOverBar() {
 	return parkableCableInFlight() && g_inflightX <= BAR_W;
 }
 
-/** How many holes to show right now: MIN_HOLES, grown to keep every filled hole
-visible, and grown one further (up to MAX_SLOTS) while a cable is dragged onto
-the bar and every visible hole is full -- that extra hole is the drop target. */
-static int visibleHoles() {
-	int highest = -1;
+/** Number of parked ends. Slots are kept packed (see cableParkClear), so the
+filled ones are always 0..count-1 with no gaps. */
+static int filledCount() {
+	int n = 0;
 	for (int i = 0; i < MAX_SLOTS; i++)
 		if (g_slots[i].filled())
-			highest = i;
-	int n = highest + 1;
-	if (n < MIN_HOLES)
-		n = MIN_HOLES;
-	if (n < MAX_SLOTS && parkableOverBar()) {
-		bool allFull = true;
-		for (int i = 0; i < n; i++)
-			if (!g_slots[i].filled()) { allFull = false; break; }
-		if (allFull)
 			n++;
-	}
 	return n;
 }
 
-/** Vertical centre of hole `i`, in screen units. Hole 0 is anchored so the
-first MIN_HOLES sit centred on screen; extra holes grow downward and never shift
-the ones above them (a moving target mid-drop is worse than an off-centre bar). */
+/** Holes the bar rests at: the parked count, never fewer than MIN_HOLES. This
+is what the layout centres on, and what the bar shrinks back to as ends leave. */
+static int restingHoles() {
+	int n = filledCount();
+	if (n < MIN_HOLES) n = MIN_HOLES;
+	if (n > MAX_SLOTS) n = MAX_SLOTS;
+	return n;
+}
+
+/** How many holes to show right now: the resting count, plus one spare (up to
+MAX_SLOTS) while a cable is dragged onto the bar and every resting hole is full
+-- that extra hole is the drop target. */
+static int visibleHoles() {
+	int n = restingHoles();
+	if (n < MAX_SLOTS && filledCount() == n && parkableOverBar())
+		n++;
+	return n;
+}
+
+/** Vertical centre of hole `i`, in screen units. The resting holes are centred
+on the screen, so the bar stays centred whatever the count; the drag spare (when
+present) hangs just below them. */
 static float holeY(int i) {
 	float h = APP->scene ? APP->scene->box.size.y : 800.f;
-	float first = h * 0.5f - (MIN_HOLES - 1) * HOLE_GAP * 0.5f;
+	int n = restingHoles();
+	float first = h * 0.5f - (n - 1) * HOLE_GAP * 0.5f;
 	return first + i * HOLE_GAP;
 }
 
@@ -210,12 +219,17 @@ struct CableParkBar : widget::Widget {
 		// deletion (or New/empty patch) does. Widget stepping is single-threaded
 		// and patch load is synchronous, so step() never runs mid-reload.
 		if (APP->scene && APP->scene->rack) {
-			for (int i = 0; i < MAX_SLOTS; i++) {
+			// cableParkClear compacts, so a cleared slot is replaced by the one
+			// above -- re-check the same index rather than stepping past it.
+			int i = 0;
+			while (i < MAX_SLOTS) {
 				if (g_slots[i].filled() &&
 					!APP->scene->rack->getModule(g_slots[i].moduleId)) {
 					LOGI("slot %d module %lld deleted; clearing parked end",
 						i, (long long) g_slots[i].moduleId);
 					cableParkClear(i);
+				} else {
+					i++;
 				}
 			}
 		}
@@ -596,9 +610,24 @@ void cableParkFlashRefused(int slot) {
 void cableParkClear(int slot) {
 	if (slot < 0 || slot >= MAX_SLOTS)
 		return;
-	g_slots[slot] = Slot();
-	if (g_dragSlot == slot)
-		g_dragSlot = -1;
+	// Compact: pull the holes above down into the gap so the filled ones stay
+	// contiguous from the top. Without this, clearing a middle end left a hole
+	// the bar could never shed, and removing ends never shrank it back to three.
+	for (int i = slot; i < MAX_SLOTS - 1; i++)
+		g_slots[i] = g_slots[i + 1];
+	g_slots[MAX_SLOTS - 1] = Slot();
+	// Transient indices follow the shift.
+	if (g_dragSlot == slot) g_dragSlot = -1;
+	else if (g_dragSlot > slot) g_dragSlot--;
+	if (g_refuseSlot == slot) g_refuseSlot = -1;
+	else if (g_refuseSlot > slot) g_refuseSlot--;
+}
+
+int cableParkFirstFree() {
+	for (int i = 0; i < MAX_SLOTS; i++)
+		if (!g_slots[i].filled())
+			return i;
+	return -1;
 }
 
 
