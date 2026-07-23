@@ -40,6 +40,9 @@ bool cableParkVisible();
 
 /** Index of the hole under a screen position, or -1. */
 int cableParkSlotAt(float x, float y);
+
+/** True if a screen position is on the bar's hide arrow. */
+bool cableParkHideButtonAt(float x, float y);
 /** True if that hole currently holds a cable end. */
 bool cableParkSlotFilled(int slot);
 

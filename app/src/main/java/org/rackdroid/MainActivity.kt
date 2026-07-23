@@ -74,6 +74,10 @@ fun crossWindowBlurEnabled(windowManager: android.view.WindowManager): Boolean =
 class MainActivity : NativeActivity() {
 
 	private val uiHandler = Handler(Looper.getMainLooper())
+	// Cable-park toolbar toggle. Held at class scope so the bar's own hide arrow
+	// (which flips visibility natively) can keep the button in sync.
+	private var cableParkOn = false
+	private var cableParkButton: ImageButton? = null
 	private var midiManager: MidiManager? = null
 	private val midiDevices = HashMap<Int, MidiDevice>()
 	private val nextMidiId = AtomicInteger(1)
@@ -204,19 +208,15 @@ class MainActivity : NativeActivity() {
 		val installButton = iconButton(R.drawable.ic_tb_install, getString(R.string.modules_manager_title)) { showModuleManager() }
 		// Cable parking bar: you cannot pan the rack while dragging a cable, so
 		// this is where a cable end waits while you scroll to its destination.
-		lateinit var cableParkButton: ImageButton
-		var cableParkOn = false
 		cableParkButton = iconButton(R.drawable.ic_tb_cablepark,
 				getString(R.string.cable_park_title)) {
 			cableParkOn = !cableParkOn
 			nativeSetCableParkVisible(cableParkOn)
-			cableParkButton.alpha = if (cableParkOn) 1f else 0.55f
-			cableParkButton.imageTintList = android.content.res.ColorStateList.valueOf(
-				if (cableParkOn) AppTheme.current.accent else AppTheme.current.textPrimary)
+			styleCableParkButton()
 			if (cableParkOn)
 				Toast.makeText(this, getString(R.string.cable_park_hint), Toast.LENGTH_LONG).show()
 		}
-		cableParkButton.alpha = 0.55f
+		styleCableParkButton()
 		val themeButton = iconButton(R.drawable.ic_tb_theme, getString(R.string.theme_picker_title)) { showThemePicker() }
 		val undoButton = iconButton(R.drawable.ic_tb_undo, "Undo") { nativeHistoryAction(0) }
 		val redoButton = iconButton(R.drawable.ic_tb_redo, "Redo") { nativeHistoryAction(1) }
@@ -247,7 +247,7 @@ class MainActivity : NativeActivity() {
 		applyLocks() // restore persisted state (also styles both buttons)
 		iconRow.addView(paletteButton)
 		iconRow.addView(installButton)
-		iconRow.addView(cableParkButton)
+		iconRow.addView(cableParkButton!!)
 		iconRow.addView(themeButton)
 		iconRow.addView(undoButton)
 		iconRow.addView(redoButton)
@@ -1594,6 +1594,23 @@ class MainActivity : NativeActivity() {
 		uiHandler.post {
 			runCatching { nativeBrowserRequestBuild() }
 			runCatching { modulePalette.show() }
+		}
+	}
+
+	private fun styleCableParkButton() {
+		val b = cableParkButton ?: return
+		b.alpha = if (cableParkOn) 1f else 0.55f
+		b.imageTintList = android.content.res.ColorStateList.valueOf(
+			if (cableParkOn) AppTheme.current.accent else AppTheme.current.textPrimary)
+	}
+
+	/** The bar hid itself (its in-bar arrow was tapped); match the toolbar
+	 * toggle so it does not take two taps to bring the bar back. */
+	@Suppress("unused")
+	fun cableParkHiddenFromNative() {
+		uiHandler.post {
+			cableParkOn = false
+			styleCableParkButton()
 		}
 	}
 

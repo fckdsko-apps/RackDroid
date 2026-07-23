@@ -130,6 +130,14 @@ static float holeY(int i) {
 
 static float holeX() { return BAR_W * 0.5f; }
 
+// Extra room at the top of the bar for the hide arrow.
+static const float ARROW_CAP = 24.f;
+
+/** Centre of the hide arrow, in screen units -- a fixed cap above hole 0. */
+static float arrowY() {
+	return holeY(0) - HOLE_GAP * 0.5f - 10.f - ARROW_CAP * 0.5f;
+}
+
 
 static app::PortWidget* resolvePort(const Slot& s) {
 	if (!s.filled() || !APP->scene || !APP->scene->rack)
@@ -183,9 +191,10 @@ struct CableParkBar : widget::Widget {
 			return;
 		int holes = visibleHoles();
 		// Bar body: same smoked-glass slab as the Kotlin surfaces. Sized to the
-		// currently visible holes so it grows and shrinks with them.
-		float top = holeY(0) - HOLE_GAP * 0.5f - 10.f;
-		float height = holes * HOLE_GAP + 20.f;
+		// currently visible holes so it grows and shrinks with them, plus a cap
+		// at the top that holds the hide arrow.
+		float top = holeY(0) - HOLE_GAP * 0.5f - 10.f - ARROW_CAP;
+		float height = holes * HOLE_GAP + 20.f + ARROW_CAP;
 		nvgBeginPath(args.vg);
 		nvgRoundedRect(args.vg, 4.f, top, BAR_W - 8.f, height, 16.f);
 		nvgFillColor(args.vg, nvgRGBA(0x1B, 0x18, 0x13, 0xE0));
@@ -193,6 +202,21 @@ struct CableParkBar : widget::Widget {
 		nvgStrokeColor(args.vg, nvgRGBA(0xFF, 0xFF, 0xFF, 0x18));
 		nvgStrokeWidth(args.vg, 1.f);
 		nvgStroke(args.vg);
+
+		// Hide arrow: a left-pointing chevron that tucks the bar off the screen
+		// edge. Tapping it is handled in the touch layer (cableParkHideButtonAt).
+		{
+			float ax = holeX(), ay = arrowY();
+			nvgBeginPath(args.vg);
+			nvgMoveTo(args.vg, ax + 4.f, ay - 6.f);
+			nvgLineTo(args.vg, ax - 4.f, ay);
+			nvgLineTo(args.vg, ax + 4.f, ay + 6.f);
+			nvgStrokeColor(args.vg, nvgRGBA(0xED, 0xE6, 0xD8, 0xC8));
+			nvgStrokeWidth(args.vg, 2.f);
+			nvgLineCap(args.vg, NVG_ROUND);
+			nvgLineJoin(args.vg, NVG_ROUND);
+			nvgStroke(args.vg);
+		}
 
 		for (int i = 0; i < holes; i++) {
 			float cx = holeX(), cy = holeY(i);
@@ -373,6 +397,13 @@ int cableParkSlotAt(float x, float y) {
 			return i;
 	}
 	return -1;
+}
+
+bool cableParkHideButtonAt(float x, float y) {
+	if (!g_visible)
+		return false;
+	float dx = x - holeX(), dy = y - arrowY();
+	return dx * dx + dy * dy <= (HOLE_R + 4.f) * (HOLE_R + 4.f);
 }
 
 bool cableParkSlotFilled(int slot) {

@@ -200,6 +200,19 @@ int touchHandleEvent(AInputEvent* event) {
 			st.downTime = rack::system::getTime();
 			st.downPos = pos;
 			st.lastPos = pos;
+			// Anchor the in-flight position at the press point right away. The
+			// cable Rack creates on this press is checked against it before the
+			// first MOVE arrives; without this it keeps last drag's stale value
+			// and the spare hole flashes for a frame if that value was over the
+			// bar (e.g. just after a park).
+			rackdroid::cableParkSetInflightPos(pos.x, pos.y);
+			// Tapping the bar's hide arrow tucks the bar away. Checked before the
+			// hole grab so a tap on the arrow is never read as a park interaction.
+			if (rackdroid::cableParkHideButtonAt(pos.x, pos.y)) {
+				rackdroid::cableParkSetVisible(false);
+				rackdroid::nativeCableParkHidden();
+				return 1;
+			}
 			// Pulling a parked cable end out of the bar: our own drag, Rack
 			// must not see it at all or it would start panning the rack.
 			{
