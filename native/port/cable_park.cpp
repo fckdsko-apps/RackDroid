@@ -495,10 +495,9 @@ bool cableParkStore(int slot, app::PortWidget* port) {
 	// the colour the finished cable got.
 	if (APP->scene && APP->scene->rack)
 		g_slots[slot].color = APP->scene->rack->getNextCableColor();
-	LOGI("parked %s port %d of module %lld in slot %d [complete cables now=%zu]",
+	LOGI("parked %s port %d of module %lld in slot %d",
 		port->type == engine::Port::INPUT ? "input" : "output",
-		port->portId, (long long) port->module->id, slot,
-		APP->scene && APP->scene->rack ? APP->scene->rack->getCompleteCables().size() : 0);
+		port->portId, (long long) port->module->id, slot);
 	return true;
 }
 
@@ -593,8 +592,7 @@ bool cableParkConnect(int slot, app::PortWidget* target) {
 	}
 	APP->scene->rack->addCable(cw);
 	cableParkClear(slot);
-	LOGI("connected slot %d [complete cables now=%zu]",
-		slot, APP->scene->rack->getCompleteCables().size());
+	LOGI("connected slot %d", slot);
 	return true;
 }
 
