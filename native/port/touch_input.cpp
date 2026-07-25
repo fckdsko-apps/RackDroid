@@ -53,6 +53,9 @@ invisible. */
 
 static const double LONG_PRESS_SECONDS = 0.6;
 static const float LONG_PRESS_SLOP_PX = 16.f; // in scene units
+// How far the finger may drift and still count as "at rest" for the long-press
+// timer. Small, so any real drag resets it; a resting finger's jitter does not.
+static const float LONG_PRESS_STILL_PX = 5.f;
 static const float PINCH_DETECT_RATIO = 0.02f;
 static const float PINCH_ZOOM_SPEED = 8.f;
 // Inertia (momentum) for two-finger panning
@@ -67,6 +70,11 @@ struct TouchState {
 	double downTime = 0.0;
 	rack::math::Vec downPos;
 	rack::math::Vec lastPos;
+	// When the finger last came to rest, and where. The long-press (context
+	// menu) is timed from here, not from the down: a slow drag keeps nudging
+	// this forward so it never fires -- moving a module must not pop its menu.
+	double stillTime = 0.0;
+	rack::math::Vec stillPos;
 
 	// Multitouch gesture state
 	bool gesture = false; // two-finger mode active
@@ -200,6 +208,8 @@ int touchHandleEvent(AInputEvent* event) {
 			st.downTime = rack::system::getTime();
 			st.downPos = pos;
 			st.lastPos = pos;
+			st.stillTime = st.downTime;
+			st.stillPos = pos;
 			// Anchor the in-flight position at the press point right away. The
 			// cable Rack creates on this press is checked against it before the
 			// first MOVE arrives; without this it keeps last drag's stale value
@@ -298,6 +308,13 @@ int touchHandleEvent(AInputEvent* event) {
 				// Tell the bar where an in-flight cable end is, so it only
 				// reveals its spare hole once the cable is dragged over it.
 				rackdroid::cableParkSetInflightPos(pos.x, pos.y);
+				// Moved past a hair? Then the finger is dragging, not resting:
+				// push the still-clock forward so the long-press never fires
+				// mid-drag (a slow module move used to pop the context menu).
+				if (pos.minus(st.stillPos).norm() > LONG_PRESS_STILL_PX) {
+					st.stillTime = rack::system::getTime();
+					st.stillPos = pos;
+				}
 				st.lastPos = pos;
 			}
 			return 1;
@@ -434,9 +451,11 @@ void touchStep() {
 			st.inertiaActive = false;
 	}
 
-	// Long-press without movement → context menu (right click).
+	// Long-press without movement → context menu (right click). Timed from when
+	// the finger last came to rest, and only while it is still near the press
+	// point -- so a drag (even a slow one) never opens the menu.
 	if (st.down && st.leftSent && !st.gesture && !st.longPressFired) {
-		double held = rack::system::getTime() - st.downTime;
+		double held = rack::system::getTime() - st.stillTime;
 		float moved = st.lastPos.minus(st.downPos).norm();
 		if (held >= LONG_PRESS_SECONDS && moved < LONG_PRESS_SLOP_PX) {
 			st.longPressFired = true;
