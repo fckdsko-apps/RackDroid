@@ -92,9 +92,9 @@
 	<string name="guide_s1_t">The rack</string>
 	<string name="guide_s1_b">RackDroid is a modular synthesizer: you place modules on a rack, connect them with cables, and everything makes sound in real time. The essentials are built in, with many more packs available on demand.</string>
 	<string name="guide_s2_t">Getting around</string>
-	<string name="guide_s2_b">Scroll the rack with two fingers. Pinch to zoom. View ▸ Zoom to fit modules frames your whole patch.</string>
+	<string name="guide_s2_b">Scroll the rack with one finger on the background, or two fingers anywhere. Pinch to zoom. View ▸ Zoom to fit modules frames your whole patch.</string>
 	<string name="guide_s3_t">Adding modules</string>
-	<string name="guide_s3_b">Long-press any empty rack space to open the module browser. Type to search, filter by brand or tag, and tap a tile to place it. Hold a tile for 3 seconds for details. Tap ★ to keep favorites.</string>
+	<string name="guide_s3_b">Open the palette with the 🧩 button in the tool row: the strip along the bottom shows the category chips and the module tiles. Use 🔍 to search by name, brand or tag, and tap a tile to place it. Hold a tile for 3 seconds for details.</string>
 	<string name="guide_s4_t">Knobs and switches</string>
 	<string name="guide_s4_b">Drag a knob up or down to turn it. Long-press a knob to open its menu and type an exact value.</string>
 	<string name="guide_s5_t">Cables</string>
@@ -122,17 +122,17 @@
 	<string name="tour_s1_t">Welcome to RackDroid</string>
 	<string name="tour_s1_b">A full modular synth in your pocket. Here is a quick tour of the screen — six steps. You can skip anytime.</string>
 	<string name="tour_s2_t">The toolbar</string>
-	<string name="tour_s2_b">Up top: the menus (File, Edit, View, Engine, Help) and the tool icons — module palette, module manager, cable parking, undo/redo, layout locks, MIDI, on-screen keyboard, record. The ⌄ arrow folds it away.</string>
+	<string name="tour_s2_b">Up top: the menus (File, Edit, View, Engine, Help) and two rows of tools — module palette, module manager, cable parking, theme, MIDI, on-screen keyboard, record, info; below: undo/redo, multi-select, copy, paste, bin and the two padlocks. The ⌄ arrow folds it away.</string>
 	<string name="tour_s3_t">Adding modules</string>
 	<string name="tour_s3_b">The bar at the bottom is the module palette: tap a category chip or the 🔍 to search, then tap or drag a tile onto the rack. The ⓘ on a tile shows its name, description and tags.</string>
 	<string name="tour_s4_t">Cable parking</string>
 	<string name="tour_s4_b">On the left: park a cable end in a hole, scroll to the far module, then drag it out onto the port — compatible ports light up. It grows from 3 to 10 holes; the handle at the top collapses it.</string>
 	<string name="tour_s5_t">The rack — gestures</string>
-	<string name="tour_s5_b">Drag from a port to a port to patch. Drag a module\'s panel to move it. Pinch to zoom, drag the background to scroll. Long-press a knob to type a value; long-press empty space to open the module browser.</string>
+	<string name="tour_s5_b">Drag from a port to a port to patch. Drag a module\'s panel to move it. Pinch to zoom, drag the background with one finger to scroll. Long-press a knob to type a value; long-press a module for its menu.</string>
 	<string name="tour_s6_t">That\'s it</string>
 	<string name="tour_s6_b">You start on a demo patch that already makes sound. To go deeper, open Help ▸ Guide and Help ▸ Tutorials (30 guided paths). Have fun!</string>
 	<string name="wizard_s0">Welcome! Let\'s build your first sound in six short steps. You can keep using the rack while this card is open.</string>
-	<string name="wizard_s1">Open the module browser: long-press any EMPTY spot on the rack (the dark perforated background).</string>
+	<string name="wizard_s1">Open the module palette: tap the 🧩 button at the left of the tool row. The strip appears along the bottom of the screen.</string>
 	<string name="wizard_s2">Type VCO in the search box and tap the first tile. That places an oscillator — the source of your sound.</string>
 	<string name="wizard_s3">Now search for Audio and add "Audio 2" the same way (skip if it\'s already in the rack). It sends sound to your speakers.</string>
 	<string name="wizard_s4">Connect them: drag from the VCO\'s SAW output down at the bottom to a TO input on Audio 2. A cable appears.</string>
@@ -145,8 +145,8 @@
 	<string name="wizard_pro_title">Subtractive synth, explained</string>
 	<string name="wizard_pro_s00">Welcome to the Pro tutorial! In 30 steps we\'ll build a complete synth voice — sequencer, oscillator, filter, envelope, amplifier, modulation — and explain WHY every cable goes where it goes.</string>
 	<string name="wizard_pro_s01">The big idea: audio flows left to right (source ▸ tone shaping ▸ volume ▸ speakers), while CONTROL VOLTAGES (CV) automate knobs. Every cable carries one or the other.</string>
-	<string name="wizard_pro_s02">Find some empty rack space (two-finger scroll). We\'ll build there so nothing else gets in the way.</string>
-	<string name="wizard_pro_s03">Add a VCO (long-press empty space, search VCO). The Voltage Controlled Oscillator generates the raw wave — it\'s the vibrating string of the synth. Alone it\'s just a steady buzz.</string>
+	<string name="wizard_pro_s02">Find some empty rack space (drag the background with one finger). We\'ll build there so nothing else gets in the way.</string>
+	<string name="wizard_pro_s03">Add a VCO (palette 🧩, search VCO). The Voltage Controlled Oscillator generates the raw wave — it\'s the vibrating string of the synth. Alone it\'s just a steady buzz.</string>
 	<string name="wizard_pro_s04">Look at its outputs: SIN is a pure tone, TRI is mellow, SAW is bright and rich in harmonics, SQR is hollow. We\'ll use SAW — all those harmonics give the filter something to carve.</string>
 	<string name="wizard_pro_s05">Add a VCF. The Voltage Controlled Filter is the chisel: a low-pass filter lets lows through and cuts highs. Subtractive synthesis = start rich, carve away.</string>
 	<string name="wizard_pro_s06">Connect VCO SAW ▸ VCF IN. Why: the raw wave must pass THROUGH the filter to be shaped. Audio chain, link one.</string>
@@ -181,11 +181,13 @@
 	<string name="guide_t2_title">Finding modules</string>
 	<string name="guide_t2_sub">Search, filters, favorites, module info</string>
 	<string name="guide_t2_s1_t">The browser</string>
-	<string name="guide_t2_s1_b">Long-press empty rack space to open it. Type any part of a name, brand or tag; the chips filter by brand (white = active) and by function tag. Extra packs you install appear here too.</string>
+	<string name="guide_t2_s1_b">Open it with the 🧩 button in the tool row. Tap 🔍 to search: type part of a name, brand or tag; the chips filter by brand (white = active) and by function. Installed expansion packs show up here too.</string>
 	<string name="guide_t2_s2_t">Tiles</string>
 	<string name="guide_t2_s2_b">Tap a tile to place the module where you long-pressed. Hold a tile for 3 seconds for its description, tags and license. Tap the ☆ on a tile to mark a favorite, then use the ★ Favorites chip to see only those.</string>
 	<string name="guide_t2_s3_t">Managing modules on the rack</string>
 	<string name="guide_t2_s3_b">Drag a module by its panel to move it. Long-press a module to open its context menu: presets, randomize, duplicate, delete. ↶ undoes anything.</string>
+	<string name="guide_t2_s4_t">Working on several modules</string>
+	<string name="guide_t2_s4_b">The multi-select button (the dashed frame in the tool row) changes what one finger does: while it is on, a tap on a module adds it to the selection and another tap removes it — knobs and jacks stay put, so you cannot nudge a value while choosing. Selected modules get a red halo and the panel stays readable. Holding one of them moves them all together, cables following; dragging from empty rack draws the usual selection box, and a tap on empty rack clears everything. With modules selected: copy and paste duplicate them wherever you like, and the bin deletes them, asking first and telling you how many are going.</string>
 
 	<string name="guide_t3_title">Cables and signals</string>
 	<string name="guide_t3_sub">Audio vs CV, V/Oct, gates and triggers</string>

@@ -92,6 +92,7 @@ val GUIDE_TOPICS = listOf(
 		GuideSection(R.string.guide_t2_s1_t, R.string.guide_t2_s1_b),
 		GuideSection(R.string.guide_t2_s2_t, R.string.guide_t2_s2_b),
 		GuideSection(R.string.guide_t2_s3_t, R.string.guide_t2_s3_b),
+		GuideSection(R.string.guide_t2_s4_t, R.string.guide_t2_s4_b),
 	)),
 	GuideTopic("🔌", R.string.guide_t3_title, R.string.guide_t3_sub, listOf(
 		GuideSection(R.string.guide_t3_s1_t, R.string.guide_t3_s1_b),

@@ -603,6 +603,10 @@ void touchStep() {
 			st.inertiaActive = false;
 	}
 
+	// A hold on empty rack deliberately does nothing: one finger there pans the
+	// view, and popping the module palette out from under a resting thumb was
+	// not wanted. The palette has its own toolbar button, and the guide says so.
+	//
 	// Multi-select: holding a module starts moving it. The press Rack never saw
 	// is sent now, so the following MOVEs drag the module exactly as they would
 	// outside this mode. No context menu here -- while selecting, a hold means

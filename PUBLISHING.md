@@ -139,8 +139,10 @@ Manual checks still required on at least one phone:
 - 2026-07-26 — Samsung SM-S901E, Android 16 / API 36: development-signed
   0.1.2 APK installed, cold start completed, patch rendered, foreground audio
   service active, 372 models published, two-row toolbar rendered and no fatal
-  startup exception detected. Audio/MIDI and `.rdmod` interaction checks remain
-  manual and are not implied by this automated smoke result.
+  startup exception detected. That count is this device's: it has expansion
+  packs side-loaded, where a clean install publishes the 66 built-in modules.
+  Audio/MIDI and `.rdmod` interaction checks remain manual and are not implied
+  by this automated smoke result.
 
 - 2026-07-26 — Microsoft Surface Go 2, BlissOS 16.9.7, Android 13 / API 33,
   x86_64: development-signed 0.1.2 APK installed over the previous build, cold

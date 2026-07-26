@@ -88,6 +88,7 @@
     <li>I moduli di base</li>
     <li>Caricare plugin (.rdmod)</li>
     <li>Creare un plugin</li>
+    <li>Aggiornare l'app</li>
     <li>Nota su Google Play</li>
   </ol>
 </section>
@@ -113,8 +114,8 @@
   <li><b>Ruota una manopola</b>: trascina su/giù sulla manopola. Tieni premuto per digitare un valore o azzerarla.</li>
   <li><b>Crea un cavo</b>: trascina da una porta a un'altra. Trascina via lo spinotto per spostarlo o rimuoverlo.</li>
   <li><b>Sposta un modulo</b>: trascinalo per il pannello.</li>
-  <li><b>Zoom / scorrimento</b>: pizzica per lo zoom, trascina lo sfondo per spostarti nel rack.</li>
-  <li><b>Aggiungi un modulo</b>: usa la palette in basso (capitolo 4) oppure tieni premuto uno spazio vuoto del rack.</li>
+  <li><b>Zoom / scorrimento</b>: pizzica per lo zoom; per spostarti nel rack trascina lo sfondo con un dito, oppure usa due dita ovunque.</li>
+  <li><b>Aggiungi un modulo</b>: apri la palette col pulsante <span class="tool">🧩</span> nella barra dei tool (capitolo 4) e tocca una tessera.</li>
 </ul>
 <div class="callout"><b>Colore dei cavi:</b> la loro tensione (quanto “cadono”) e opacità si regolano dal menu <span class="tool">Visualizza</span> — vedi capitolo 5.</div>
 
@@ -353,7 +354,24 @@ zip -r ../MioPack.rdmod .</pre>
 <p class="small">Nel repository lo script <code>scripts/make_rdmods.sh</code> automatizza questo per tutti i pacchetti non di base, prendendo il <code>.so</code> dalla cartella di build di CMake e mappando le risorse.</p>
 <div class="callout"><b>ABI:</b> il <code>.so</code> deve essere costruito con la stessa versione del motore <code>rack_engine</code> dell'app installata. Un mismatch = pacchetto saltato. Anche un pacchetto con lo stesso <code>slug</code> di uno già presente (es. un modulo di base) viene saltato.</div>
 
-<h2>12 · Nota su Google Play</h2>
+<h2>12 · Aggiornare l'app</h2>
+<p>
+  La versione che scarichi da <b>GitHub</b> può controllare da sola se ne è uscita una
+  più recente. Te lo chiede una volta, al primo avvio dopo il giro introduttivo: se
+  rifiuti non si collega mai, e puoi cambiare idea più tardi da <span class="tool">ⓘ</span>
+  ▸ <i>Controlla aggiornamenti</i>. Se accetti, guarda una volta al giorno e ti propone
+  la nuova versione con le sue note; scaricarla e installarla resta una tua scelta, e
+  Android chiede comunque conferma prima di installare.
+</p>
+<div class="callout"><b>Cosa viene inviato:</b> nulla su di te. La richiesta va a
+<code>api.github.com</code>, che in quel momento vede il tuo indirizzo IP — come per
+qualsiasi sito. Nessun account, nessun identificativo, nessuna statistica d'uso.</div>
+<p>
+  La versione pubblicata su <b>Google Play</b> non ha questa funzione e non chiede
+  nemmeno il permesso di rete: lì è lo store a occuparsi degli aggiornamenti.
+</p>
+
+<h2>13 · Nota su Google Play</h2>
 <p>
   Distribuire codice nativo che viene eseguito da <b>fuori</b> Google Play viola le
   policy di Play. Perciò la cartella di side-load e l'installazione da file sono

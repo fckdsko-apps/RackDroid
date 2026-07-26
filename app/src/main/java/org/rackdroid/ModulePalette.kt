@@ -180,6 +180,14 @@ class ModulePalette(
 		// Closing the bar closes its search window too, keyboard included --
 		// otherwise it would float over a rack with no palette behind it.
 		closeSearch()
+		// Detach the shared adapter before the window goes: show() builds a new
+		// RecyclerView every time and setAdapter registers a data observer on the
+		// adapter, which a dismissed popup never removes. Housekeeping, not a
+		// known bug -- it keeps notifications from reaching lists that are gone.
+		// Same for the chip reference, whose view tree is about to disappear.
+		if (::strip.isInitialized)
+			strip.adapter = null
+		activeChip = null
 		popup?.dismiss()
 		popup = null
 	}
@@ -332,6 +340,11 @@ class ModulePalette(
 		val decor = activity.window.decorView
 		decor.post {
 			runCatching {
+				// The bar is shown one frame late (insets are only known then),
+				// and hide() can land in between -- a second tap on the palette
+				// button, say. Showing it anyway would leave a window nobody
+				// holds a reference to any more, so it could never be dismissed.
+				if (popup !== p) return@runCatching
 				val bottom = ViewCompat.getRootWindowInsets(decor)?.getInsets(
 					WindowInsetsCompat.Type.systemBars())?.bottom ?: 0
 				p.showAtLocation(decor, Gravity.BOTTOM or Gravity.START, 0, bottom + dp(6))

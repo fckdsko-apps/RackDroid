@@ -88,9 +88,9 @@
 	<string name="guide_s1_t">Il rack</string>
 	<string name="guide_s1_b">RackDroid è un sintetizzatore modulare: metti i moduli su un rack, li colleghi con i cavi e tutto suona in tempo reale. Gli essenziali sono inclusi, con molti altri pack disponibili on-demand.</string>
 	<string name="guide_s2_t">Muoversi</string>
-	<string name="guide_s2_b">Scorri il rack con due dita. Pizzica per lo zoom. Visualizza ▸ Adatta zoom ai moduli inquadra tutta la patch.</string>
+	<string name="guide_s2_b">Scorri il rack con un dito sullo sfondo, o con due dita ovunque. Pizzica per lo zoom. Visualizza ▸ Adatta zoom ai moduli inquadra tutta la patch.</string>
 	<string name="guide_s3_t">Aggiungere moduli</string>
-	<string name="guide_s3_b">Tieni premuto un punto vuoto del rack per aprire il browser dei moduli. Scrivi per cercare, filtra per marchio o tag e tocca una tile per piazzarla. Tieni premuta una tile per 3 secondi per i dettagli. Tocca ★ per i preferiti.</string>
+	<string name="guide_s3_b">Apri la palette col pulsante 🧩 nella barra dei tool: la striscia in basso mostra i chip delle categorie e le tessere dei moduli. Usa la 🔍 per cercare per nome, marchio o tag, e tocca una tessera per piazzarla. Tieni premuta una tessera per 3 secondi per i dettagli.</string>
 	<string name="guide_s4_t">Manopole e interruttori</string>
 	<string name="guide_s4_b">Trascina una manopola su o giù per girarla. Tienila premuta per aprire il suo menu e digitare un valore esatto.</string>
 	<string name="guide_s5_t">Cavi</string>
@@ -118,17 +118,17 @@
 	<string name="tour_s1_t">Benvenuto in RackDroid</string>
 	<string name="tour_s1_b">Un sintetizzatore modulare completo in tasca. Ecco un rapido giro dello schermo — sei passi. Puoi saltare quando vuoi.</string>
 	<string name="tour_s2_t">La barra degli strumenti</string>
-	<string name="tour_s2_b">In alto: i menu (File, Modifica, Visualizza, Motore, Aiuto) e le icone dei tool — palette moduli, gestore moduli, parcheggio cavi, annulla/ripeti, blocchi del layout, MIDI, tastiera a schermo, registrazione. La freccetta ⌄ la richiude.</string>
+	<string name="tour_s2_b">In alto: i menu (File, Modifica, Visualizza, Motore, Aiuto) e due righe di tool — palette moduli, gestore moduli, parcheggio cavi, tema, MIDI, tastiera a schermo, registrazione, info; sotto: annulla/ripeti, selezione multipla, copia, incolla, cestino e i due lucchetti. La freccetta ⌄ la richiude.</string>
 	<string name="tour_s3_t">Aggiungere moduli</string>
 	<string name="tour_s3_b">La barra in basso è la palette dei moduli: tocca un chip di categoria o la 🔍 per cercare, poi tocca o trascina una tessera sul rack. La ⓘ su una tessera mostra nome, descrizione e tag.</string>
 	<string name="tour_s4_t">Parcheggio cavi</string>
 	<string name="tour_s4_b">A sinistra: parcheggia un capo del cavo in un buco, scorri fino al modulo lontano, poi tiralo fuori sulla porta — le porte compatibili si illuminano. Cresce da 3 a 10 buchi; la maniglia in cima lo richiude.</string>
 	<string name="tour_s5_t">Il rack — i gesti</string>
-	<string name="tour_s5_b">Trascina da una porta a un\'altra per collegare. Trascina il pannello di un modulo per spostarlo. Pizzica per lo zoom, trascina lo sfondo per scorrere. Tieni premuta una manopola per digitare un valore; tieni premuto uno spazio vuoto per aprire il browser dei moduli.</string>
+	<string name="tour_s5_b">Trascina da una porta a un\'altra per collegare. Trascina il pannello di un modulo per spostarlo. Pizzica per lo zoom, trascina lo sfondo con un dito per scorrere. Tieni premuta una manopola per digitare un valore; tieni premuto un modulo per il suo menu.</string>
 	<string name="tour_s6_t">Tutto qui</string>
 	<string name="tour_s6_b">Parti da una patch dimostrativa che suona già. Per approfondire, apri Aiuto ▸ Guida e Aiuto ▸ Tutorial (30 percorsi guidati). Buon divertimento!</string>
 	<string name="wizard_s0">Benvenuto! Costruiamo il tuo primo suono in sei brevi passi. Puoi continuare a usare il rack mentre questa scheda è aperta.</string>
-	<string name="wizard_s1">Apri il browser dei moduli: tieni premuto un punto VUOTO del rack (lo sfondo scuro forato).</string>
+	<string name="wizard_s1">Apri la palette dei moduli: tocca il pulsante 🧩 in alto a sinistra nella barra dei tool. La striscia compare in fondo allo schermo.</string>
 	<string name="wizard_s2">Scrivi VCO nella ricerca e tocca la prima tile. Hai piazzato un oscillatore: la sorgente del suono.</string>
 	<string name="wizard_s3">Ora cerca Audio e aggiungi allo stesso modo "Audio 2" (salta se è già nel rack): porta il suono agli altoparlanti.</string>
 	<string name="wizard_s4">Collegali: trascina dall\'uscita SAW del VCO, in basso, a un ingresso TO di Audio 2. Apparirà un cavo.</string>
@@ -141,8 +141,8 @@
 	<string name="wizard_pro_title">Il synth sottrattivo, spiegato</string>
 	<string name="wizard_pro_s00">Benvenuto nel Tutorial Pro! In 30 passi costruiremo una voce di synth completa — sequencer, oscillatore, filtro, inviluppo, amplificatore, modulazione — spiegando PERCHÉ ogni cavo va dove va.</string>
 	<string name="wizard_pro_s01">L\'idea di fondo: l\'audio scorre da sinistra a destra (sorgente ▸ timbro ▸ volume ▸ altoparlanti), mentre le TENSIONI DI CONTROLLO (CV) automatizzano le manopole. Ogni cavo trasporta l\'uno o le altre.</string>
-	<string name="wizard_pro_s02">Trova spazio vuoto sul rack (scorri con due dita). Costruiremo lì, senza interferenze.</string>
-	<string name="wizard_pro_s03">Aggiungi un VCO (tieni premuto sul vuoto, cerca VCO). Il Voltage Controlled Oscillator genera l\'onda grezza: è la corda vibrante del synth. Da solo è solo un ronzio costante.</string>
+	<string name="wizard_pro_s02">Trova spazio vuoto sul rack (scorri con un dito sullo sfondo). Costruiremo lì, senza interferenze.</string>
+	<string name="wizard_pro_s03">Aggiungi un VCO (palette 🧩, cerca VCO). Il Voltage Controlled Oscillator genera l\'onda grezza: è la corda vibrante del synth. Da solo è solo un ronzio costante.</string>
 	<string name="wizard_pro_s04">Guarda le sue uscite: SIN è un tono puro, TRI è morbida, SAW è brillante e ricca di armoniche, SQR è cava. Useremo SAW: tutte quelle armoniche danno al filtro qualcosa da scolpire.</string>
 	<string name="wizard_pro_s05">Aggiungi un VCF. Il Voltage Controlled Filter è lo scalpello: un passa-basso lascia passare i bassi e taglia gli acuti. Sintesi sottrattiva = partire ricchi, togliere.</string>
 	<string name="wizard_pro_s06">Collega VCO SAW ▸ VCF IN. Perché: l\'onda grezza deve passare ATTRAVERSO il filtro per essere modellata. Catena audio, primo anello.</string>
@@ -177,11 +177,13 @@
 	<string name="guide_t2_title">Trovare i moduli</string>
 	<string name="guide_t2_sub">Ricerca, filtri, preferiti, info sui moduli</string>
 	<string name="guide_t2_s1_t">Il browser</string>
-	<string name="guide_t2_s1_b">Tieni premuto un punto vuoto del rack per aprirlo. Scrivi una parte del nome, del marchio o di un tag; le chip filtrano per marchio (bianca = attiva) e per funzione. Anche i pack extra installati appaiono qui.</string>
+	<string name="guide_t2_s1_b">Aprila col pulsante 🧩 nella barra dei tool. Tocca la 🔍 per cercare: scrivi una parte del nome, del marchio o di un tag; le chip filtrano per marchio (bianca = attiva) e per funzione. Anche i pack extra installati appaiono qui.</string>
 	<string name="guide_t2_s2_t">Le tile</string>
 	<string name="guide_t2_s2_b">Tocca una tile per piazzare il modulo dove hai tenuto premuto. Tienila premuta 3 secondi per descrizione, tag e licenza. Tocca la ☆ per segnare un preferito, poi usa la chip ★ Preferiti per vedere solo quelli.</string>
 	<string name="guide_t2_s3_t">Gestire i moduli sul rack</string>
 	<string name="guide_t2_s3_b">Trascina un modulo dal pannello per spostarlo. Tienilo premuto per il menu contestuale: preset, randomizza, duplica, elimina. ↶ annulla qualsiasi cosa.</string>
+	<string name="guide_t2_s4_t">Lavorare su più moduli</string>
+	<string name="guide_t2_s4_b">Il pulsante selezione multipla (il riquadro tratteggiato nella barra dei tool) cambia cosa fa un dito: mentre è acceso, un tocco su un modulo lo aggiunge alla scelta e un altro tocco lo toglie — manopole e prese restano ferme, così non cambi un valore mentre scegli. I moduli scelti prendono un alone rosso e il pannello resta leggibile. Una pressione prolungata su uno di essi li sposta tutti insieme, coi cavi al seguito; trascinando dal vuoto disegni il classico riquadro di selezione, e un tocco sul vuoto azzera la scelta. Con i moduli scelti: copia e incolla li duplicano dove vuoi, il cestino li elimina chiedendo prima conferma e dicendo quanti sono.</string>
 
 	<string name="guide_t3_title">Cavi e segnali</string>
 	<string name="guide_t3_sub">Audio vs CV, V/Oct, gate e trigger</string>
