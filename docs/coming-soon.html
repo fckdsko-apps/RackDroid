@@ -1,7 +1,7 @@
 <meta charset="utf-8">
 <title>RackDroid — the cable reaches the other side of the rack</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="On 1 August 2026: park a cable and patch across the whole rack, pick up modules by touch, make room in a gesture.">
+<meta name="description" content="On 1 August 2026: park a cable and patch across the whole rack, pick up modules by touch, clear space in a gesture.">
 <style>
   @font-face {
     font-family: "Geomini";
@@ -350,8 +350,8 @@
 </style>
 
 <style>
-  .ann { padding: 78px 0 30px; }
-  .ann .wrap { max-width: 1000px; }
+  .ann { padding: 74px 0 20px; }
+  .ann .wrap { max-width: 1040px; }
   .ann-head { text-align: center; max-width: 720px; margin: 0 auto; }
   .ann h1 {
     font-family: "Geomini", sans-serif;
@@ -376,32 +376,75 @@
   .count b { display: block; font-family: "Geomini", sans-serif; font-size: 28px; color: var(--amber-soft); }
   .count span { font-size: 10.5px; letter-spacing: 0.11em; color: var(--text-faint); text-transform: uppercase; }
 
-  /* Alternating story blocks: a phone shot beside the text it belongs to. */
-  .story { display: grid; grid-template-columns: 1fr 320px; gap: 46px; align-items: center; margin: 74px 0; }
-  .story:nth-child(even) { grid-template-columns: 320px 1fr; }
-  .story:nth-child(even) .story-text { order: 2; }
-  .story h2 {
+  /* The clip: a real screen recording, so it gets room to be seen. */
+  .clip { max-width: 760px; margin: 44px auto 0; }
+  .clip video {
+    width: 100%; display: block; border-radius: 18px;
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 26px 50px -22px rgba(0,0,0,0.8);
+  }
+  .clip .cap { text-align: center; font-size: 13.5px; color: var(--text-faint); margin-top: 12px; }
+
+  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 26px 0 10px; }
+
+  /* ---------- scroll-driven feature tour ---------- */
+  .scrolly { position: relative; margin: 40px 0 10px; }
+  .scrolly-grid { display: grid; grid-template-columns: 1fr 380px; gap: 60px; align-items: start; }
+  .steps { display: flex; flex-direction: column; }
+  .step { min-height: 78vh; display: flex; flex-direction: column; justify-content: center; }
+  .step h2 {
     font-family: "Geomini", sans-serif; font-size: clamp(24px, 3.4vw, 34px);
     margin: 0 0 14px; line-height: 1.15; text-wrap: balance;
   }
-  .story p { color: var(--text-dim); font-size: 16.5px; line-height: 1.75; margin: 0 0 12px; max-width: 52ch; }
-  .story .kicker { margin-bottom: 10px; }
-  .shot {
-    border-radius: 22px; overflow: hidden;
+  .step p { color: var(--text-dim); font-size: 16.5px; line-height: 1.75; margin: 0 0 12px; max-width: 50ch; }
+  .step .kicker { margin-bottom: 10px; }
+  .step { opacity: 0.34; transition: opacity 0.45s ease; }
+  .step.on { opacity: 1; }
+
+  .stage { position: sticky; top: 0; height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .phone {
+    position: relative; width: 300px; aspect-ratio: 1080 / 2400;
+    border-radius: 30px; overflow: hidden;
     border: 1px solid var(--border-strong);
-    box-shadow: 0 26px 50px -22px rgba(0,0,0,0.8);
+    box-shadow: 0 34px 70px -26px rgba(0,0,0,0.85);
     background: #17130d;
   }
-  .shot img, .shot video { width: 100%; display: block; }
-  @media (max-width: 780px) {
-    .story, .story:nth-child(even) { grid-template-columns: 1fr; gap: 26px; }
-    .story:nth-child(even) .story-text { order: 0; }
-    .shot { max-width: 320px; margin: 0 auto; }
+  .phone img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; opacity: 0; transition: opacity 0.5s ease;
+  }
+  .phone img.on { opacity: 1; }
+
+  /* The ring that points at whatever the current step is talking about. */
+  .hl {
+    position: absolute; border: 2px solid var(--amber); border-radius: 12px;
+    box-shadow: 0 0 0 3px rgba(249,177,48,0.18), 0 0 22px rgba(249,177,48,0.5);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.4s ease, left 0.55s cubic-bezier(0.4,0,0.2,1),
+                top 0.55s cubic-bezier(0.4,0,0.2,1),
+                width 0.55s cubic-bezier(0.4,0,0.2,1),
+                height 0.55s cubic-bezier(0.4,0,0.2,1);
+  }
+  .hl.on { opacity: 1; animation: hlpulse 2.1s ease-in-out infinite; }
+  @keyframes hlpulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(249,177,48,0.18), 0 0 22px rgba(249,177,48,0.45); }
+    50%      { box-shadow: 0 0 0 5px rgba(249,177,48,0.10), 0 0 30px rgba(249,177,48,0.75); }
   }
 
-  .hero-clip { max-width: 340px; margin: 40px auto 0; }
-  .hero-clip .cap { text-align: center; font-size: 13px; color: var(--text-faint); margin-top: 12px; }
-  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 20px 0 10px; }
+  /* Stacked on a phone: the screen rides along at the top, the text scrolls under. */
+  @media (max-width: 900px) {
+    .scrolly-grid { grid-template-columns: 1fr; gap: 0; }
+    .stage { order: -1; height: auto; padding: 14px 0 22px; top: 0;
+             background: linear-gradient(to bottom, var(--bg) 78%, transparent); z-index: 5; }
+    .phone { width: 210px; }
+    .step { min-height: 62vh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .phone img, .hl { transition: none; }
+    .hl.on { animation: none; }
+    .step { opacity: 1; }
+  }
+
 </style>
 
 <nav class="nav">
@@ -423,9 +466,8 @@
       <p class="ann-lede">
         On a phone the screen always runs out too soon: the two modules you want to
         patch are never on it at the same time. The next update takes that problem
-        away — and with it the feeling of fighting for room.
+        away.
       </p>
-
       <div class="count" id="count">
         <div><b>0</b><span>days</span></div>
         <div><b>00</b><span>hours</span></div>
@@ -434,41 +476,53 @@
       </div>
       <p id="landed" style="display:none" class="ann-lede"><strong>It is out.</strong>
         <a href="update.html">See what you can do</a>.</p>
-
-      <div class="hero-clip">
-        <div class="shot"><video src="assets/shots/cable-park.mp4" autoplay muted loop playsinline></video></div>
-        <p class="cap">One end left waiting, the rack scrolling, the jack on the far side.</p>
-      </div>
     </div>
-<section class="story">
-    <div class="story-text">
-      <p class="kicker">Cables</p>
-      <h2>No module is out of reach</h2>
-      <p>Leave a cable end waiting at the edge of the screen. Scroll the rack wherever you need, pick it up again and drop it where you meant to: compatible jacks light up as you approach, so you hit them even with a thumb.</p>
-      <p>The bar remembers which module and which output every end came from — after three parked cables you no longer do.</p>
-    </div>
-    <div class="shot"><img src="assets/shots/parked.png" alt=""></div>
-  </section><section class="story">
-    <div class="story-text">
-      <p class="kicker">Tidying</p>
-      <h2>Move things like they were on a desk</h2>
-      <p>Tap the modules you care about and drag them together: the rack rearranges in one gesture instead of one module at a time.</p>
-      <p>What you picked glows red around the edge — you see what is in your hand and can still read the knobs and labels underneath.</p>
-    </div>
-    <div class="shot"><img src="assets/shots/selection.png" alt=""></div>
-  </section><section class="story">
-    <div class="story-text">
-      <p class="kicker">Room</p>
-      <h2>Change your mind quickly</h2>
-      <p>A bin next to the undo button: what you no longer want is gone at once, with one question first and the way back still open.</p>
-      <p>Copy and paste sit right beside it, so a corner of the patch that works can be duplicated and tried somewhere else.</p>
-    </div>
-    <div class="shot"><img src="assets/shots/rack.png" alt=""></div>
-  </section>
-  <div class="ann-ctas">
-    <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Get RackDroid</a>
-    <a class="btn btn-ghost" href="index.html">Back to the site</a>
+    <div class="clip">
+    <video src="assets/shots/cable-park.mp4" autoplay muted loop playsinline></video>
+    <p class="cap">The cable end waits at the edge, the rack scrolls, the jack on the far side takes it.</p>
   </div>
+  </div>
+</section>
+<section class="scrolly">
+  <div class="wrap scrolly-grid">
+    <div class="steps">
+      <div class="step" data-shot="parked" data-hl="0.5,31,10,20">
+      <p class="kicker">Cable parking</p>
+      <h2>No module is out of reach</h2>
+      <p>Leave a cable end in a hole on the bar at the left, scroll the rack as far as you need, then pull it out onto the jack you wanted. Compatible jacks light up while you aim.</p>
+      <p>Each hole keeps the name of the module and output that end came from — after the third cable you no longer remember.</p>
+    </div><div class="step" data-shot="selection" data-hl="28,16.5,9,4">
+      <p class="kicker">Selection</p>
+      <h2>Pick up half the rack and move it</h2>
+      <p>Tap the modules you want, tap again to let them go. Then hold and drag: they travel together, cables following.</p>
+      <p>While you choose, knobs and jacks stay put — no value nudged by accident in the middle of tidying up.</p>
+    </div><div class="step" data-shot="selection" data-hl="1.5,31.5,36,19">
+      <p class="kicker">At a glance</p>
+      <h2>See what is in your hand</h2>
+      <p>Chosen modules get a red halo around them. The panel stays readable — knobs, labels and cables are all still there while you work.</p>
+    </div><div class="step" data-shot="rack" data-hl="63,16.5,9,4">
+      <p class="kicker">Room</p>
+      <h2>Clear space in one gesture</h2>
+      <p>The bin takes away everything you picked. It tells you how many modules are going and asks first; change your mind and undo is right beside it.</p>
+      <p>Copy and paste sit next to it, so a corner of the patch that works can be repeated wherever you like.</p>
+    </div>
+    </div>
+    <div class="stage">
+    <div class="phone">
+      <img data-shot="rack" src="assets/shots/rack.png" alt="">
+      <img data-shot="parked" src="assets/shots/parked.png" alt="">
+      <img data-shot="selection" src="assets/shots/selection.png" alt="">
+      <div class="hl"></div>
+    </div>
+  </div>
+  </div>
+</section>
+<section class="ann">
+  <div class="wrap ann-head">
+    <div class="ann-ctas">
+      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Get RackDroid</a>
+      <a class="btn btn-ghost" href="index.html">Back to the site</a>
+    </div>
   </div>
 </section>
 <footer>
@@ -485,6 +539,51 @@
     </p>
   </div>
 </footer>
+
+<script>
+  // Ties each block of text to a screen and a highlight box. No library: an
+  // IntersectionObserver picks whichever step is crossing the middle of the
+  // viewport, and everything else is a class swap.
+  (function () {
+    var stage = document.querySelector('.phone');
+    if (!stage) return;
+    var shots = stage.querySelectorAll('img');
+    var ring = stage.querySelector('.hl');
+    var steps = document.querySelectorAll('.step');
+    if (!steps.length) return;
+
+    function show(step) {
+      var want = step.getAttribute('data-shot');
+      shots.forEach(function (img) {
+        img.classList.toggle('on', img.getAttribute('data-shot') === want);
+      });
+      steps.forEach(function (s) { s.classList.toggle('on', s === step); });
+
+      var box = step.getAttribute('data-hl');
+      if (!box) { ring.classList.remove('on'); return; }
+      var v = box.split(',');
+      if (v.length !== 4) { ring.classList.remove('on'); return; }
+      ring.style.left = v[0] + '%';
+      ring.style.top = v[1] + '%';
+      ring.style.width = v[2] + '%';
+      ring.style.height = v[3] + '%';
+      ring.classList.add('on');
+    }
+
+    var current = null;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting && e.target !== current) {
+          current = e.target;
+          show(e.target);
+        }
+      });
+    }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
+
+    steps.forEach(function (s) { io.observe(s); });
+    show(steps[0]);
+  })();
+</script>
 
 <script>
   (function () {
