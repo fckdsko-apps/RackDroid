@@ -11,11 +11,11 @@ attributed in-app (ⓘ button) and in NOTICE-graphics.md.
 ```sh
 cd rackdroid
 export ANDROID_HOME=/path/to/android-sdk
-./gradlew assembleRelease -PdevKeystore  # sideload APK, public development key
-./gradlew assembleRelease -PdevKeystore -PtargetAbis=x86_64 # x86_64 sideload APK
-./gradlew bundleRelease -PtargetAbis=arm64-v8a,x86_64       # Play AAB, both 64-bit ABIs
+./gradlew assembleSideloadRelease -PdevKeystore  # sideload APK, public development key
+./gradlew assembleSideloadRelease -PdevKeystore -PtargetAbis=x86_64 # x86_64 sideload APK
+./gradlew bundlePlayRelease -PtargetAbis=arm64-v8a,x86_64   # Play AAB, both 64-bit ABIs
 # Expansion packs are ABI-specific and require every optional target:
-./gradlew assembleRelease -PdevKeystore -PallPlugins -PtargetAbis=x86_64
+./gradlew assembleSideloadRelease -PdevKeystore -PallPlugins -PtargetAbis=x86_64
 scripts/make_rdmods.sh /tmp/rdmods-x86_64 x86_64 # requires 21 valid archives
 ```
 
@@ -45,7 +45,7 @@ only gives update continuity for sideloads. **Before publishing to Play**:
   ```
   `app/build.gradle.kts` reads this file automatically. Never commit the
   properties file, private keystore, passwords, `.claude/`, or backup keys.
-3. Build `bundleRelease` **without** `-PdevKeystore`, then verify the resulting
+3. Build `bundlePlayRelease` **without** `-PdevKeystore`, then verify the resulting
   AAB/upload certificate before uploading it.
 
 ## GPLv3 compliance (mandatory when selling)
@@ -62,12 +62,17 @@ current build:
 
 > **RackDroid Privacy Policy**
 > RackDroid runs entirely on your device. It does not collect, transmit, or
-> share any personal data. It has no analytics, no ads, no accounts, and no
-> network communication. Audio input (microphone) and MIDI/Bluetooth
+> share any personal data. It has no analytics, no ads and no accounts. The
+> version published on Google Play makes no network requests at all and does
+> not hold the INTERNET permission. Audio input (microphone) and MIDI/Bluetooth
 > permissions are used only locally, in real time, to process audio and
 > connect controllers; nothing is recorded or sent anywhere. Patches you save
 > stay in the app's private storage until you export them yourself.
 > Contact: patrik.meneguot@gmail.com
+
+The GitHub build additionally offers an opt-in update check; `PRIVACY.md`
+covers both distributions and is the text to host if one URL has to serve
+them both.
 
 ## Store listing (draft)
 

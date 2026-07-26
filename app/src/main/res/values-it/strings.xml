@@ -8,6 +8,30 @@
 	<string name="menu_help">Aiuto</string>
 	<string name="menu_back">Indietro</string>
 	<string name="menu_share_patch">Condividi patch…</string>
+	<!-- Aggiornamenti (solo build GitHub; quella per Play non ha l'aggiornatore). -->
+	<string name="menu_check_updates">Controlla aggiornamenti</string>
+	<string name="updates_optin_title">Controllare gli aggiornamenti?</string>
+	<string name="updates_optin_message">RackDroid può chiedere a GitHub una volta al giorno se è uscita una nuova versione, e installarla se sei d\'accordo.\n\nÈ l\'unica cosa che l\'app manda in rete, e in quel momento GitHub vede il tuo indirizzo IP. Se rifiuti, RackDroid resta completamente offline — puoi attivarlo più tardi dal menu Aiuto.</string>
+	<string name="updates_optin_yes">Controlla aggiornamenti</string>
+	<string name="updates_optin_no">Resta offline</string>
+	<string name="updates_checking">Controllo aggiornamenti…</string>
+	<string name="updates_none">RackDroid è aggiornato</string>
+	<string name="updates_failed">Non riesco a raggiungere GitHub. Riprova più tardi.</string>
+	<string name="updates_available_title">È disponibile la versione %1$s</string>
+	<string name="updates_no_notes">Nessuna nota di rilascio disponibile.</string>
+	<string name="updates_install">Scarica e installa</string>
+	<string name="updates_downloading">Scaricamento</string>
+	<string name="updates_downloading_message">Sto scaricando RackDroid %1$s…</string>
+	<string name="updates_rejected_title">Aggiornamento rifiutato</string>
+	<string name="updates_rejected_message">Il file scaricato non è stato installato: %1$s</string>
+	<string name="updates_bad_apk">non è un pacchetto Android leggibile</string>
+	<string name="updates_wrong_package">è un\'applicazione diversa</string>
+	<string name="updates_not_newer">non è più recente della versione installata</string>
+	<string name="updates_signature">è firmato con una chiave diversa da quella dell\'app installata</string>
+	<string name="updates_install_failed">Non è stato possibile avviare l\'installazione</string>
+	<string name="updates_permission_title">Serve un permesso</string>
+	<string name="updates_permission_message">Android ha bisogno del tuo permesso perché RackDroid possa installare un aggiornamento. Attiva “Consenti da questa origine”, poi riprova.</string>
+	<string name="updates_permission_open">Apri impostazioni</string>
 	<!-- Modulo ▸ Preset: riguardano le impostazioni del modulo, non il modulo. -->
 	<string name="menu_preset_copy">Copia impostazioni</string>
 	<string name="menu_preset_paste">Incolla impostazioni</string>

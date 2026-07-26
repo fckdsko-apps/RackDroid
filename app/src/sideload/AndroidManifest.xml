@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	Permissions only the GitHub/sideload build is allowed to have.
+
+	INTERNET: exclusively to ask api.github.com whether a newer release exists
+	and to download that APK. Nothing else in the app makes a request, and the
+	check does not run at all until the user opts in.
+
+	REQUEST_INSTALL_PACKAGES: to hand the downloaded APK to the system
+	installer, which still shows its own confirmation screen. Android also
+	refuses any update signed with a different key than the installed app.
+
+	The Play build (src/play/) has neither, and its updater is a no-op.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+	<uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+</manifest>

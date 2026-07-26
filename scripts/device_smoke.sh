@@ -6,7 +6,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ADB="${ADB:-${ANDROID_HOME:+$ANDROID_HOME/platform-tools/adb}}"
 ADB="${ADB:-adb}"
-APK="${1:-app/build/outputs/apk/release/app-release.apk}"
+# Flavored builds land in outputs/apk/<flavor>/release/. With no argument take
+# the most recently built one, so the usual "build, then smoke" loop keeps
+# working whichever distribution was just assembled.
+APK="${1:-}"
+if [[ -z "$APK" ]]; then
+  APK=$(ls -t app/build/outputs/apk/*/release/*.apk 2>/dev/null | head -1)
+fi
 REPORT_DIR="${DEVICE_SMOKE_REPORT_DIR:-app/build/reports/device-smoke}"
 PACKAGE=org.rackdroid
 ACTIVITY="$PACKAGE/.MainActivity"
@@ -15,11 +21,13 @@ command -v "$ADB" >/dev/null 2>&1 || {
   echo "adb not found; set ANDROID_HOME or ADB" >&2
   exit 2
 }
-[[ -f "$APK" ]] || {
-  echo "APK not found: $APK" >&2
-  echo "Build it with ./gradlew assembleRelease -PdevKeystore first." >&2
+[[ -n "$APK" && -f "$APK" ]] || {
+  echo "APK not found${APK:+: $APK}" >&2
+  echo "Build it with ./gradlew assembleSideloadRelease -PdevKeystore first," >&2
+  echo "or pass the path to an APK as the first argument." >&2
   exit 2
 }
+echo "APK: $APK"
 
 mapfile -t devices < <("$ADB" devices | awk 'NR > 1 && $2 == "device" {print $1}')
 # ANDROID_SERIAL names the target when more than one device is authorized --

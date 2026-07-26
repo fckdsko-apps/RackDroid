@@ -175,6 +175,24 @@ android {
 		}
 	}
 
+	// Two distributions, because they are allowed to do different things.
+	//
+	//   sideload — what people download from GitHub. It may check for a new
+	//              release and install it, so it declares INTERNET and
+	//              REQUEST_INSTALL_PACKAGES (see src/sideload/).
+	//   play     — what Google Play would receive. Play's Device and Network
+	//              Abuse policy forbids an app updating itself outside the
+	//              store, so this flavor carries neither the permissions nor
+	//              the code: src/play/ stubs the updater out entirely.
+	//
+	// Both share every source file in src/main/, and the CMake arguments are
+	// identical, so the native build is configured once and reused.
+	flavorDimensions += "distribution"
+	productFlavors {
+		create("sideload") { dimension = "distribution" }
+		create("play") { dimension = "distribution" }
+	}
+
 	sourceSets {
 		getByName("main") {
 			assets.srcDir(layout.buildDirectory.dir("generated/assets"))

@@ -52,6 +52,7 @@ come su un rack hardware. Nessun compromesso: è il motore audio di
 | 🎹 **MIDI** | tastiera musicale a schermo, MIDI USB e Bluetooth LE |
 | ⏺️ **Registrazione** | uscita su file WAV in `Documents/RackDroid/` |
 | 🎓 **Apprendimento guidato** | un tour dell'interfaccia a spotlight al primo avvio, 30 tutorial passo-passo su 5 livelli, più una guida per argomenti |
+| 🔄 **Aggiornamenti (build GitHub)** | a scelta tua: RackDroid può chiedere a GitHub una volta al giorno se è uscita una versione nuova e installarla. Se rifiuti non si connette mai — la build per Play non ha l'aggiornatore né alcun permesso di rete |
 
 ## Moduli aggiuntivi (.rdmod)
 
@@ -82,11 +83,15 @@ repo**: un clone pulito compila così com'è, senza init di submodule.
 
 ```sh
 export JAVA_HOME=~/jdk21; export ANDROID_HOME=~/android-sdk
-./gradlew assembleRelease -PdevKeystore                         # arm64-v8a (predefinito)
-./gradlew assembleRelease -PdevKeystore -PtargetAbis=x86_64     # x86_64
-./gradlew bundleRelease -PtargetAbis=arm64-v8a,x86_64           # AAB Play, entrambe le ABI 64 bit
+./gradlew assembleSideloadRelease -PdevKeystore                 # arm64-v8a (predefinito)
+./gradlew assembleSideloadRelease -PdevKeystore -PtargetAbis=x86_64  # x86_64
+./gradlew bundlePlayRelease -PtargetAbis=arm64-v8a,x86_64       # AAB Play, entrambe le ABI 64 bit
 ```
 
+- Due distribuzioni: `sideload` (GitHub) può controllare e installare i propri
+  aggiornamenti, quindi dichiara INTERNET e REQUEST_INSTALL_PACKAGES; `play` non
+  ha né i permessi né quel codice, perché le policy dello store vietano a
+  un'app di aggiornarsi da sola.
 - `-PdevKeystore` firma con la chiave di sviluppo pubblica (continuità di
   aggiornamento per il sideload; per Play usare una chiave privata).
 - L'APK di base pesa ~40 MB e contiene solo i moduli base. Le librerie opzionali

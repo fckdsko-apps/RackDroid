@@ -56,8 +56,10 @@ jobs:
       - name: Build APK, AAB and all plugin libraries
         # -PdevKeystore: the private key is deliberately not in the repo, so CI
         # signs with the public development key. Never publish this artifact.
+        # The sideload APK is what people download from GitHub (it can update
+        # itself); the Play bundle is the one without that permission set.
         run: >-
-          ./gradlew assembleRelease bundleRelease
+          ./gradlew assembleSideloadRelease bundlePlayRelease
           -PdevKeystore -PallPlugins
           -PtargetAbis=${{ matrix.abi }} --no-daemon
 
@@ -68,7 +70,7 @@ jobs:
         with:
           name: rackdroid-debugkey-release-${{ matrix.abi }}
           path: |
-            app/build/outputs/apk/release/app-release.apk
-            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/apk/sideload/release/app-sideload-release.apk
+            app/build/outputs/bundle/playRelease/app-play-release.aab
             ${{ runner.temp }}/rdmods/*.rdmod
           if-no-files-found: error

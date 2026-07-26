@@ -20,12 +20,14 @@ esac
 # stripped_native_libs. Take them straight from the CMake obj dir instead —
 # but that only holds a plugin if CMake actually built it, and the default
 # build restricts `targets` to the base three. Build every plugin first:
-#   ANDROID_HOME=~/android-sdk ./gradlew assembleRelease \
+#   ANDROID_HOME=~/android-sdk ./gradlew assembleSideloadRelease \
 #     -PdevKeystore -PallPlugins -PtargetAbis=x86_64 --no-daemon
 # Newest release config only: a bare */* glob can hit a stale Debug dir
 # whose .so predate the current toolchain flags (e.g. 16 KB page align).
+# The cxx path is keyed by build type and ABI, not by flavor, so both
+# distributions share it; the fallback below is globbed for the same reason.
 SO=$(ls -dt "app/build/intermediates/cxx/RelWithDebInfo"/*/obj/"$ABI" 2>/dev/null | head -1 || true)
-[ -z "$SO" ] && SO="app/build/intermediates/stripped_native_libs/release/stripReleaseDebugSymbols/out/lib/$ABI"
+[ -z "$SO" ] && SO=$(ls -dt app/build/intermediates/stripped_native_libs/*/*/out/lib/"$ABI" 2>/dev/null | head -1 || true)
 # The obj dir holds UNSTRIPPED RelWithDebInfo libraries — debug info made
 # e.g. Bogaudio's .so 56 MB instead of 3.8 MB. Strip with the same NDK
 # llvm-strip the AGP pipeline uses, so packs match APK-shipped libs.

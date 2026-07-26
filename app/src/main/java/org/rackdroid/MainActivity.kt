@@ -125,11 +125,20 @@ class MainActivity : NativeActivity() {
 		// First launch: a spotlight tour of the whole interface (toolbar,
 		// palette, cable-park bar, gestures). Shown once; finishing/skipping it
 		// sets "tour_done". The patch-building Wizard stays in Help ▸ Tutorials.
-		if (!startupRecoveryActive &&
-			!getSharedPreferences("guide", Context.MODE_PRIVATE).getBoolean("tour_done", false))
+		val tourPending = !startupRecoveryActive &&
+			!getSharedPreferences("guide", Context.MODE_PRIVATE).getBoolean("tour_done", false)
+		if (tourPending)
 			uiHandler.postDelayed({
 				runCatching { Tour(this).show() }
 			}, 2500)
+		// Update check (GitHub build only, and only once the user has opted in).
+		// Never on the very first launch: the tour owns that screen, and asking
+		// about network access before the app has been seen at all is a poor
+		// first impression. A recovery launch stays silent too.
+		if (!tourPending && !startupRecoveryActive)
+			uiHandler.postDelayed({
+				runCatching { AppUpdates.onStart(this) }
+			}, 1200)
 	}
 
 	/** Mark every launch as incomplete before NativeActivity starts. If two
@@ -649,12 +658,16 @@ class MainActivity : NativeActivity() {
 
 			Not affiliated with or endorsed by VCV. "VCV" is a trademark of VCV and is not used here.
 		""".trimIndent()
-		AlertDialog.Builder(this)
+		val dialog = AlertDialog.Builder(this)
 			.setTitle("Credits & licenses")
 			.setMessage(text)
 			.setPositiveButton(android.R.string.ok, null)
 			.setNeutralButton("Log") { _, _ -> showLogViewer() }
-			.show()
+		// Only the GitHub build can update itself; the Play build leaves that
+		// to the store, so the row is not there at all (AppUpdates.SUPPORTED).
+		if (AppUpdates.SUPPORTED)
+			dialog.setNegativeButton(R.string.menu_check_updates) { _, _ -> AppUpdates.checkNow(this) }
+		dialog.show()
 	}
 
 	/** Java-side log, mirrored to user/java-log.txt: logcat is unreachable

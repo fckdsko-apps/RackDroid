@@ -51,6 +51,7 @@ audio engine, made native for your phone.
 | 🎹 **MIDI** | on-screen musical keyboard, USB and Bluetooth LE MIDI |
 | ⏺️ **Recording** | output to a WAV file in `Documents/RackDroid/` |
 | 🎓 **Guided learning** | a spotlight interface tour on first run, 30 step-by-step tutorials across 5 levels, plus a topic-based guide |
+| 🔄 **Updates (GitHub build)** | opt-in: RackDroid can ask GitHub once a day whether a newer release exists and install it. Refuse and it never connects — the Play build has no updater and no network permission at all |
 
 ## Additional modules (.rdmod)
 
@@ -81,9 +82,9 @@ clone compiles as-is, no submodule init needed.
 
 ```sh
 export JAVA_HOME=~/jdk21; export ANDROID_HOME=~/android-sdk
-./gradlew assembleRelease -PdevKeystore                         # arm64-v8a (default)
-./gradlew assembleRelease -PdevKeystore -PtargetAbis=x86_64     # x86_64
-./gradlew bundleRelease -PtargetAbis=arm64-v8a,x86_64           # Play AAB, both 64-bit ABIs
+./gradlew assembleSideloadRelease -PdevKeystore                 # arm64-v8a (default)
+./gradlew assembleSideloadRelease -PdevKeystore -PtargetAbis=x86_64  # x86_64
+./gradlew bundlePlayRelease -PtargetAbis=arm64-v8a,x86_64       # Play AAB, both 64-bit ABIs
 ```
 
 - `-PdevKeystore` signs with the public development key (update continuity for

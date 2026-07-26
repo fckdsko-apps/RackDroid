@@ -12,6 +12,30 @@
 	<string name="menu_help">Help</string>
 	<string name="menu_back">Back</string>
 	<string name="menu_share_patch">Share patch…</string>
+	<!-- Updates (GitHub build only; the Play build has no updater). -->
+	<string name="menu_check_updates">Check for updates</string>
+	<string name="updates_optin_title">Check for updates?</string>
+	<string name="updates_optin_message">RackDroid can ask GitHub once a day whether a new version has been released, and install it if you agree.\n\nThis is the only thing the app ever sends over the network, and GitHub will see your IP address when it does. Say no and RackDroid stays completely offline — you can turn it on later from the Help menu.</string>
+	<string name="updates_optin_yes">Check for updates</string>
+	<string name="updates_optin_no">Stay offline</string>
+	<string name="updates_checking">Checking for updates…</string>
+	<string name="updates_none">RackDroid is up to date</string>
+	<string name="updates_failed">Could not reach GitHub. Try again later.</string>
+	<string name="updates_available_title">Version %1$s is available</string>
+	<string name="updates_no_notes">No release notes were provided.</string>
+	<string name="updates_install">Download and install</string>
+	<string name="updates_downloading">Downloading</string>
+	<string name="updates_downloading_message">Fetching RackDroid %1$s…</string>
+	<string name="updates_rejected_title">Update refused</string>
+	<string name="updates_rejected_message">The downloaded file was not installed: %1$s</string>
+	<string name="updates_bad_apk">it is not a readable Android package</string>
+	<string name="updates_wrong_package">it is a different application</string>
+	<string name="updates_not_newer">it is not newer than the installed version</string>
+	<string name="updates_signature">it is signed with a different key than the installed app</string>
+	<string name="updates_install_failed">The installer could not be started</string>
+	<string name="updates_permission_title">Permission needed</string>
+	<string name="updates_permission_message">Android needs your permission to let RackDroid install an update. Enable “Allow from this source”, then try again.</string>
+	<string name="updates_permission_open">Open settings</string>
 	<!-- Module ▸ Preset: these carry the module's settings, not the module. -->
 	<string name="menu_preset_copy">Copy settings</string>
 	<string name="menu_preset_paste">Paste settings</string>
