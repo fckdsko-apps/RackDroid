@@ -46,6 +46,7 @@
 #include "amidi_driver.hpp"
 #include "label_overlay.hpp"
 #include "cable_park.hpp"
+#include "selection_glow.hpp"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "rackdroid", __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "rackdroid", __VA_ARGS__)
@@ -182,6 +183,7 @@ struct RackDroidApp {
 				APP->engine->startFallbackThread();
 				rackdroid::installLabelOverlay();
 				rackdroid::installCableParkBar();
+				rackdroid::installSelectionGlow();
 				patchLaunched = true;
 				LOGI("Patch launched: %s", APP->patch->path.c_str());
 				// Every plugin is registered and the patch is up: Java can now

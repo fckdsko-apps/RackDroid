@@ -265,6 +265,20 @@ if(RACKDROID_UI)
 	file(GLOB RACK_WIDGET_SOURCES ${RACK_DIR}/src/widget/*.cpp)
 	# Legacy fixed-function GL demo; replaced by port/openglwidget_android.cpp
 	list(REMOVE_ITEM RACK_WIDGET_SOURCES ${RACK_DIR}/src/widget/OpenGlWidget.cpp)
+	# A selected module is washed in 25% red upstream, hiding the artwork the
+	# selection points at -- and on a touch screen selecting is routine, so that
+	# wash is on screen constantly. Generate a patched copy with the fill made
+	# transparent (the thin outline stays); port/selection_glow.cpp then draws a
+	# red halo around the module instead. No submodule edit, same trick as the
+	# blendish sizes above.
+	set(RACK_PATCH_DIR ${CMAKE_CURRENT_BINARY_DIR}/rack_patched)
+	file(READ ${RACK_DIR}/src/app/ModuleWidget.cpp _mw_cpp)
+	string(REPLACE "nvgFillColor(args.vg, nvgRGBAf(1, 0, 0, 0.25));"
+		"nvgFillColor(args.vg, nvgRGBAf(1, 0, 0, 0.0)); // RackDroid: halo instead"
+		_mw_cpp "${_mw_cpp}")
+	file(WRITE ${RACK_PATCH_DIR}/ModuleWidget.cpp "${_mw_cpp}")
+	list(REMOVE_ITEM RACK_APP_SOURCES ${RACK_DIR}/src/app/ModuleWidget.cpp)
+	list(APPEND RACK_APP_SOURCES ${RACK_PATCH_DIR}/ModuleWidget.cpp)
 	file(GLOB RACK_CORE_SOURCES ${RACK_DIR}/src/core/*.cpp)
 	list(APPEND RACK_SOURCES
 		${RACK_DIR}/src/context.cpp
@@ -285,6 +299,7 @@ if(RACKDROID_UI)
 		${CMAKE_CURRENT_SOURCE_DIR}/port/openglwidget_android.cpp
 		${CMAKE_CURRENT_SOURCE_DIR}/port/label_overlay.cpp
 		${CMAKE_CURRENT_SOURCE_DIR}/port/menu_touch.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/port/selection_glow.cpp
 	)
 	if(ANDROID)
 		list(APPEND PORT_SOURCES

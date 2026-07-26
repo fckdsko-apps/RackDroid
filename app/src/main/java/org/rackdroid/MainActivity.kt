@@ -1420,6 +1420,8 @@ class MainActivity : NativeActivity() {
 	private val ROW_WIZARD_PRO = 256
 	private val ROW_SLIDER_TENSION = 512
 	private val ROW_SLIDER_OPACITY = 1024
+	private val ROW_PRESET_COPY = 2048
+	private val ROW_PRESET_PASTE = 4096
 	// Rack's own fixed, non-localized markers (ui/common.hpp) for a
 	// submenu's current-value display and a checkbox's checked state.
 	private val RIGHT_ARROW = "▸"
@@ -1721,6 +1723,11 @@ class MainActivity : NativeActivity() {
 				flags and ROW_GUIDE != 0 -> getString(R.string.menu_guide)
 				flags and ROW_WIZARD != 0 -> getString(R.string.menu_wizard)
 				flags and ROW_WIZARD_PRO != 0 -> getString(R.string.menu_wizard_pro)
+					// Upstream labels these just "Copy"/"Paste" -- the same
+					// words the toolbar uses for the modules themselves. They
+					// carry only this module's settings, so say that.
+					flags and ROW_PRESET_COPY != 0 -> getString(R.string.menu_preset_copy)
+					flags and ROW_PRESET_PASTE != 0 -> getString(R.string.menu_preset_paste)
 				else -> label
 			}
 			setTextColor(when {

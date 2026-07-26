@@ -322,6 +322,11 @@ int touchHandleEvent(AInputEvent* event) {
 			if (multiSelect.load(std::memory_order_relaxed)) {
 				if (rack::app::ModuleWidget* mw = hoveredModule()) {
 					st.selectTarget = mw;
+					// The hover above was only to find out what is under the
+					// finger. Drop it again: left in place it pops the tooltip
+					// of whatever knob happens to be there, which has nothing
+					// to do with picking the module.
+					APP->event->handleLeave();
 					return 1;
 				}
 			}
@@ -622,10 +627,13 @@ void touchStep() {
 		float moved = st.lastPos.minus(st.downPos).norm();
 		if (held >= LONG_PRESS_SECONDS && moved < LONG_PRESS_SLOP_PX) {
 			st.longPressFired = true;
-			// A module's menu no longer carries Copy/Paste (the toolbar has
-			// them); tell the menu layer before the menu is built.
+			// Tell the menu layer whether this menu belongs to a module, so a
+			// module's preset Copy/Paste can be labelled apart from the rack's
+			// and a text field's identically named rows.
 			if (hoveredModule())
 				menuExpectModuleMenu();
+			else
+				menuClearModuleMenu();
 			// Release the left drag, then emit a right click at the position.
 			endLeftDrag(st.lastPos);
 			APP->event->handleButton(st.lastPos, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);

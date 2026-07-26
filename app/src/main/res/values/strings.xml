@@ -12,6 +12,9 @@
 	<string name="menu_help">Help</string>
 	<string name="menu_back">Back</string>
 	<string name="menu_share_patch">Share patch…</string>
+	<!-- Module ▸ Preset: these carry the module's settings, not the module. -->
+	<string name="menu_preset_copy">Copy settings</string>
+	<string name="menu_preset_paste">Paste settings</string>
 	<string name="toolbar_undo">Undo</string>
 	<string name="toolbar_redo">Redo</string>
 	<string name="toolbar_midi">MIDI devices</string>

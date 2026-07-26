@@ -77,6 +77,11 @@ enum RowFlag {
 	// valid) than bridging the live Quantity across threads.
 	ROW_SLIDER_TENSION = 512,
 	ROW_SLIDER_OPACITY = 1024,
+	// A module's Preset ▸ Copy/Paste. Upstream labels them exactly like the
+	// toolbar's copy/paste of the selection, but they carry that one module's
+	// settings, not the modules themselves -- Java relabels them to say so.
+	ROW_PRESET_COPY = 2048,
+	ROW_PRESET_PASTE = 4096,
 };
 
 
@@ -108,9 +113,11 @@ struct NativeMenu {
 	std::atomic<bool> pastePending{false};
 	std::atomic<bool> deletePending{false};
 	std::atomic<int> selectionCount{0};
-	// The next captured top-level menu belongs to a module: drop its Copy and
-	// Paste rows. Set by the touch layer before it emits the right click.
-	bool moduleMenuPending = false;
+	// True while the menus on screen were opened by a long press on a module,
+	// so its Preset ▸ Copy/Paste can be told apart from the identically labelled
+	// rows elsewhere. Set by the touch layer, cleared by anything else that
+	// opens a menu.
+	bool moduleMenuActive = false;
 	// The next captured top-level menu is the File menu (toolbar tap 0):
 	// present() appends the synthetic Share row to it.
 	bool fileMenuPending = false;
@@ -160,25 +167,29 @@ static bool hiddenOnAndroid(const std::string& text) {
 }
 
 
-/** Copy/Paste on a module's own context menu, which the toolbar owns now. The
- * very same labels also appear on the rack menu and on every text field, so
- * matching by text alone would strip those too: this is only ever consulted for
- * a menu the touch layer flagged as belonging to a module. */
-static bool moduleClipboardRow(const std::string& text) {
-	static const std::set<std::string> rows = {
-		string::translate("ModuleWidget.copy"),
-		string::translate("ModuleWidget.paste"),
-	};
-	return rows.count(text) > 0;
+/** The module Preset submenu's Copy/Paste, which act on that module's settings
+ * -- not on the selection the toolbar's copy/paste duplicates. Upstream labels
+ * both pairs simply "Copy"/"Paste", so on a touch device the two read as the
+ * same command; these rows are re-labelled in Java, where the strings are
+ * localized. The identical labels on the rack menu and on text fields must not
+ * be touched, hence the flag: only a menu opened from a module counts. */
+static int presetClipboardFlag(const std::string& text) {
+	if (text == string::translate("ModuleWidget.copy"))
+		return ROW_PRESET_COPY;
+	if (text == string::translate("ModuleWidget.paste"))
+		return ROW_PRESET_PASTE;
+	return 0;
 }
 
 
 static void present(ui::Menu* menu) {
-	// Only the module's own top-level menu is filtered; its submenus (presets,
-	// and anything a plugin adds) keep every row they came with.
-	bool moduleMenu = g.moduleMenuPending && !menu->parentMenu;
-	if (!menu->parentMenu)
-		g.moduleMenuPending = false;
+	// A module's menu AND everything opened from it: upstream keeps Copy/Paste
+	// in the Preset submenu. That submenu reaches us WITHOUT a parentMenu (the
+	// bottom sheet re-presents it as a fresh top-level list), so the structure
+	// cannot tell us where it came from -- the flag tracks the interaction that
+	// opened the menu chain instead, and is cleared by the toolbar and by a
+	// long press that did not land on a module.
+	bool moduleMenu = g.moduleMenuActive;
 	g.menu = menu;
 	g.rows.clear();
 	std::vector<std::string> labels, rights;
@@ -207,9 +218,9 @@ static void present(ui::Menu* menu) {
 		else if (auto* it = dynamic_cast<ui::MenuItem*>(c)) {
 			if (hiddenOnAndroid(it->text))
 				continue;
-			if (moduleMenu && moduleClipboardRow(it->text))
-				continue;
 			int f = 0;
+			if (moduleMenu)
+				f |= presetClipboardFlag(it->text);
 			if (it->disabled)
 				f |= ROW_DISABLED;
 			g.rows.push_back(Row(it, f));
@@ -380,6 +391,8 @@ static void processToolbarTap(app::Scene* scene) {
 	g.fileMenuPending = (index == 0);
 	g.viewMenuPending = (index == 2);
 	g.helpMenuPending = (index == 5);
+	// A toolbar menu is not a module's, whatever the last long press opened.
+	g.moduleMenuActive = false;
 	if (!scene || !scene->menuBar || scene->menuBar->children.empty())
 		return;
 	widget::Widget* layout = scene->menuBar->children.front();
@@ -451,7 +464,12 @@ static void processShare() {
 
 
 void menuExpectModuleMenu() {
-	g.moduleMenuPending = true;
+	g.moduleMenuActive = true;
+}
+
+
+void menuClearModuleMenu() {
+	g.moduleMenuActive = false;
 }
 
 

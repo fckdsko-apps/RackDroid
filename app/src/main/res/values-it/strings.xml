@@ -8,6 +8,9 @@
 	<string name="menu_help">Aiuto</string>
 	<string name="menu_back">Indietro</string>
 	<string name="menu_share_patch">Condividi patch…</string>
+	<!-- Modulo ▸ Preset: riguardano le impostazioni del modulo, non il modulo. -->
+	<string name="menu_preset_copy">Copia impostazioni</string>
+	<string name="menu_preset_paste">Incolla impostazioni</string>
 	<string name="toolbar_undo">Annulla</string>
 	<string name="toolbar_redo">Ripeti</string>
 	<string name="toolbar_midi">Dispositivi MIDI</string>

@@ -14,4 +14,8 @@ the touch layer when a long press lands on a ModuleWidget; the flag is consumed
 by the next captured top-level menu. */
 void menuExpectModuleMenu();
 
+/** The menus about to open did NOT come from a module (a toolbar menu, or a
+long press on empty rack), so their Copy/Paste rows are somebody else's. */
+void menuClearModuleMenu();
+
 } // namespace rackdroid
