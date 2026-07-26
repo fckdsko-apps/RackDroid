@@ -1,7 +1,7 @@
 <meta charset="utf-8">
-<title>RackDroid — the cable parking update is coming</title>
+<title>RackDroid — the cable reaches the other side of the rack</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="The next RackDroid update lands on 1 August 2026: cable parking, tap-to-select and a first-run tour.">
+<meta name="description" content="On 1 August 2026: park a cable and patch across the whole rack, pick up modules by touch, make room in a gesture.">
 <style>
   @font-face {
     font-family: "Geomini";
@@ -350,36 +350,58 @@
 </style>
 
 <style>
-  /* Announcement pages: one column, centred, no canvas behind it. */
-  .ann { padding: 90px 0 40px; text-align: center; }
-  .ann .wrap { max-width: 820px; }
+  .ann { padding: 78px 0 30px; }
+  .ann .wrap { max-width: 1000px; }
+  .ann-head { text-align: center; max-width: 720px; margin: 0 auto; }
   .ann h1 {
     font-family: "Geomini", sans-serif;
-    font-size: clamp(34px, 7vw, 64px);
-    line-height: 1.05; margin: 10px 0 18px; letter-spacing: -0.01em;
+    font-size: clamp(32px, 6.4vw, 58px);
+    line-height: 1.04; margin: 12px 0 18px; letter-spacing: -0.01em;
+    text-wrap: balance;
   }
-  .ann .rd { color: var(--amber); }
-  .ann-lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-dim); line-height: 1.7; max-width: 62ch; margin: 0 auto; }
+  .ann h1 .rd { color: var(--amber); }
+  .ann-lede { font-size: clamp(16px, 2.1vw, 19px); color: var(--text-dim); line-height: 1.7; margin: 0 auto; }
   .stamp {
-    display: inline-block; margin-bottom: 6px; padding: 7px 14px;
+    display: inline-block; padding: 7px 14px;
     border: 1px solid var(--amber); border-radius: 999px;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    font-size: 13px; letter-spacing: 0.08em; color: var(--amber);
+    font-size: 12.5px; letter-spacing: 0.1em; color: var(--amber);
   }
-  .count { display: flex; gap: 14px; justify-content: center; margin: 34px 0 8px; flex-wrap: wrap; }
+  .count { display: flex; gap: 12px; justify-content: center; margin: 32px 0 4px; flex-wrap: wrap; }
   .count div {
-    min-width: 88px; padding: 14px 10px;
+    min-width: 84px; padding: 12px 10px;
     border: 1px solid var(--border-strong); border-radius: 14px;
     background: rgba(255,255,255,0.02);
   }
-  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 30px; color: var(--amber-soft); }
-  .count span { font-size: 11px; letter-spacing: 0.1em; color: var(--text-faint); text-transform: uppercase; }
-  .feat { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 40px 0 10px; text-align: left; }
-  .feat > div { padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.015); }
-  .feat h4 { margin: 10px 0 6px; font-size: 16px; }
-  .feat p { margin: 0; font-size: 14px; color: var(--text-dim); line-height: 1.65; }
-  .feat .f-icon { font-size: 22px; }
-  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 28px; color: var(--amber-soft); }
+  .count span { font-size: 10.5px; letter-spacing: 0.11em; color: var(--text-faint); text-transform: uppercase; }
+
+  /* Alternating story blocks: a phone shot beside the text it belongs to. */
+  .story { display: grid; grid-template-columns: 1fr 320px; gap: 46px; align-items: center; margin: 74px 0; }
+  .story:nth-child(even) { grid-template-columns: 320px 1fr; }
+  .story:nth-child(even) .story-text { order: 2; }
+  .story h2 {
+    font-family: "Geomini", sans-serif; font-size: clamp(24px, 3.4vw, 34px);
+    margin: 0 0 14px; line-height: 1.15; text-wrap: balance;
+  }
+  .story p { color: var(--text-dim); font-size: 16.5px; line-height: 1.75; margin: 0 0 12px; max-width: 52ch; }
+  .story .kicker { margin-bottom: 10px; }
+  .shot {
+    border-radius: 22px; overflow: hidden;
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 26px 50px -22px rgba(0,0,0,0.8);
+    background: #17130d;
+  }
+  .shot img, .shot video { width: 100%; display: block; }
+  @media (max-width: 780px) {
+    .story, .story:nth-child(even) { grid-template-columns: 1fr; gap: 26px; }
+    .story:nth-child(even) .story-text { order: 0; }
+    .shot { max-width: 320px; margin: 0 auto; }
+  }
+
+  .hero-clip { max-width: 340px; margin: 40px auto 0; }
+  .hero-clip .cap { text-align: center; font-size: 13px; color: var(--text-faint); margin-top: 12px; }
+  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 20px 0 10px; }
 </style>
 
 <nav class="nav">
@@ -395,39 +417,58 @@
 </nav>
 <section class="ann">
   <div class="wrap">
-    <span class="stamp">1 AUGUST 2026</span>
-    <h1>The cable finally<br>has somewhere<br>to wait<span class="rd">.</span></h1>
-    <p class="ann-lede">
-      On a phone you cannot scroll the rack while you are holding a cable — which made
-      patching two modules that never share the screen almost impossible. The next
-      RackDroid update fixes exactly that, and brings the touch interface along with it.
-    </p>
+    <div class="ann-head">
+      <span class="stamp">1 AUGUST 2026</span>
+      <h1>The cable reaches<br>the other side<br>of the rack<span class="rd">.</span></h1>
+      <p class="ann-lede">
+        On a phone the screen always runs out too soon: the two modules you want to
+        patch are never on it at the same time. The next update takes that problem
+        away — and with it the feeling of fighting for room.
+      </p>
 
-    <div class="count" id="count">
-      <div><b>0</b><span>days</span></div>
-      <div><b>00</b><span>hours</span></div>
-      <div><b>00</b><span>minutes</span></div>
-      <div><b>00</b><span>seconds</span></div>
-    </div>
-    <p id="landed" style="display:none" class="ann-lede"><strong>It is out.</strong>
-      <a href="update.html">See what changed</a>.</p>
+      <div class="count" id="count">
+        <div><b>0</b><span>days</span></div>
+        <div><b>00</b><span>hours</span></div>
+        <div><b>00</b><span>minutes</span></div>
+        <div><b>00</b><span>seconds</span></div>
+      </div>
+      <p id="landed" style="display:none" class="ann-lede"><strong>It is out.</strong>
+        <a href="update.html">See what you can do</a>.</p>
 
-    <div class="feat">
-      <div><span class="f-icon">🧵</span><h4>Cable parking</h4>
-        <p>Drop a cable end into the bar on the left edge, scroll wherever you need,
-           then pull it back out onto the port. Compatible jacks light up while you aim.</p></div>
-      <div><span class="f-icon">✅</span><h4>Pick modules by touch</h4>
-        <p>Turn on multi-select and a tap chooses a module, another tap drops it.
-           A hold moves the whole group.</p></div>
-      <div><span class="f-icon">🎓</span><h4>A tour on first run</h4>
-        <p>A guided walk through the toolbar, the palette and the cable bar —
-           now correctly placed on every screen size and both orientations.</p></div>
+      <div class="hero-clip">
+        <div class="shot"><video src="assets/shots/cable-park.mp4" autoplay muted loop playsinline></video></div>
+        <p class="cap">One end left waiting, the rack scrolling, the jack on the far side.</p>
+      </div>
     </div>
-
-    <div class="ann-ctas">
-      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Get RackDroid</a>
-      <a class="btn btn-ghost" href="index.html">Back to the site</a>
+<section class="story">
+    <div class="story-text">
+      <p class="kicker">Cables</p>
+      <h2>No module is out of reach</h2>
+      <p>Leave a cable end waiting at the edge of the screen. Scroll the rack wherever you need, pick it up again and drop it where you meant to: compatible jacks light up as you approach, so you hit them even with a thumb.</p>
+      <p>The bar remembers which module and which output every end came from — after three parked cables you no longer do.</p>
     </div>
+    <div class="shot"><img src="assets/shots/parked.png" alt=""></div>
+  </section><section class="story">
+    <div class="story-text">
+      <p class="kicker">Tidying</p>
+      <h2>Move things like they were on a desk</h2>
+      <p>Tap the modules you care about and drag them together: the rack rearranges in one gesture instead of one module at a time.</p>
+      <p>What you picked glows red around the edge — you see what is in your hand and can still read the knobs and labels underneath.</p>
+    </div>
+    <div class="shot"><img src="assets/shots/selection.png" alt=""></div>
+  </section><section class="story">
+    <div class="story-text">
+      <p class="kicker">Room</p>
+      <h2>Change your mind quickly</h2>
+      <p>A bin next to the undo button: what you no longer want is gone at once, with one question first and the way back still open.</p>
+      <p>Copy and paste sit right beside it, so a corner of the patch that works can be duplicated and tried somewhere else.</p>
+    </div>
+    <div class="shot"><img src="assets/shots/rack.png" alt=""></div>
+  </section>
+  <div class="ann-ctas">
+    <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Get RackDroid</a>
+    <a class="btn btn-ghost" href="index.html">Back to the site</a>
+  </div>
   </div>
 </section>
 <footer>
@@ -446,8 +487,6 @@
 </footer>
 
 <script>
-  // Ticks down to the release. Once the date is past, the page says so itself
-  // instead of showing a frozen row of zeroes.
   (function () {
     var target = new Date('2026-08-01T00:00:00');
     var box = document.getElementById('count');
@@ -461,14 +500,10 @@
         if (done) done.style.display = 'block';
         return;
       }
-      var d = Math.floor(left / 86400000);
-      var h = Math.floor(left / 3600000) % 24;
-      var m = Math.floor(left / 60000) % 60;
-      var s = Math.floor(left / 1000) % 60;
-      box.children[0].firstElementChild.textContent = d;
-      box.children[1].firstElementChild.textContent = pad(h);
-      box.children[2].firstElementChild.textContent = pad(m);
-      box.children[3].firstElementChild.textContent = pad(s);
+      box.children[0].firstElementChild.textContent = Math.floor(left / 86400000);
+      box.children[1].firstElementChild.textContent = pad(Math.floor(left / 3600000) % 24);
+      box.children[2].firstElementChild.textContent = pad(Math.floor(left / 60000) % 60);
+      box.children[3].firstElementChild.textContent = pad(Math.floor(left / 1000) % 60);
       setTimeout(tick, 1000);
     }
     tick();

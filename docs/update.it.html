@@ -1,7 +1,7 @@
 <meta charset="utf-8">
-<title>RackDroid — parcheggio cavi e modifica a tocco, disponibile</title>
+<title>RackDroid — tutto il rack sotto un dito</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Aggiornamento RackDroid: parcheggio cavi, selezione a tocco con alone, elimina dalla barra, un tour adatto a ogni schermo e pacchetti più sicuri.">
+<meta name="description" content="Disponibile: parcheggio cavi per collegare tutto il rack, moduli che prendi col dito e sposti insieme, copia, incolla e cestino dalla barra.">
 <style>
   @font-face {
     font-family: "Geomini";
@@ -350,36 +350,58 @@
 </style>
 
 <style>
-  /* Announcement pages: one column, centred, no canvas behind it. */
-  .ann { padding: 90px 0 40px; text-align: center; }
-  .ann .wrap { max-width: 820px; }
+  .ann { padding: 78px 0 30px; }
+  .ann .wrap { max-width: 1000px; }
+  .ann-head { text-align: center; max-width: 720px; margin: 0 auto; }
   .ann h1 {
     font-family: "Geomini", sans-serif;
-    font-size: clamp(34px, 7vw, 64px);
-    line-height: 1.05; margin: 10px 0 18px; letter-spacing: -0.01em;
+    font-size: clamp(32px, 6.4vw, 58px);
+    line-height: 1.04; margin: 12px 0 18px; letter-spacing: -0.01em;
+    text-wrap: balance;
   }
-  .ann .rd { color: var(--amber); }
-  .ann-lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-dim); line-height: 1.7; max-width: 62ch; margin: 0 auto; }
+  .ann h1 .rd { color: var(--amber); }
+  .ann-lede { font-size: clamp(16px, 2.1vw, 19px); color: var(--text-dim); line-height: 1.7; margin: 0 auto; }
   .stamp {
-    display: inline-block; margin-bottom: 6px; padding: 7px 14px;
+    display: inline-block; padding: 7px 14px;
     border: 1px solid var(--amber); border-radius: 999px;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    font-size: 13px; letter-spacing: 0.08em; color: var(--amber);
+    font-size: 12.5px; letter-spacing: 0.1em; color: var(--amber);
   }
-  .count { display: flex; gap: 14px; justify-content: center; margin: 34px 0 8px; flex-wrap: wrap; }
+  .count { display: flex; gap: 12px; justify-content: center; margin: 32px 0 4px; flex-wrap: wrap; }
   .count div {
-    min-width: 88px; padding: 14px 10px;
+    min-width: 84px; padding: 12px 10px;
     border: 1px solid var(--border-strong); border-radius: 14px;
     background: rgba(255,255,255,0.02);
   }
-  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 30px; color: var(--amber-soft); }
-  .count span { font-size: 11px; letter-spacing: 0.1em; color: var(--text-faint); text-transform: uppercase; }
-  .feat { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 40px 0 10px; text-align: left; }
-  .feat > div { padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.015); }
-  .feat h4 { margin: 10px 0 6px; font-size: 16px; }
-  .feat p { margin: 0; font-size: 14px; color: var(--text-dim); line-height: 1.65; }
-  .feat .f-icon { font-size: 22px; }
-  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 28px; color: var(--amber-soft); }
+  .count span { font-size: 10.5px; letter-spacing: 0.11em; color: var(--text-faint); text-transform: uppercase; }
+
+  /* Alternating story blocks: a phone shot beside the text it belongs to. */
+  .story { display: grid; grid-template-columns: 1fr 320px; gap: 46px; align-items: center; margin: 74px 0; }
+  .story:nth-child(even) { grid-template-columns: 320px 1fr; }
+  .story:nth-child(even) .story-text { order: 2; }
+  .story h2 {
+    font-family: "Geomini", sans-serif; font-size: clamp(24px, 3.4vw, 34px);
+    margin: 0 0 14px; line-height: 1.15; text-wrap: balance;
+  }
+  .story p { color: var(--text-dim); font-size: 16.5px; line-height: 1.75; margin: 0 0 12px; max-width: 52ch; }
+  .story .kicker { margin-bottom: 10px; }
+  .shot {
+    border-radius: 22px; overflow: hidden;
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 26px 50px -22px rgba(0,0,0,0.8);
+    background: #17130d;
+  }
+  .shot img, .shot video { width: 100%; display: block; }
+  @media (max-width: 780px) {
+    .story, .story:nth-child(even) { grid-template-columns: 1fr; gap: 26px; }
+    .story:nth-child(even) .story-text { order: 0; }
+    .shot { max-width: 320px; margin: 0 auto; }
+  }
+
+  .hero-clip { max-width: 340px; margin: 40px auto 0; }
+  .hero-clip .cap { text-align: center; font-size: 13px; color: var(--text-faint); margin-top: 12px; }
+  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 20px 0 10px; }
 </style>
 
 <nav class="nav">
@@ -395,52 +417,59 @@
 </nav>
 <section class="ann">
   <div class="wrap">
-    <span class="stamp">DISPONIBILE · 1 AGOSTO 2026</span>
-    <h1>Parcheggio cavi,<br>e un rack che modifichi<br>con un dito<span class="rd">.</span></h1>
-    <p class="ann-lede">
-      Questo aggiornamento riguarda le due cose che con un mouse hai gratis e con un
-      touchscreen no: raggiungere un modulo fuori dallo schermo, e scegliere i moduli
-      su cui vuoi lavorare.
-    </p>
-
-    <div class="feat">
-      <div><span class="f-icon">🧵</span><h4>Parcheggio cavi</h4>
-        <p>Una barra sul bordo sinistro tiene un capo del cavo mentre scorri fino alla
-           destinazione. Parte con tre buchi e arriva a dieci man mano che li riempi, mostra
-           da quale modulo e porta viene ogni capo, e illumina tutte le prese compatibili
-           mentre miri. Il rilascio si aggancia alla presa evidenziata.</p></div>
-      <div><span class="f-icon">✅</span><h4>Selezione a tocco</h4>
-        <p>Con la selezione multipla attiva, un tocco aggiunge un modulo alla scelta e un
-           secondo tocco lo toglie — manopole e prese restano ferme mentre scegli. Una
-           pressione prolungata prende su tutto il gruppo e lo sposta.</p></div>
-      <div><span class="f-icon">🔴</span><h4>Un alone, non un velo</h4>
-        <p>I moduli scelti sono circondati da un alone rosso invece di essere coperti da una
-           patina colorata: il pannello che hai appena selezionato resta leggibile.</p></div>
-      <div><span class="f-icon">🗑️</span><h4>Elimina dalla barra</h4>
-        <p>Un cestino rimuove i moduli selezionati. Chiede sempre conferma e dice quanti
-           stanno per sparire — e il tasto annulla è lì accanto.</p></div>
-      <div><span class="f-icon">🪟</span><h4>Sedici strumenti, due righe</h4>
-        <p>La barra dispone gli strumenti su una griglia fissa di otto colonne: costruzione
-           e ascolto nella prima riga, modifica e blocchi nella seconda. Della misura giusta
-           per un dito, e si ricorda se l'avevi lasciata aperta.</p></div>
-      <div><span class="f-icon">🎓</span><h4>Un tour che sta nello schermo</h4>
-        <p>Il tour del primo avvio misura l'interfaccia vera invece di indovinarla: i suoi
-           riflettori centrano barra strumenti, palette e barra dei cavi su qualsiasi
-           schermo, in verticale e in orizzontale.</p></div>
-      <div><span class="f-icon">🛡️</span><h4>Pacchetti più sicuri</h4>
-        <p>L'installazione di un <code>.rdmod</code> ora verifica a fondo l'archivio prima di
-           caricare qualsiasi codice nativo, e ti avvisa che un pacchetto gira con i permessi
-           dell'app. Backup su cloud e trasferimento dei dati sono disattivati.</p></div>
-      <div><span class="f-icon">🩹</span><h4>Avvio di recupero</h4>
-        <p>Se l'app non parte due volte di fila, al terzo avvio salta la sessione salvata e i
-           pacchetti installati a mano. Il tuo salvataggio viene spostato da parte, mai
-           cancellato.</p></div>
+    <div class="ann-head">
+      <span class="stamp">DISPONIBILE · 1 AGOSTO 2026</span>
+      <h1>Adesso il rack sta<br>tutto sotto un dito<span class="rd">.</span></h1>
+      <p class="ann-lede">
+        Collegare due moduli lontani, riordinare la patch, fare spazio: le tre cose che
+        su un telefono erano una lotta, e che da oggi si fanno con un gesto.
+      </p>
+      <div class="ann-ctas">
+        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Scarica l'APK</a>
+        <a class="btn btn-ghost" href="rackdroid-manuale.html">Leggi il manuale</a>
+      </div>
+      <div class="hero-clip">
+        <div class="shot"><video src="assets/shots/cable-park.mp4" autoplay muted loop playsinline></video></div>
+        <p class="cap">Il cavo aspetta sul bordo mentre scorri, poi lo attacchi dove volevi.</p>
+      </div>
     </div>
-
-    <div class="ann-ctas">
-      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Scarica l'APK</a>
-      <a class="btn btn-ghost" href="rackdroid-manuale.html">Leggi il manuale</a>
+<section class="story">
+    <div class="story-text">
+      <p class="kicker">Parcheggio cavi</p>
+      <h2>Nessun modulo è troppo lontano</h2>
+      <p>Lascia un capo del cavo in un buco della barra a sinistra, scorri il rack fin dove ti serve, poi tiralo fuori sulla presa giusta. Mentre miri, tutte le prese compatibili si illuminano e quella su cui atterreresti si evidenzia.</p>
+      <p>La barra parte con tre buchi e arriva a dieci man mano che li riempi, e su ognuno leggi da quale modulo e da quale uscita arriva quel capo.</p>
     </div>
+    <div class="shot"><img src="assets/shots/parked.png" alt=""></div>
+  </section><section class="story">
+    <div class="story-text">
+      <p class="kicker">Selezione</p>
+      <h2>Prendi mezzo rack e spostalo</h2>
+      <p>Tocca i moduli che vuoi, toccali di nuovo per lasciarli. Poi tienine premuto uno e trascina: si muovono tutti insieme, coi cavi al seguito.</p>
+      <p>Mentre scegli, manopole e prese restano ferme: non cambi un valore per sbaglio mentre stai facendo ordine.</p>
+    </div>
+    <div class="shot"><img src="assets/shots/selection.png" alt=""></div>
+  </section><section class="story">
+    <div class="story-text">
+      <p class="kicker">Modifica</p>
+      <h2>Duplica quello che funziona, butta il resto</h2>
+      <p>Copia e incolla lavorano su tutti i moduli scelti: un pezzo di patch riuscito lo ripeti dove vuoi.</p>
+      <p>Il cestino chiede sempre conferma e ti dice quanti moduli stanno per sparire — e se sbagli, annulla è lì accanto.</p>
+    </div>
+    <div class="shot"><img src="assets/shots/connected.png" alt=""></div>
+  </section><section class="story">
+    <div class="story-text">
+      <p class="kicker">Primo avvio</p>
+      <h2>Trenta secondi e sai dove sono le cose</h2>
+      <p>Alla prima apertura un breve giro guidato accende una alla volta le parti dell'interfaccia: la barra degli strumenti, la palette dei moduli, la barra dei cavi. Puoi saltarlo quando vuoi.</p>
+      <p>Se preferisci imparare facendo, nel menu Aiuto trovi trenta tutorial passo-passo che costruiscono patch vere.</p>
+    </div>
+    <div class="shot"><img src="assets/shots/rack.png" alt=""></div>
+  </section>
+  <div class="ann-ctas">
+    <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Scarica l'APK</a>
+    <a class="btn btn-ghost" href="index.it.html">Torna al sito</a>
+  </div>
   </div>
 </section>
 <footer>

@@ -1,7 +1,7 @@
 <meta charset="utf-8">
-<title>RackDroid — cable parking and touch editing, out now</title>
+<title>RackDroid — the whole rack under one finger</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="RackDroid update: cable parking, tap-to-select with a halo, delete from the toolbar, a tour that fits every screen, and safer module packs.">
+<meta name="description" content="Out now: cable parking across the whole rack, tap to pick up modules and move them together, copy, paste and bin from the toolbar.">
 <style>
   @font-face {
     font-family: "Geomini";
@@ -350,36 +350,58 @@
 </style>
 
 <style>
-  /* Announcement pages: one column, centred, no canvas behind it. */
-  .ann { padding: 90px 0 40px; text-align: center; }
-  .ann .wrap { max-width: 820px; }
+  .ann { padding: 78px 0 30px; }
+  .ann .wrap { max-width: 1000px; }
+  .ann-head { text-align: center; max-width: 720px; margin: 0 auto; }
   .ann h1 {
     font-family: "Geomini", sans-serif;
-    font-size: clamp(34px, 7vw, 64px);
-    line-height: 1.05; margin: 10px 0 18px; letter-spacing: -0.01em;
+    font-size: clamp(32px, 6.4vw, 58px);
+    line-height: 1.04; margin: 12px 0 18px; letter-spacing: -0.01em;
+    text-wrap: balance;
   }
-  .ann .rd { color: var(--amber); }
-  .ann-lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-dim); line-height: 1.7; max-width: 62ch; margin: 0 auto; }
+  .ann h1 .rd { color: var(--amber); }
+  .ann-lede { font-size: clamp(16px, 2.1vw, 19px); color: var(--text-dim); line-height: 1.7; margin: 0 auto; }
   .stamp {
-    display: inline-block; margin-bottom: 6px; padding: 7px 14px;
+    display: inline-block; padding: 7px 14px;
     border: 1px solid var(--amber); border-radius: 999px;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    font-size: 13px; letter-spacing: 0.08em; color: var(--amber);
+    font-size: 12.5px; letter-spacing: 0.1em; color: var(--amber);
   }
-  .count { display: flex; gap: 14px; justify-content: center; margin: 34px 0 8px; flex-wrap: wrap; }
+  .count { display: flex; gap: 12px; justify-content: center; margin: 32px 0 4px; flex-wrap: wrap; }
   .count div {
-    min-width: 88px; padding: 14px 10px;
+    min-width: 84px; padding: 12px 10px;
     border: 1px solid var(--border-strong); border-radius: 14px;
     background: rgba(255,255,255,0.02);
   }
-  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 30px; color: var(--amber-soft); }
-  .count span { font-size: 11px; letter-spacing: 0.1em; color: var(--text-faint); text-transform: uppercase; }
-  .feat { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 40px 0 10px; text-align: left; }
-  .feat > div { padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.015); }
-  .feat h4 { margin: 10px 0 6px; font-size: 16px; }
-  .feat p { margin: 0; font-size: 14px; color: var(--text-dim); line-height: 1.65; }
-  .feat .f-icon { font-size: 22px; }
-  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 28px; color: var(--amber-soft); }
+  .count span { font-size: 10.5px; letter-spacing: 0.11em; color: var(--text-faint); text-transform: uppercase; }
+
+  /* Alternating story blocks: a phone shot beside the text it belongs to. */
+  .story { display: grid; grid-template-columns: 1fr 320px; gap: 46px; align-items: center; margin: 74px 0; }
+  .story:nth-child(even) { grid-template-columns: 320px 1fr; }
+  .story:nth-child(even) .story-text { order: 2; }
+  .story h2 {
+    font-family: "Geomini", sans-serif; font-size: clamp(24px, 3.4vw, 34px);
+    margin: 0 0 14px; line-height: 1.15; text-wrap: balance;
+  }
+  .story p { color: var(--text-dim); font-size: 16.5px; line-height: 1.75; margin: 0 0 12px; max-width: 52ch; }
+  .story .kicker { margin-bottom: 10px; }
+  .shot {
+    border-radius: 22px; overflow: hidden;
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 26px 50px -22px rgba(0,0,0,0.8);
+    background: #17130d;
+  }
+  .shot img, .shot video { width: 100%; display: block; }
+  @media (max-width: 780px) {
+    .story, .story:nth-child(even) { grid-template-columns: 1fr; gap: 26px; }
+    .story:nth-child(even) .story-text { order: 0; }
+    .shot { max-width: 320px; margin: 0 auto; }
+  }
+
+  .hero-clip { max-width: 340px; margin: 40px auto 0; }
+  .hero-clip .cap { text-align: center; font-size: 13px; color: var(--text-faint); margin-top: 12px; }
+  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 20px 0 10px; }
 </style>
 
 <nav class="nav">
@@ -395,51 +417,59 @@
 </nav>
 <section class="ann">
   <div class="wrap">
-    <span class="stamp">OUT NOW · 1 AUGUST 2026</span>
-    <h1>Cable parking,<br>and a rack you can<br>edit with a finger<span class="rd">.</span></h1>
-    <p class="ann-lede">
-      This update is about the two things that a mouse gives you for free and a
-      touchscreen does not: reaching a module that is off screen, and picking out the
-      modules you want to work on.
-    </p>
-
-    <div class="feat">
-      <div><span class="f-icon">🧵</span><h4>Cable parking</h4>
-        <p>A bar on the left edge holds a cable end while you scroll to its destination.
-           It starts with three holes and grows to ten as you fill them, shows which module
-           and port each end came from, and lights up every compatible jack while you aim.
-           Drops now snap to the highlighted jack.</p></div>
-      <div><span class="f-icon">✅</span><h4>Select by tapping</h4>
-        <p>With multi-select on, a tap adds a module to the selection and a second tap
-           removes it — knobs and ports stay put while you choose. A hold picks the whole
-           selection up and moves it.</p></div>
-      <div><span class="f-icon">🔴</span><h4>A halo, not a wash</h4>
-        <p>Selected modules are ringed with a red glow instead of being covered by a red
-           tint, so you can still read the panel you just selected.</p></div>
-      <div><span class="f-icon">🗑️</span><h4>Delete from the toolbar</h4>
-        <p>A bin button removes the selected modules. It always asks first and tells you
-           how many are going — and undo is right next to it.</p></div>
-      <div><span class="f-icon">🪟</span><h4>Sixteen tools, two rows</h4>
-        <p>The toolbar now lays its tools out on a fixed eight-column grid: build and play
-           on the first row, editing and locks on the second. Finger-sized on a phone,
-           and it remembers whether you left it open.</p></div>
-      <div><span class="f-icon">🎓</span><h4>A tour that fits the screen</h4>
-        <p>The first-run tour measures the real interface instead of guessing, so its
-           spotlights land on the toolbar, the palette and the cable bar on any screen
-           size, in portrait and in landscape.</p></div>
-      <div><span class="f-icon">🛡️</span><h4>Safer module packs</h4>
-        <p>Installing a <code>.rdmod</code> now validates the archive thoroughly before any
-           native code is loaded, and warns you that a pack runs with the app's permissions.
-           Cloud backup and device transfer of app data are switched off.</p></div>
-      <div><span class="f-icon">🩹</span><h4>Recovery start-up</h4>
-        <p>If the app fails to start twice in a row, the third launch skips the saved
-           session and side-loaded packs. Your autosave is moved aside, never deleted.</p></div>
+    <div class="ann-head">
+      <span class="stamp">OUT NOW · 1 AUGUST 2026</span>
+      <h1>The whole rack, now<br>under one finger<span class="rd">.</span></h1>
+      <p class="ann-lede">
+        Patching two distant modules, tidying the rack, making room: the three things
+        that were a fight on a phone, and that now take one gesture.
+      </p>
+      <div class="ann-ctas">
+        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download the APK</a>
+        <a class="btn btn-ghost" href="rackdroid-manuale.html">Read the manual</a>
+      </div>
+      <div class="hero-clip">
+        <div class="shot"><video src="assets/shots/cable-park.mp4" autoplay muted loop playsinline></video></div>
+        <p class="cap">The cable waits at the edge while you scroll, then goes where you meant it.</p>
+      </div>
     </div>
-
-    <div class="ann-ctas">
-      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download the APK</a>
-      <a class="btn btn-ghost" href="rackdroid-manuale.html">Read the manual</a>
+<section class="story">
+    <div class="story-text">
+      <p class="kicker">Cable parking</p>
+      <h2>No module is out of reach</h2>
+      <p>Drop a cable end into a hole on the left-hand bar, scroll the rack as far as you need, then pull it back out onto the jack you wanted. As you aim, every compatible jack lights up and the one you would land on stands out.</p>
+      <p>The bar starts with three holes and grows to ten as you fill them, and each one tells you which module and which output that end came from.</p>
     </div>
+    <div class="shot"><img src="assets/shots/parked.png" alt=""></div>
+  </section><section class="story">
+    <div class="story-text">
+      <p class="kicker">Selection</p>
+      <h2>Pick up half the rack and move it</h2>
+      <p>Tap the modules you want, tap again to drop them. Then hold one and drag: they all move together, cables following.</p>
+      <p>While you are choosing, knobs and jacks stay put — you will not nudge a value by accident in the middle of tidying up.</p>
+    </div>
+    <div class="shot"><img src="assets/shots/selection.png" alt=""></div>
+  </section><section class="story">
+    <div class="story-text">
+      <p class="kicker">Editing</p>
+      <h2>Duplicate what works, bin the rest</h2>
+      <p>Copy and paste act on everything you picked, so a corner of the patch that came out well can be repeated wherever you like.</p>
+      <p>The bin always asks first and tells you how many modules are going — and if you get it wrong, undo is right there.</p>
+    </div>
+    <div class="shot"><img src="assets/shots/connected.png" alt=""></div>
+  </section><section class="story">
+    <div class="story-text">
+      <p class="kicker">First run</p>
+      <h2>Thirty seconds to know your way around</h2>
+      <p>The first time you open it, a short guided tour lights up one part of the interface at a time: the toolbar, the module palette, the cable bar. Skip it whenever you like.</p>
+      <p>If you would rather learn by doing, the Help menu holds thirty step-by-step tutorials that build real patches.</p>
+    </div>
+    <div class="shot"><img src="assets/shots/rack.png" alt=""></div>
+  </section>
+  <div class="ann-ctas">
+    <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download the APK</a>
+    <a class="btn btn-ghost" href="index.html">Back to the site</a>
+  </div>
   </div>
 </section>
 <footer>
