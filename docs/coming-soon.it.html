@@ -1,7 +1,7 @@
 <meta charset="utf-8">
-<title>RackDroid — modular synthesizer for Android</title>
+<title>RackDroid — sta arrivando l'aggiornamento con il parcheggio cavi</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="RackDroid: the VCV Rack 2 engine, native on Android. Build modular patches with your finger, anywhere.">
+<meta name="description" content="Il prossimo aggiornamento di RackDroid arriva il 1 agosto 2026: parcheggio cavi, selezione a tocco e tour al primo avvio.">
 <style>
   @font-face {
     font-family: "Geomini";
@@ -349,315 +349,129 @@
   #update video { display: block; border-radius: 4px; }
 </style>
 
+<style>
+  /* Announcement pages: one column, centred, no canvas behind it. */
+  .ann { padding: 90px 0 40px; text-align: center; }
+  .ann .wrap { max-width: 820px; }
+  .ann h1 {
+    font-family: "Geomini", sans-serif;
+    font-size: clamp(34px, 7vw, 64px);
+    line-height: 1.05; margin: 10px 0 18px; letter-spacing: -0.01em;
+  }
+  .ann .rd { color: var(--amber); }
+  .ann-lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-dim); line-height: 1.7; max-width: 62ch; margin: 0 auto; }
+  .stamp {
+    display: inline-block; margin-bottom: 6px; padding: 7px 14px;
+    border: 1px solid var(--amber); border-radius: 999px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; letter-spacing: 0.08em; color: var(--amber);
+  }
+  .count { display: flex; gap: 14px; justify-content: center; margin: 34px 0 8px; flex-wrap: wrap; }
+  .count div {
+    min-width: 88px; padding: 14px 10px;
+    border: 1px solid var(--border-strong); border-radius: 14px;
+    background: rgba(255,255,255,0.02);
+  }
+  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 30px; color: var(--amber-soft); }
+  .count span { font-size: 11px; letter-spacing: 0.1em; color: var(--text-faint); text-transform: uppercase; }
+  .feat { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 40px 0 10px; text-align: left; }
+  .feat > div { padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.015); }
+  .feat h4 { margin: 10px 0 6px; font-size: 16px; }
+  .feat p { margin: 0; font-size: 14px; color: var(--text-dim); line-height: 1.65; }
+  .feat .f-icon { font-size: 22px; }
+  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+</style>
+
 <nav class="nav">
   <div class="wrap">
     <div class="nav-brand"><img src="assets/logo.svg" style="width: 25%;"><span class="dot"></span>RackDroid</div>
     <div class="nav-right">
-      <a class="nav-link active" href="index.html">Home</a>
-      <a class="nav-link" href="privacy.html">Privacy</a>
-      <a class="nav-lang" href="index.it.html">IT</a>
-      <a class="nav-cta" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">Download on GitHub</a>
+      <a class="nav-link" href="index.it.html">Home</a>
+      <a class="nav-link active" href="coming-soon.it.html">News</a>
+      <a class="nav-lang" href="coming-soon.html">EN</a>
+      <a class="nav-cta" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">Scarica su GitHub</a>
     </div>
   </div>
 </nav>
-
-<header class="hero">
-  <!-- What is coming next. The clip lives outside this repository (it is far
-       too big for it): keep U/U1.mp4 next to the page when publishing. -->
-  <div id="update">
-    <h1>News:</h1>
-    <a href="coming-soon.html"><span>PARKBAR COMING - 01/08/26</span></a>
-    <video src="U/U1.mp4" width="90" height="160" controls autoplay muted loop playsinline>
-      <p>Your browser cannot play this video.<br>
-      <a href="U/U1.mp4" download>Download it instead</a>.</p>
-    </video>
-  </div>
-  <canvas id="patchCanvas"></canvas>
+<section class="ann">
   <div class="wrap">
-    <div>
-      <p class="kicker">Modular synthesizer for Android</p>
-      <h1 class="wordmark">Your modular<br>rack<span class="rd">.</span><br>In your pocket<span class="rd">.</span></h1>
-      <p class="hero-lede">
-        <strong>RackDroid</strong> brings the VCV Rack 2 audio engine to Android, with touch
-        instead of a mouse. Drag real cables between oscillators, filters and sequencers —
-        no compromises, no clone: it's the same engine, made native for your phone.
-      </p>
-      <div class="hero-ctas">
-        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download RackDroid</a>
-        <a class="btn btn-ghost" href="#showcase">See the interface</a>
-      </div>
-      <div class="hero-meta">
-        <span><b>66</b> built-in modules</span>
-        <span><b>Android 10+</b></span>
-        <span><b>GPLv3</b>, open source</span>
-        <span><b>~40 MB</b></span>
-      </div>
-    </div>
-    <div class="device">
-      <img src="assets/screenshots/patch-rack.png" alt="RackDroid running: a patch with a sequencer, VCO, VCF and ADSR">
-    </div>
-  </div>
-</header>
+    <span class="stamp">1 AGOSTO 2026</span>
+    <h1>Finalmente il cavo<br>ha un posto<br>dove aspettare<span class="rd">.</span></h1>
+    <p class="ann-lede">
+      Su un telefono non puoi scorrere il rack mentre tieni in mano un cavo: collegare due
+      moduli che non stanno mai insieme sullo schermo era quasi impossibile. Il prossimo
+      aggiornamento di RackDroid risolve proprio questo, e si porta dietro tutta
+      l'interfaccia a tocco.
+    </p>
 
-<div class="rail"></div>
-
-<section>
-  <div class="wrap">
-    <div class="section-head reveal">
-      <p class="kicker">Why RackDroid</p>
-      <h2 class="section-title">Not a toy. A real rack.</h2>
-      <p>Every design choice starts with one question: would this work with a finger on a 6-inch screen? If the answer was no, we redesigned it — not just shrank it.</p>
+    <div class="count" id="count">
+      <div><b>0</b><span>giorni</span></div>
+      <div><b>00</b><span>ore</span></div>
+      <div><b>00</b><span>minuti</span></div>
+      <div><b>00</b><span>secondi</span></div>
     </div>
-    <div class="why-grid reveal-stagger">
-      <div class="why-card reveal">
-        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="13" stroke="#f9b130" stroke-width="2.4"/><path d="M20 20 L13 13" stroke="#ffda9f" stroke-width="2.4" stroke-linecap="round"/></svg>
-        <h3>It's VCV Rack, not a clone</h3>
-        <p>Same DSP engine, same 66 modules, same <code>.vcv</code> format — built on unmodified upstream v2.6.4 sources.</p>
-      </div>
-      <div class="why-card reveal">
-        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M8 30 C14 14, 26 14, 32 30" stroke="#d45b52" stroke-width="2.4" fill="none"/><circle cx="8" cy="30" r="3" fill="#d45b52"/><circle cx="32" cy="30" r="3" fill="#d45b52"/></svg>
-        <h3>Built for touch</h3>
-        <p>Not a shrunk-down desktop UI: drag cables with a finger, long-press a knob to type a value, pinch to zoom.</p>
-      </div>
-      <div class="why-card reveal">
-        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M6 24 L14 24 L18 10 L24 32 L28 20 L34 20" stroke="#4fb8a6" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
-        <h3>Low native latency</h3>
-        <p>Oboe/AAudio, full-duplex — it plays in real time, not a toy that stutters.</p>
-      </div>
-      <div class="why-card reveal">
-        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><rect x="8" y="8" width="10" height="10" rx="2" stroke="#9b7fd4" stroke-width="2.2"/><rect x="22" y="22" width="10" height="10" rx="2" stroke="#ffda9f" stroke-width="2.2"/><path d="M18 13 L26 13 L26 22" stroke="#9b7fd4" stroke-width="2.2" fill="none"/></svg>
-        <h3>Grows with you</h3>
-        <p>Start with the 66 built-in modules, then add whole packages (Bogaudio, Valley, Befaco…) on the fly, without updating the app.</p>
-      </div>
-      <div class="why-card reveal">
-        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><rect x="9" y="6" width="22" height="30" rx="3" stroke="#5b9bd5" stroke-width="2.2"/><path d="M15 30 L25 30" stroke="#5b9bd5" stroke-width="2.2" stroke-linecap="round"/></svg>
-        <h3>Even on older hardware</h3>
-        <p>Supported from Android 10 up: it runs on phones and tablets that aren't brand new anymore.</p>
-      </div>
-      <div class="why-card reveal">
-        <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M8 20 L14 20 L17 10 L22 30 L25 20 L32 20" stroke="#f9b130" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
-        <h3>Open source, for good</h3>
-        <p>GPLv3, complete sources in the repository. No account, no paid license, no tracking.</p>
-      </div>
+    <p id="landed" style="display:none" class="ann-lede"><strong>È uscito.</strong>
+      <a href="update.it.html">Guarda cosa cambia</a>.</p>
+
+    <div class="feat">
+      <div><span class="f-icon">🧵</span><h4>Parcheggio cavi</h4>
+        <p>Lasci un capo del cavo nella barra sul bordo sinistro, scorri dove ti serve,
+           poi lo tiri fuori sulla porta. Le prese compatibili si illuminano mentre miri.</p></div>
+      <div><span class="f-icon">✅</span><h4>Scegli i moduli col dito</h4>
+        <p>Accendi la selezione multipla: un tocco sceglie un modulo, un altro lo toglie.
+           Una pressione prolungata sposta tutto il gruppo.</p></div>
+      <div><span class="f-icon">🎓</span><h4>Un tour al primo avvio</h4>
+        <p>Un giro guidato tra barra strumenti, palette e barra dei cavi — ora posizionato
+           correttamente su ogni schermo e in entrambi gli orientamenti.</p></div>
+    </div>
+
+    <div class="ann-ctas">
+      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Scarica RackDroid</a>
+      <a class="btn btn-ghost" href="index.it.html">Torna al sito</a>
     </div>
   </div>
 </section>
-
-<div class="rail"></div>
-
-<section id="showcase">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <p class="kicker">Interface</p>
-      <h2 class="section-title">A real screenshot. Not a mockup.</h2>
-      <p>Sequencer, VCO, VCF, ADSR envelope and mixer — taken from a real device running the app, with the glass toolbar open above the rack.</p>
-    </div>
-    <div class="showcase-wrap reveal">
-      <div class="showcase-frame">
-        <img src="assets/screenshots/patch-rack.png" alt="A live patch in RackDroid">
-      </div>
-      <div class="showcase-frame">
-        <img src="assets/screenshots/toolbar-menus.png" alt="RackDroid's toolbar and menus">
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="rail"></div>
-
-<section>
-  <div class="wrap">
-    <div class="section-head reveal">
-      <p class="kicker">Inside the rack</p>
-      <h2 class="section-title">What it includes</h2>
-      <p>Everything you need to build a sound from scratch, already in the base APK.</p>
-    </div>
-    <div class="rack-row reveal">
-      <div class="feature-grid">
-        <div><span class="f-icon">🎚️</span><h4>Audio engine</h4><p>Native, Oboe/AAudio, full-duplex, low latency.</p></div>
-        <div><span class="f-icon">🧩</span><h4>66 modules</h4><p>Core, Fundamental (39 modules), RackDroid Drums (14 original voices).</p></div>
-        <div><span class="f-icon">👆</span><h4>Real touch</h4><p>Cables and modules with a finger, pinch to zoom, long-press for values.</p></div>
-        <div><span class="f-icon">🪟</span><h4>Glass toolbar</h4><p>Menus, module palette, plugin manager, undo/redo, layout lock.</p></div>
-        <div><span class="f-icon">🧲</span><h4>Module palette</h4><p>Chips by category, draggable previews, an info badge for every module.</p></div>
-        <div><span class="f-icon">🧵</span><h4>Cable parking</h4><p>Park a cable end on a bar, scroll to the far module, drop it on the port. 3 to 10 holes.</p></div>
-        <div><span class="f-icon">🎹</span><h4>MIDI</h4><p>On-screen keyboard, USB and Bluetooth LE MIDI.</p></div>
-        <div><span class="f-icon">⏺️</span><h4>Recording</h4><p>Output to a WAV file, saved in Documents/RackDroid/.</p></div>
-        <div><span class="f-icon">🎓</span><h4>Guided learning</h4><p>A spotlight interface tour on first run, 30 step-by-step tutorials, plus a topic guide.</p></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="rail"></div>
-
-<section class="tight">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <p class="kicker">Additional modules</p>
-      <h2 class="section-title">Extra packages, no app update needed</h2>
-      <p>Install <code>.rdmod</code> files from the built-in module manager, or copy them into the <code>Modules/</code> folder — they load right away.</p>
-    </div>
-    <div class="plugin-pills reveal">
-      <span class="pill">Bogaudio</span>
-      <span class="pill">Valley</span>
-      <span class="pill">Audible Instruments</span>
-      <span class="pill">Impromptu</span>
-      <span class="pill">Befaco</span>
-      <span class="pill">HetrickCV</span>
-      <span class="pill">Aria</span>
-      <span class="pill">Bidoo</span>
-      <span class="pill">…and more</span>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <div class="cta-panel reveal">
-      <svg class="scope" viewBox="0 0 400 46" preserveAspectRatio="none"><path id="scopePath" d="M0 23 L400 23" stroke="#f9b130" stroke-width="1.5" fill="none"/></svg>
-      <h2>Ready to build your first sound?</h2>
-      <p>Free, open source, no account. Download the APK from the repository and you're in within a minute.</p>
-      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download RackDroid on GitHub</a>
-      <div class="req-line">Requires Android 10 (API 29) or later · arm64-v8a · OpenGL ES 3.0</div>
-    </div>
-  </div>
-</section>
-
 <footer>
   <div class="wrap">
     <div class="foot-links">
+      <a href="index.it.html">Home</a>
       <a href="https://github.com/nowheel/RackDroid">Repository</a>
-      <a href="https://github.com/nowheel/RackDroid/blob/main/MODULES.md">Create a plugin</a>
-      <a href="https://github.com/nowheel/RackDroid/issues">Report an issue</a>
+      <a href="privacy.html">Privacy</a>
       <a href="https://vcvrack.com" target="_blank" rel="noopener">VCV Rack</a>
     </div>
     <p class="foot-fine">
-      RackDroid is an <strong>unofficial</strong> port of the VCV Rack 2 engine, built on
-      unmodified upstream sources (GPLv3). Not affiliated with or endorsed by VCV; the "VCV"
-      name/logo is not used in the app. RackDroid's graphics are rebuilt and distributed under
-      GPLv3.
+      RackDroid è un port <strong>non ufficiale</strong> del motore di VCV Rack 2, costruito su
+      sorgenti upstream non modificati (GPLv3). Non affiliato né approvato da VCV.
     </p>
   </div>
 </footer>
 
 <script>
-(function () {
-  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // ---- scroll reveal ----
-  var els = document.querySelectorAll('.reveal');
-  if ('IntersectionObserver' in window && !reduced) {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e, i) {
-        if (e.isIntersecting) {
-          setTimeout(function () { e.target.classList.add('in-view'); }, (i % 6) * 70);
-          io.unobserve(e.target);
-        }
-      });
-    }, { threshold: 0.12 });
-    els.forEach(function (el) { io.observe(el); });
-  } else {
-    els.forEach(function (el) { el.classList.add('in-view'); });
-  }
-
-  // ---- ambient patch-cable canvas ----
-  var canvas = document.getElementById('patchCanvas');
-  var ctx = canvas.getContext('2d');
-  var W, H, DPR;
-
-  function resize() {
-    var rect = canvas.getBoundingClientRect();
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = rect.width; H = rect.height;
-    canvas.width = Math.round(W * DPR);
-    canvas.height = Math.round(H * DPR);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  }
-  window.addEventListener('resize', resize);
-  resize();
-
-  var jacks = [
-    { x: 0.06, y: 0.28 }, { x: 0.26, y: 0.62 }, { x: 0.46, y: 0.18 },
-    { x: 0.64, y: 0.58 }, { x: 0.86, y: 0.30 }, { x: 0.40, y: 0.80 },
-    { x: 0.14, y: 0.78 }, { x: 0.94, y: 0.68 }
-  ];
-  var cables = [
-    { a: 0, b: 1, c: '#d45b52' }, { a: 1, b: 2, c: '#f9b130' },
-    { a: 2, b: 3, c: '#4fb8a6' }, { a: 3, b: 4, c: '#9b7fd4' },
-    { a: 1, b: 6, c: '#5b9bd5' }, { a: 6, b: 5, c: '#f9b130' },
-    { a: 3, b: 7, c: '#d45b52' }
-  ];
-
-  function jackPos(i) { return { x: jacks[i].x * W, y: jacks[i].y * H }; }
-
-  function bez(p0, p1, p2, p3, t) {
-    var mt = 1 - t;
-    return {
-      x: mt * mt * mt * p0.x + 3 * mt * mt * t * p1.x + 3 * mt * t * t * p2.x + t * t * t * p3.x,
-      y: mt * mt * mt * p0.y + 3 * mt * mt * t * p1.y + 3 * mt * t * t * p2.y + t * t * t * p3.y
-    };
-  }
-
-  function draw(t) {
-    ctx.clearRect(0, 0, W, H);
-    cables.forEach(function (cab, ci) {
-      var p0 = jackPos(cab.a), p1 = jackPos(cab.b);
-      var sag = 46 + 18 * Math.sin(ci * 1.7);
-      var midY = Math.max(p0.y, p1.y) + sag;
-      var cp1 = { x: p0.x + (p1.x - p0.x) * 0.25, y: midY };
-      var cp2 = { x: p0.x + (p1.x - p0.x) * 0.75, y: midY };
-
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y);
-      ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p1.x, p1.y);
-      ctx.strokeStyle = cab.c;
-      ctx.globalAlpha = 0.5;
-      ctx.lineWidth = 2.4;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-
-      if (!reduced) {
-        var tt = ((t * 0.00045) + ci * 0.15) % 1;
-        var pt = bez(p0, cp1, cp2, p1, tt);
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffda9f';
-        ctx.shadowColor = cab.c;
-        ctx.shadowBlur = 9;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+  // Ticks down to the release. Once the date is past, the page says so itself
+  // instead of showing a frozen row of zeroes.
+  (function () {
+    var target = new Date('2026-08-01T00:00:00');
+    var box = document.getElementById('count');
+    var done = document.getElementById('landed');
+    if (!box) return;
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function tick() {
+      var left = target - new Date();
+      if (left <= 0) {
+        box.style.display = 'none';
+        if (done) done.style.display = 'block';
+        return;
       }
-    });
-
-    jacks.forEach(function (j) {
-      var p = { x: j.x * W, y: j.y * H };
-      ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#241f18'; ctx.fill();
-      ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,218,159,0.4)'; ctx.lineWidth = 1; ctx.stroke();
-    });
-  }
-
-  if (reduced) {
-    draw(0);
-  } else {
-    requestAnimationFrame(function loop(ts) { draw(ts); requestAnimationFrame(loop); });
-  }
-
-  // ---- scope line idle animation ----
-  var scopePath = document.getElementById('scopePath');
-  if (scopePath && !reduced) {
-    function scopeFrame(ts) {
-      var d = 'M0 23 ';
-      for (var i = 1; i <= 40; i++) {
-        var x = i * 10;
-        var y = 23 + Math.sin(i * 0.5 + ts * 0.0018) * 7 * Math.sin(ts * 0.0006 + i * 0.1);
-        d += 'L' + x + ' ' + y.toFixed(1) + ' ';
-      }
-      scopePath.setAttribute('d', d);
-      requestAnimationFrame(scopeFrame);
+      var d = Math.floor(left / 86400000);
+      var h = Math.floor(left / 3600000) % 24;
+      var m = Math.floor(left / 60000) % 60;
+      var s = Math.floor(left / 1000) % 60;
+      box.children[0].firstElementChild.textContent = d;
+      box.children[1].firstElementChild.textContent = pad(h);
+      box.children[2].firstElementChild.textContent = pad(m);
+      box.children[3].firstElementChild.textContent = pad(s);
+      setTimeout(tick, 1000);
     }
-    requestAnimationFrame(scopeFrame);
-  }
-})();
+    tick();
+  })();
 </script>

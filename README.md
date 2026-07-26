@@ -43,8 +43,9 @@ audio engine, made native for your phone.
 |---|---|
 | 🎚️ **Native audio engine** | Oboe/AAudio, full-duplex, low latency |
 | 🧩 **66 built-in modules** | Core (Audio/MIDI), Fundamental (39 modules: VCO, VCF, VCA, ADSR, LFO, SEQ-3, Delay, Mixer, Scope, Quantizer…), RackDroid Drums (14 original 808-style drum voices) |
-| 👆 **Touch interface** | drag for cables/modules, pinch to zoom, long-press a knob to type a value |
-| 🪟 **Glass toolbar** | File/Edit/View/Engine/Help menus + module palette, plugin manager, undo/redo, layout lock, MIDI, keyboard, recording — collapses into a tab |
+| 👆 **Touch interface** | one finger pans the rack, drag for cables/modules, pinch to zoom, long-press a knob to type a value |
+| 🪟 **Glass toolbar** | File/Edit/View/Engine/Help menus plus sixteen tools on two rows: palette, module manager, cable parking, theme, MIDI, keyboard, recording, info; undo/redo, multi-select, copy/paste, delete, the two padlocks — collapses into a tab |
+| ✅ **Select and edit** | turn on multi-select and a tap picks a module out (tap again to drop it); a hold moves the whole selection. Selected modules get a red halo instead of a wash over the panel, so the artwork stays readable. Delete asks first and says how many are going |
 | 🧲 **Module palette** | chips by category (VCO, LFO, VCF, VCA, ENV, SEQ, DRUM, MIX, FX, NOISE, QNT, MIDI, UTIL), draggable previews, ⓘ badge with name/description/tags |
 | 🧵 **Cable parking** | a left-edge bar where a cable end waits while you scroll to its destination — grows from 3 up to 10 holes as you fill them, lights up compatible ports while you aim, collapses to a handle |
 | 🎹 **MIDI** | on-screen musical keyboard, USB and Bluetooth LE MIDI |

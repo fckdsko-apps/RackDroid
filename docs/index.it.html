@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>RackDroid — sintetizzatore modulare per Android</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="RackDroid: il motore di VCV Rack 2, nativo su Android. Costruisci patch modulari col dito, ovunque tu sia.">
@@ -87,6 +88,17 @@
     transition: color 0.15s ease, border-color 0.15s ease;
   }
   .nav-lang:hover { color: var(--amber-soft); border-color: var(--amber-soft); }
+  .nav-link {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; color: var(--text-dim); text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .nav-link:hover { color: var(--amber-soft); }
+  .nav-link.active { color: var(--amber-soft); }
+  /* The brand, three links and the download pill stop fitting well before a
+     phone width: drop the secondary links first, then the language switch. */
+  @media (max-width: 860px) { .nav-link { display: none; } }
+  @media (max-width: 560px) { .nav-lang { display: none; } }
 
   /* ---------- hero ---------- */
   .hero { position: relative; padding: 88px 0 60px; overflow: hidden; }
@@ -303,12 +315,48 @@
     width: 100%; height: 46px; display: block; margin: 0 0 6px;
     opacity: 0.55;
   }
+
+  /* Riquadro novità: cosa sta per arrivare, visibile senza scorrere. */
+  #update {
+    position: fixed;
+    top: 25%;
+    left: 10px;
+    padding: 5px;
+    background-color: var(--amber);
+    z-index: 100;
+    border-radius: 5px;
+  }
+  #update h1,
+  #update h2 {
+    color: #17140f;
+    margin: 0;
+    font-size: 12px;
+    text-align: left;
+    padding-left: 5px;
+  }
+  #update h2 { font-size: 10px; width: 90px; }
+  #update h1 { text-decoration: #17140f underline; }
+  #update span {
+    margin: 5px 0 3px;
+    padding: 7px;
+    color: #17140f;
+    display: block;
+    width: 90px;
+    line-height: 1;
+    font-size: 12px;
+    border: solid 1px #17140f;
+    border-radius: 5px;
+  }
+  #update a { color: #17140f; }
+  #update video { display: block; border-radius: 4px; }
 </style>
 
 <nav class="nav">
   <div class="wrap">
-    <div class="nav-brand"><span class="dot"></span>RackDroid</div>
+    <div class="nav-brand"><img src="assets/logo.svg" style="width: 25%;"><span class="dot"></span>RackDroid</div>
     <div class="nav-right">
+      <a class="nav-link active" href="index.it.html">Home</a>
+      <a class="nav-link" href="privacy.html">Privacy</a>
       <a class="nav-lang" href="index.html">EN</a>
       <a class="nav-cta" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">Scarica su GitHub</a>
     </div>
@@ -316,6 +364,16 @@
 </nav>
 
 <header class="hero">
+  <!-- Cosa sta per arrivare. Il filmato non sta in questo repository (troppo
+       pesante): va tenuto in U/U1.mp4 accanto alla pagina al momento di pubblicare. -->
+  <div id="update">
+    <h1>News:</h1>
+    <a href="coming-soon.it.html"><span>PARKBAR COMING - 01/08/26</span></a>
+    <video src="U/U1.mp4" width="90" height="160" controls autoplay muted loop playsinline>
+      <p>Il video non può essere riprodotto dal tuo browser.<br>
+      <a href="U/U1.mp4" download>Scaricalo da qui</a>.</p>
+    </video>
+  </div>
   <canvas id="patchCanvas"></canvas>
   <div class="wrap">
     <div>

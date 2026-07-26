@@ -113,6 +113,14 @@ Manual checks still required on at least one phone:
 - grant/deny microphone and notification permissions;
 - hear audio from the included template and test background playback;
 - open the two-row toolbar, every menu, module palette, search and keyboard;
+- with multi-select on: tap a module to pick it, tap again to drop it, hold to
+  move the selection, and confirm knobs and ports stay put while the mode is on;
+- check a selected module keeps its panel readable under the red halo, zoomed
+  in and zoomed out;
+- delete a selection, read the count in the dialog, cancel once, then confirm
+  and undo it;
+- open a module's menu and check Preset ▸ Copy/Paste settings, while the Edit
+  menu's own Copy/Paste and a text field's keep their usual labels;
 - drag a normal cable near a compatible jack and verify highlight + snap;
 - park a cable, pan, reconnect it, and verify cancellation/discard behavior;
 - install at least one `.rdmod`, verify its brand/modules/thumbnails appear
@@ -128,6 +136,16 @@ Manual checks still required on at least one phone:
   service active, 372 models published, two-row toolbar rendered and no fatal
   startup exception detected. Audio/MIDI and `.rdmod` interaction checks remain
   manual and are not implied by this automated smoke result.
+
+- 2026-07-26 — Microsoft Surface Go 2, BlissOS 16.9.7, Android 13 / API 33,
+  x86_64: development-signed 0.1.2 APK installed over the previous build, cold
+  start in 411 ms, patch restored. First-run tour checked in landscape and
+  portrait — every spotlight lands on its target. Multi-select verified by
+  measuring the frames, not by eye: mode toggle, tap to select, second tap to
+  deselect, hold to move the whole selection, undo, delete dialog reporting the
+  right count, cancel leaving the patch intact, and the relabelled preset rows.
+  x86_64 stays an internal build: audio, MIDI and long sessions are untested
+  there, and it is deliberately not announced on the site.
 
 ### Recorded build checks
 

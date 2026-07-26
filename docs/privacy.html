@@ -1,0 +1,168 @@
+<meta charset="utf-8">
+<title>Privacy Policy — RackDroid</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="RackDroid privacy policy: no data collection, no network access, everything stays on your device.">
+<style>
+  @font-face {
+    font-family: "Geomini";
+    src: url("assets/fonts/Geomini.ttf") format("truetype");
+    font-weight: 400 700;
+    font-display: swap;
+  }
+
+  :root {
+    color-scheme: dark;
+    --bg: #120f0b;
+    --panel: #201b14;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.17);
+    --text: #ede6d8;
+    --text-dim: #a29a8b;
+    --amber: #f9b130;
+    --amber-soft: #ffda9f;
+    --amber-glow: rgba(249,177,48,0.35);
+    --wrap: 760px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(249,177,48,0.10), transparent 60%);
+  }
+  ::selection { background: var(--amber); color: #17140f; }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 28px; }
+
+  a { color: var(--amber-soft); }
+
+  .nav {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(18,15,11,0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .nav-brand { display: flex; align-items: center; gap: 10px; font-family: "Geomini", sans-serif; font-size: 20px; letter-spacing: 0.02em; }
+  .nav-brand a { color: var(--text); text-decoration: none; }
+  .nav-brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
+  .nav-lang {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; color: var(--text-dim); text-decoration: none;
+    border: 1px solid var(--border-strong); border-radius: 999px; padding: 8px 14px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .nav-lang:hover { color: var(--amber-soft); border-color: var(--amber-soft); }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .nav-link {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; color: var(--text-dim); text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .nav-link:hover { color: var(--amber-soft); }
+  .nav-link.active { color: var(--amber-soft); }
+
+  main { padding: 64px 0 40px; }
+  h1 {
+    font-family: "Geomini", sans-serif;
+    font-size: clamp(32px, 5vw, 44px);
+    line-height: 1.05;
+    margin: 0 0 10px;
+  }
+  .updated {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; color: var(--text-dim);
+    margin: 0 0 36px;
+  }
+  .lede { font-size: 18px; color: var(--amber-soft); margin: 0 0 28px; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin: 0 0 16px;
+  }
+  section h2 { font-size: 17px; margin: 0 0 8px; color: var(--amber-soft); }
+  section p { margin: 0; color: var(--text); }
+  .contact { color: var(--text-dim); margin: 32px 0 0; }
+
+  footer { padding: 32px 0 56px; border-top: 1px solid var(--border); margin-top: 48px; }
+  footer .wrap { color: var(--text-dim); font-size: 14px; }
+</style>
+
+<nav class="nav">
+  <div class="wrap">
+    <div class="nav-brand"><span class="dot"></span><a href="index.html">RackDroid</a></div>
+    <div class="nav-right">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link active" href="privacy.html">Privacy</a>
+      <a class="nav-lang" href="privacy.it.html">IT</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="wrap">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: 2026-07-18</p>
+
+    <p class="lede">RackDroid is a modular synthesizer that runs entirely on your device.</p>
+
+    <section>
+      <h2>No data collection</h2>
+      <p>RackDroid does not collect, store, or transmit any personal data, usage
+      analytics, or telemetry.</p>
+    </section>
+
+    <section>
+      <h2>No network access</h2>
+      <p>The app performs no network requests. Patches, audio recordings, and
+      settings are stored only in the app's private storage and, when you
+      explicitly export them, in your device's <code>Documents/RackDroid/</code>
+      folder.</p>
+    </section>
+
+    <section>
+      <h2>Microphone</h2>
+      <p>The RECORD_AUDIO permission is used exclusively to route live audio
+      input into the synthesizer's AUDIO module (e.g. to process an external
+      instrument). Audio is processed in real time on the device and is never
+      transmitted. You can deny this permission; the app then runs
+      output-only.</p>
+    </section>
+
+    <section>
+      <h2>Bluetooth</h2>
+      <p>Bluetooth permissions are used exclusively to connect Bluetooth LE
+      MIDI keyboards and controllers you choose from the in-app scanner.</p>
+    </section>
+
+    <section>
+      <h2>Notifications</h2>
+      <p>The notification permission is used only for the foreground-service
+      notification that keeps audio running in the background.</p>
+    </section>
+
+    <section>
+      <h2>No accounts, no ads, no third-party SDKs</h2>
+      <p>RackDroid has no user accounts, shows no advertising, and embeds no
+      third-party analytics or advertising SDKs.</p>
+    </section>
+
+    <p class="contact">Contact: <a href="mailto:info@rackdroid.org">info@rackdroid.org</a></p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a href="index.html">← rackdroid.org</a>
+  </div>
+</footer>

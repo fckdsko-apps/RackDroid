@@ -1,0 +1,460 @@
+<meta charset="utf-8">
+<title>RackDroid — parcheggio cavi e modifica a tocco, disponibile</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Aggiornamento RackDroid: parcheggio cavi, selezione a tocco con alone, elimina dalla barra, un tour adatto a ogni schermo e pacchetti più sicuri.">
+<style>
+  @font-face {
+    font-family: "Geomini";
+    src: url("assets/fonts/Geomini.ttf") format("truetype");
+    font-weight: 400 700;
+    font-display: swap;
+  }
+
+  :root {
+    color-scheme: dark;
+    --bg: #120f0b;
+    --bg-1: #17130d;
+    --panel: #201b14;
+    --panel-2: #251f17;
+    --rail: #2c2519;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.17);
+    --text: #ede6d8;
+    --text-dim: #a29a8b;
+    --text-faint: #6f695d;
+    --amber: #f9b130;
+    --amber-soft: #ffda9f;
+    --amber-glow: rgba(249,177,48,0.35);
+    --red: #d45b52;
+    --teal: #4fb8a6;
+    --violet: #9b7fd4;
+    --blue: #5b9bd5;
+    --radius-panel: 18px;
+    --wrap: 1080px;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(249,177,48,0.10), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(91,155,213,0.06), transparent 60%);
+  }
+  ::selection { background: var(--amber); color: #17140f; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 28px; }
+
+  a { color: var(--amber-soft); }
+
+  /* ---------- nav ---------- */
+  .nav {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(18,15,11,0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .nav-brand { display: flex; align-items: center; gap: 10px; font-family: "Geomini", sans-serif; font-size: 20px; letter-spacing: 0.02em; }
+  .nav-brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .nav-lang {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; color: var(--text-dim); text-decoration: none;
+    border: 1px solid var(--border-strong); border-radius: 999px; padding: 8px 14px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .nav-lang:hover { color: var(--amber-soft); border-color: var(--amber-soft); }
+  .nav-link {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; color: var(--text-dim); text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .nav-link:hover { color: var(--amber-soft); }
+  .nav-link.active { color: var(--amber-soft); }
+  /* The brand, three links and the download pill stop fitting well before a
+     phone width: drop the secondary links first, then the language switch. */
+  @media (max-width: 860px) { .nav-link { display: none; } }
+  @media (max-width: 560px) { .nav-lang { display: none; } }
+  .nav-cta {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; letter-spacing: 0.03em;
+    color: #17140f; background: var(--amber-soft);
+    border: none; border-radius: 999px; padding: 9px 18px;
+    text-decoration: none; font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    display: inline-block;
+  }
+  .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(249,177,48,0.28); }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; padding: 88px 0 60px; overflow: hidden; }
+  #patchCanvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    opacity: 0.9;
+    pointer-events: none;
+    mask-image: linear-gradient(to bottom, black 55%, transparent 96%);
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 96%);
+  }
+  .hero .wrap {
+    position: relative; z-index: 2;
+    display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center;
+  }
+  @media (max-width: 860px) { .hero .wrap { grid-template-columns: 1fr; } }
+
+  .kicker {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--amber-soft); margin: 0 0 18px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .kicker::before { content: ""; width: 22px; height: 1px; background: var(--amber-soft); display: inline-block; }
+
+  h1.wordmark {
+    font-family: "Geomini", sans-serif;
+    font-size: clamp(48px, 8vw, 76px);
+    line-height: 0.98;
+    margin: 0 0 20px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  h1.wordmark .rd { color: var(--amber); }
+
+  .hero-lede {
+    font-size: 18px; color: var(--text-dim); max-width: 46ch; margin: 0 0 32px;
+  }
+  .hero-lede strong { color: var(--text); }
+
+  .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 40px; }
+  .btn {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 14px; letter-spacing: 0.02em;
+    border-radius: 12px; padding: 14px 24px;
+    text-decoration: none; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 10px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--amber); color: #17140f; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(249,177,48,0.32); }
+  .btn-ghost { background: transparent; color: var(--text); border-color: var(--border-strong); }
+  .btn-ghost:hover { border-color: var(--amber-soft); color: var(--amber-soft); transform: translateY(-2px); }
+
+  .hero-meta {
+    display: flex; gap: 22px; flex-wrap: wrap;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; color: var(--text-faint);
+  }
+  .hero-meta span b { color: var(--text-dim); }
+
+  .device {
+    position: relative;
+    border-radius: 34px;
+    padding: 12px;
+    background: linear-gradient(160deg, #2b2519, #17130d 60%);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.4);
+    max-width: 320px;
+    margin: 0 auto;
+    animation: float 7s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .device { animation: none; } }
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(-0.4deg); }
+    50% { transform: translateY(-14px) rotate(0.4deg); }
+  }
+  .device img { width: 100%; display: block; border-radius: 24px; }
+  .device::after {
+    content: "";
+    position: absolute; left: 50%; top: 6px; transform: translateX(-50%);
+    width: 46px; height: 5px; border-radius: 3px; background: rgba(0,0,0,0.5);
+  }
+
+  /* ---------- rack rail divider ---------- */
+  .rail {
+    height: 30px;
+    background: var(--rail);
+    border-top: 1px solid var(--border-strong);
+    border-bottom: 1px solid var(--border-strong);
+    background-image: radial-gradient(circle, rgba(0,0,0,0.5) 1.4px, transparent 1.6px);
+    background-size: 22px 22px;
+    background-position: 11px center;
+  }
+
+  section { padding: 84px 0; }
+  section.tight { padding: 60px 0; }
+
+  .section-head { max-width: 620px; margin: 0 0 46px; }
+  .section-head .kicker { margin-bottom: 12px; }
+  h2.section-title {
+    font-family: "Geomini", sans-serif;
+    font-size: clamp(28px, 4vw, 38px);
+    margin: 0 0 14px; text-wrap: balance;
+  }
+  .section-head p { color: var(--text-dim); font-size: 16.5px; margin: 0; max-width: 56ch; }
+
+  /* ---------- reveal ---------- */
+  .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .reveal.in-view { opacity: 1; transform: translateY(0); }
+  .reveal-stagger.in-view > * { animation: none; }
+
+  /* ---------- why grid ---------- */
+  .why-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  }
+  @media (max-width: 900px) { .why-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 620px) { .why-grid { grid-template-columns: 1fr; } }
+  .why-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-panel);
+    padding: 26px 24px;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .why-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--border-strong);
+    box-shadow: 0 16px 34px -18px rgba(0,0,0,0.6);
+  }
+  .why-icon { width: 38px; height: 38px; margin-bottom: 16px; }
+  .why-card h3 { font-size: 16.5px; margin: 0 0 8px; color: var(--text); }
+  .why-card p { font-size: 14.5px; color: var(--text-dim); margin: 0; }
+
+  /* ---------- showcase ---------- */
+  .showcase-wrap {
+    position: relative;
+    display: flex; gap: 40px; justify-content: center; align-items: center; flex-wrap: wrap;
+    padding: 20px 0 10px;
+  }
+  .showcase-frame {
+    border-radius: 26px; padding: 9px;
+    background: linear-gradient(160deg, #2b2519, #17130d 60%);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 24px 50px -22px rgba(0,0,0,0.6);
+    width: 240px;
+    transition: transform 0.3s ease;
+  }
+  .showcase-frame:hover { transform: translateY(-6px); }
+  .showcase-frame img { width: 100%; display: block; border-radius: 18px; }
+
+  /* ---------- feature rack rows ---------- */
+  .rack-row {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 20px 18px;
+    position: relative;
+  }
+  .rack-row::before, .rack-row::after {
+    content: ""; position: absolute; top: 9px; width: 6px; height: 6px; border-radius: 50%;
+    background: #3a3226; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4);
+  }
+  .rack-row::before { left: 9px; }
+  .rack-row::after { right: 9px; }
+  .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .feature-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .feature-grid { grid-template-columns: 1fr; } }
+  .rack-row .f-icon { font-size: 21px; margin-bottom: 10px; display: block; }
+  .rack-row h4 {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--amber-soft); margin: 0 0 8px;
+  }
+  .rack-row p { font-size: 13.5px; color: var(--text-dim); margin: 0; }
+
+  /* ---------- expand / plugins ---------- */
+  .plugin-pills { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 0; }
+  .pill {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; padding: 9px 16px; border-radius: 999px;
+    background: var(--panel-2); border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .pill:hover { color: var(--amber-soft); border-color: var(--amber-soft); }
+
+  /* ---------- cta ---------- */
+  .cta-panel {
+    background: radial-gradient(ellipse 700px 300px at 30% 0%, rgba(249,177,48,0.14), transparent 70%), var(--panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 26px;
+    padding: 56px 48px;
+    text-align: center;
+  }
+  @media (max-width: 620px) { .cta-panel { padding: 40px 24px; } }
+  .cta-panel h2 { font-family: "Geomini", sans-serif; font-size: clamp(26px, 4vw, 36px); margin: 0 0 14px; }
+  .cta-panel p { color: var(--text-dim); max-width: 50ch; margin: 0 auto 30px; }
+  .req-line {
+    margin-top: 26px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; color: var(--text-faint);
+  }
+
+  /* ---------- footer ---------- */
+  footer { padding: 40px 0 60px; border-top: 1px solid var(--border); }
+  footer .wrap { display: flex; flex-direction: column; gap: 14px; }
+  .foot-links { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; }
+  .foot-fine { font-size: 12px; color: var(--text-faint); line-height: 1.7; max-width: 70ch; }
+
+  .scope {
+    width: 100%; height: 46px; display: block; margin: 0 0 6px;
+    opacity: 0.55;
+  }
+
+  /* Floating news badge: what is coming next, visible without scrolling. */
+  #update {
+    position: fixed;
+    top: 25%;
+    left: 10px;
+    padding: 5px;
+    background-color: var(--amber);
+    z-index: 100;
+    border-radius: 5px;
+  }
+  #update h1,
+  #update h2 {
+    color: #17140f;
+    margin: 0;
+    font-size: 12px;
+    text-align: left;
+    padding-left: 5px;
+  }
+  #update h2 { font-size: 10px; width: 90px; }
+  #update h1 { text-decoration: #17140f underline; }
+  #update span {
+    margin: 5px 0 3px;
+    padding: 7px;
+    color: #17140f;
+    display: block;
+    width: 90px;
+    line-height: 1;
+    font-size: 12px;
+    border: solid 1px #17140f;
+    border-radius: 5px;
+  }
+  #update a { color: #17140f; }
+  #update video { display: block; border-radius: 4px; }
+</style>
+
+<style>
+  /* Announcement pages: one column, centred, no canvas behind it. */
+  .ann { padding: 90px 0 40px; text-align: center; }
+  .ann .wrap { max-width: 820px; }
+  .ann h1 {
+    font-family: "Geomini", sans-serif;
+    font-size: clamp(34px, 7vw, 64px);
+    line-height: 1.05; margin: 10px 0 18px; letter-spacing: -0.01em;
+  }
+  .ann .rd { color: var(--amber); }
+  .ann-lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-dim); line-height: 1.7; max-width: 62ch; margin: 0 auto; }
+  .stamp {
+    display: inline-block; margin-bottom: 6px; padding: 7px 14px;
+    border: 1px solid var(--amber); border-radius: 999px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; letter-spacing: 0.08em; color: var(--amber);
+  }
+  .count { display: flex; gap: 14px; justify-content: center; margin: 34px 0 8px; flex-wrap: wrap; }
+  .count div {
+    min-width: 88px; padding: 14px 10px;
+    border: 1px solid var(--border-strong); border-radius: 14px;
+    background: rgba(255,255,255,0.02);
+  }
+  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 30px; color: var(--amber-soft); }
+  .count span { font-size: 11px; letter-spacing: 0.1em; color: var(--text-faint); text-transform: uppercase; }
+  .feat { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 40px 0 10px; text-align: left; }
+  .feat > div { padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.015); }
+  .feat h4 { margin: 10px 0 6px; font-size: 16px; }
+  .feat p { margin: 0; font-size: 14px; color: var(--text-dim); line-height: 1.65; }
+  .feat .f-icon { font-size: 22px; }
+  .ann-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+</style>
+
+<nav class="nav">
+  <div class="wrap">
+    <div class="nav-brand"><img src="assets/logo.svg" style="width: 25%;"><span class="dot"></span>RackDroid</div>
+    <div class="nav-right">
+      <a class="nav-link" href="index.it.html">Home</a>
+      <a class="nav-link active" href="update.it.html">News</a>
+      <a class="nav-lang" href="update.html">EN</a>
+      <a class="nav-cta" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">Scarica su GitHub</a>
+    </div>
+  </div>
+</nav>
+<section class="ann">
+  <div class="wrap">
+    <span class="stamp">DISPONIBILE · 1 AGOSTO 2026</span>
+    <h1>Parcheggio cavi,<br>e un rack che modifichi<br>con un dito<span class="rd">.</span></h1>
+    <p class="ann-lede">
+      Questo aggiornamento riguarda le due cose che con un mouse hai gratis e con un
+      touchscreen no: raggiungere un modulo fuori dallo schermo, e scegliere i moduli
+      su cui vuoi lavorare.
+    </p>
+
+    <div class="feat">
+      <div><span class="f-icon">🧵</span><h4>Parcheggio cavi</h4>
+        <p>Una barra sul bordo sinistro tiene un capo del cavo mentre scorri fino alla
+           destinazione. Parte con tre buchi e arriva a dieci man mano che li riempi, mostra
+           da quale modulo e porta viene ogni capo, e illumina tutte le prese compatibili
+           mentre miri. Il rilascio si aggancia alla presa evidenziata.</p></div>
+      <div><span class="f-icon">✅</span><h4>Selezione a tocco</h4>
+        <p>Con la selezione multipla attiva, un tocco aggiunge un modulo alla scelta e un
+           secondo tocco lo toglie — manopole e prese restano ferme mentre scegli. Una
+           pressione prolungata prende su tutto il gruppo e lo sposta.</p></div>
+      <div><span class="f-icon">🔴</span><h4>Un alone, non un velo</h4>
+        <p>I moduli scelti sono circondati da un alone rosso invece di essere coperti da una
+           patina colorata: il pannello che hai appena selezionato resta leggibile.</p></div>
+      <div><span class="f-icon">🗑️</span><h4>Elimina dalla barra</h4>
+        <p>Un cestino rimuove i moduli selezionati. Chiede sempre conferma e dice quanti
+           stanno per sparire — e il tasto annulla è lì accanto.</p></div>
+      <div><span class="f-icon">🪟</span><h4>Sedici strumenti, due righe</h4>
+        <p>La barra dispone gli strumenti su una griglia fissa di otto colonne: costruzione
+           e ascolto nella prima riga, modifica e blocchi nella seconda. Della misura giusta
+           per un dito, e si ricorda se l'avevi lasciata aperta.</p></div>
+      <div><span class="f-icon">🎓</span><h4>Un tour che sta nello schermo</h4>
+        <p>Il tour del primo avvio misura l'interfaccia vera invece di indovinarla: i suoi
+           riflettori centrano barra strumenti, palette e barra dei cavi su qualsiasi
+           schermo, in verticale e in orizzontale.</p></div>
+      <div><span class="f-icon">🛡️</span><h4>Pacchetti più sicuri</h4>
+        <p>L'installazione di un <code>.rdmod</code> ora verifica a fondo l'archivio prima di
+           caricare qualsiasi codice nativo, e ti avvisa che un pacchetto gira con i permessi
+           dell'app. Backup su cloud e trasferimento dei dati sono disattivati.</p></div>
+      <div><span class="f-icon">🩹</span><h4>Avvio di recupero</h4>
+        <p>Se l'app non parte due volte di fila, al terzo avvio salta la sessione salvata e i
+           pacchetti installati a mano. Il tuo salvataggio viene spostato da parte, mai
+           cancellato.</p></div>
+    </div>
+
+    <div class="ann-ctas">
+      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Scarica l'APK</a>
+      <a class="btn btn-ghost" href="rackdroid-manuale.html">Leggi il manuale</a>
+    </div>
+  </div>
+</section>
+<footer>
+  <div class="wrap">
+    <div class="foot-links">
+      <a href="index.it.html">Home</a>
+      <a href="https://github.com/nowheel/RackDroid">Repository</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="https://vcvrack.com" target="_blank" rel="noopener">VCV Rack</a>
+    </div>
+    <p class="foot-fine">
+      RackDroid è un port <strong>non ufficiale</strong> del motore di VCV Rack 2, costruito su
+      sorgenti upstream non modificati (GPLv3). Non affiliato né approvato da VCV.
+    </p>
+  </div>
+</footer>
+

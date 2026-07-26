@@ -59,6 +59,17 @@ Obiettivo: vedere il rack renderizzato e interagirci.
 - [x] Porte compatibili evidenziate durante il trascinamento di un cavo; il
       target che verrebbe scelto è mostrato con un anello più marcato
 - [x] Inerzia dello scroll e drag dei moduli dalla palette al punto di rilascio
+- [x] Selezione multipla a tocco (`multiSelect` in `touch_input.cpp`): mentre è
+      attiva il dito su un modulo non arriva a Rack, il rilascio inverte la
+      selezione, il trascinamento fa scorrere la vista e solo la pressione
+      prolungata invia il click trattenuto e sposta la selezione. L'hover
+      necessario a riconoscere il modulo viene poi annullato con `handleLeave()`,
+      altrimenti compare il tooltip della manopola sottostante
+- [x] Alone rosso sui moduli selezionati (`port/selection_glow.cpp`): overlay
+      sulla scena che disegna il box gradient dell'ombra di trascinamento con il
+      pannello ritagliato come buco. Il velo rosso di upstream è tolto da una
+      copia patchata di `ModuleWidget.cpp` generata da `native/CMakeLists.txt`,
+      senza modificare il sorgente del submodule
 - [ ] Doppio tap (rifinitura opzionale, nessuna funzione dipende da questo)
 
 ## Fase 4 — MIDI, dialoghi e file ✅ (build; da validare su dispositivo)
@@ -127,3 +138,12 @@ Obiettivo: vedere il rack renderizzato e interagirci.
       timer empirici, anche dopo installazione o rimozione di un pacchetto.
 - Preferiti: rimossi insieme al browser a tutto schermo; se servono vanno
   reintrodotti nella palette (JNI e campo JSON `favorite` sono stati tolti).
+- Geometria letta dal thread UI: tutto ciò che Java chiede al nativo mentre il
+  render thread disegna deve passare da variabili atomiche ripubblicate ogni
+  frame (`selectionCount`, il rettangolo della barra cavi per il tour). Il
+  contesto di Rack è thread-local: calcolarlo dentro la JNI chiamata da Java
+  significa dereferenziare un puntatore nullo, ed è già costato un SIGSEGV.
+- I sottomenu (per esempio Preset di un modulo) arrivano a `present()` **senza**
+  `parentMenu`, perché il bottom sheet li ripropone come lista di primo livello.
+  Chi deve sapere da dove viene un menu non può dedurlo dalla struttura: il
+  flag `moduleMenuActive` segue l'interazione che ha aperto la catena.

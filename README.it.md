@@ -44,8 +44,9 @@ come su un rack hardware. Nessun compromesso: è il motore audio di
 |---|---|
 | 🎚️ **Motore audio nativo** | Oboe/AAudio, full-duplex, bassa latenza |
 | 🧩 **66 moduli di base** | Core (Audio/MIDI), Fundamental (39 moduli: VCO, VCF, VCA, ADSR, LFO, SEQ-3, Delay, Mixer, Scope, Quantizer…), RackDroid Drums (14 voci originali stile 808) |
-| 👆 **Interfaccia touch** | trascini per cavi/moduli, pizzichi per zoom, tieni premuta una manopola per digitare un valore |
-| 🪟 **Barra strumenti a vetro** | menu File/Modifica/Visualizza/Motore/Aiuto + palette moduli, gestore plugin, annulla/ripeti, blocco layout, MIDI, tastiera, registrazione — si richiude in una linguetta |
+| 👆 **Interfaccia touch** | un dito fa scorrere il rack, trascini per cavi/moduli, pizzichi per zoom, tieni premuta una manopola per digitare un valore |
+| 🪟 **Barra strumenti a vetro** | menu File/Modifica/Visualizza/Motore/Aiuto più sedici strumenti su due righe: palette, gestore moduli, parcheggio cavi, tema, MIDI, tastiera, registrazione, info; annulla/ripeti, selezione multipla, copia/incolla, elimina, i due lucchetti — si richiude in una linguetta |
+| ✅ **Selezione e modifica** | attivi la selezione multipla e un tocco sceglie un modulo (un altro tocco lo toglie); una pressione prolungata sposta tutta la selezione. I moduli scelti prendono un alone rosso invece di un velo sul pannello, così la grafica resta leggibile. L'eliminazione chiede conferma e dice quanti moduli spariscono |
 | 🧲 **Palette dei moduli** | chip per categoria (VCO, LFO, VCF, VCA, ENV, SEQ, DRUM, MIX, FX, NOISE, QNT, MIDI, UTIL), anteprime trascinabili, badge ⓘ con nome/descrizione/tag |
 | 🧵 **Parcheggio cavi** | una barra sul bordo sinistro dove un capo del cavo aspetta mentre scorri fino alla destinazione — cresce da 3 fino a 10 buchi man mano che li riempi, illumina le porte compatibili mentre miri, si richiude in una maniglia |
 | 🎹 **MIDI** | tastiera musicale a schermo, MIDI USB e Bluetooth LE |
