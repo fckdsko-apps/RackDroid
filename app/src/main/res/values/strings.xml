@@ -492,6 +492,13 @@
 	<string name="copy_modules_title">Copy modules</string>
 	<string name="copy_modules_done">Copied</string>
 	<string name="paste_modules_title">Paste modules</string>
+	<string name="delete_modules_title">Delete modules</string>
+	<string name="delete_modules_none">Select the modules to delete first</string>
+	<string name="delete_action">Delete</string>
+	<plurals name="delete_modules_message">
+		<item quantity="one">Delete the selected module and its cables?</item>
+		<item quantity="other">Delete the %d selected modules and their cables?</item>
+	</plurals>
 	<string name="cable_park_title">Cable parking</string>
 	<string name="cable_park_hint">Drag a cable end into a hole, scroll to the target, then drag it out onto a port.</string>
 	<string name="palette_search_hint">Search modules</string>

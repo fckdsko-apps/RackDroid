@@ -100,4 +100,13 @@ int cableParkDraggingSlot();
 bar can reveal its spare hole only once the cable is dragged over it. */
 void cableParkSetInflightPos(float x, float y);
 
+/** Republish the bar's rectangle for the interface tour. Render thread only:
+the geometry and pixelRatio both read Rack's thread-local context. */
+void cableParkPublishBounds();
+
+/** The last published rectangle as {left, top, right, bottom} window pixels,
+false while the bar is not showing. Safe from any thread -- it only reads
+atomics, which is what the UI thread needs. */
+bool cableParkBoundsPx(int* out4);
+
 } // namespace rackdroid

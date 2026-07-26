@@ -8,8 +8,7 @@ local.properties
 captures/
 .externalNativeBuild/
 .kotlin/
-build-host/
-build-host-ui/
+build-host*/
 ui_smoke_frame.png
 __pycache__/
 

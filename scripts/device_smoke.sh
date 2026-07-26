@@ -22,13 +22,25 @@ command -v "$ADB" >/dev/null 2>&1 || {
 }
 
 mapfile -t devices < <("$ADB" devices | awk 'NR > 1 && $2 == "device" {print $1}')
-if (( ${#devices[@]} != 1 )); then
+# ANDROID_SERIAL names the target when more than one device is authorized --
+# typically a phone on USB alongside an x86_64 tablet over TCP. Without it the
+# test still refuses to guess which device to install on.
+serial="${ANDROID_SERIAL:-}"
+if [[ -n "$serial" ]]; then
+  printf '%s\n' "${devices[@]}" | grep -qxF "$serial" || {
+    echo "ANDROID_SERIAL=$serial is not an authorized device." >&2
+    "$ADB" devices -l >&2
+    exit 2
+  }
+elif (( ${#devices[@]} != 1 )); then
   echo "Expected exactly one authorized device, found ${#devices[@]}." >&2
   "$ADB" devices -l >&2
-  echo "Unlock the phone and accept the USB debugging authorization prompt." >&2
+  echo "Unlock the phone and accept the USB debugging authorization prompt," >&2
+  echo "or set ANDROID_SERIAL to one of the serials listed above." >&2
   exit 2
+else
+  serial="${devices[0]}"
 fi
-serial="${devices[0]}"
 adb=("$ADB" -s "$serial")
 mkdir -p "$REPORT_DIR"
 

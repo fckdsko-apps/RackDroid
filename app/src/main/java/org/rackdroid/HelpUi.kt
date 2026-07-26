@@ -937,6 +937,19 @@ class Tour(
 			canvas.restoreToCount(save)
 			spot?.let { canvas.drawRoundRect(it, r, r, ringPaint) }
 		}
+
+		/** First measure, rotation, split-screen resize: the views underneath
+		 * have all moved, so re-measure the card and re-aim the spotlight.
+		 * Posted, because the toolbar and palette re-lay out on the same pass. */
+		override fun onSizeChanged(w: Int, h: Int, oldW: Int, oldH: Int) {
+			super.onSizeChanged(w, h, oldW, oldH)
+			post {
+				if (popup != null) {
+					applyCardWidth()
+					render()
+				}
+			}
+		}
 	}
 
 	fun show() {
@@ -995,6 +1008,8 @@ class Tour(
 		buttons.addView(skip); buttons.addView(spacer); buttons.addView(nextBtn)
 		card.addView(buttons)
 
+		// Starting width only: applyCardWidth() re-fits it to the scrim as soon
+		// as that is measured, and again after every rotation or resize.
 		val cardW = (activity.resources.displayMetrics.widthPixels * 0.9f).toInt()
 			.coerceAtMost(dp(560))
 		root.addView(card, FrameLayout.LayoutParams(
@@ -1036,41 +1051,83 @@ class Tour(
 			.setInterpolator(android.view.animation.DecelerateInterpolator()).start()
 	}
 
-	/** Puts the card in the biggest clear band: opposite the spotlight, or the
-	 * centre when there is none. */
+	/** Fits the card to the scrim: nine tenths of the width, capped so it does
+	 * not stretch into an unreadable line on a tablet or a desktop window. */
+	private fun applyCardWidth() {
+		val w = scrim.width
+		if (w <= 0) return
+		val lp = card.layoutParams as FrameLayout.LayoutParams
+		lp.width = (w * 0.9f).toInt().coerceAtMost(dp(560))
+		card.layoutParams = lp
+	}
+
+	/** Puts the card clear of the spotlight: beside a narrow vertical bar, or in
+	 * the free band above/below a full-width one. Every distance is a fraction
+	 * of the scrim or a gap in dp, so this holds in portrait, in landscape and
+	 * at any screen size -- the fixed pixel margins it replaces did not. */
 	private fun positionCard(spot: RectF?) {
 		val lp = card.layoutParams as FrameLayout.LayoutParams
-		val h = activity.resources.displayMetrics.heightPixels.toFloat()
+		val w = scrim.width.toFloat(); val h = scrim.height.toFloat()
 		lp.leftMargin = 0; lp.rightMargin = 0; lp.topMargin = 0; lp.bottomMargin = 0
+		val gap = dp(16)
 		when {
-			spot == null -> lp.gravity = Gravity.CENTER
-			spot.centerY() < h * 0.4f -> { // spot near top → card in the lower band
-				lp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-				lp.bottomMargin = dp(120)
+			spot == null || w <= 0f || h <= 0f -> lp.gravity = Gravity.CENTER
+			// Narrow and tall (the cable parking bar): sit next to it, on the
+			// opposite side, rather than trying to squeeze above or below.
+			spot.width() < w * 0.4f -> {
+				val onLeft = spot.centerX() < w * 0.5f
+				lp.gravity = Gravity.CENTER_VERTICAL or
+					(if (onLeft) Gravity.END else Gravity.START)
+				if (onLeft) lp.rightMargin = gap else lp.leftMargin = gap
 			}
-			spot.centerY() > h * 0.6f -> { // spot near bottom → card in the upper band
+			// A full-width band near the top: the card goes underneath it.
+			spot.centerY() < h * 0.5f -> {
 				lp.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-				lp.topMargin = dp(150)
+				lp.topMargin = (spot.bottom + gap).toInt().coerceAtMost((h * 0.7f).toInt())
 			}
-			else -> { // spot in the middle band (cable park) → card low
+			// A full-width band near the bottom: the card goes above it.
+			else -> {
 				lp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-				lp.bottomMargin = dp(120)
+				lp.bottomMargin = (h - spot.top + gap).toInt().coerceAtMost((h * 0.7f).toInt())
 			}
 		}
 		card.layoutParams = lp
 	}
 
+	/** Screen-space rect → scrim-space, and clipped to the scrim. The tour is a
+	 * PopupWindow: its origin is only the screen origin when the app owns the
+	 * whole display, which is not true in a freeform/desktop window or with
+	 * insets on one side. Everything below measures the real thing on screen. */
+	private fun toScrimSpace(r: android.graphics.Rect): RectF? {
+		val loc = IntArray(2)
+		scrim.getLocationOnScreen(loc)
+		val out = RectF(
+			(r.left - loc[0]).toFloat(), (r.top - loc[1]).toFloat(),
+			(r.right - loc[0]).toFloat(), (r.bottom - loc[1]).toFloat())
+		val w = scrim.width.toFloat(); val h = scrim.height.toFloat()
+		if (w <= 0f || h <= 0f) return null
+		// Entirely outside (a bar that is switched off, say): no spotlight.
+		if (out.right <= 0f || out.bottom <= 0f || out.left >= w || out.top >= h)
+			return null
+		out.intersect(0f, 0f, w, h)
+		return if (out.width() < 1f || out.height() < 1f) null else out
+	}
+
+	/** The region to spotlight, measured from the live views. Falls back to a
+	 * band proportional to the scrim -- never to fixed pixel sizes, which is
+	 * what used to leave the ring next to the palette instead of around it. */
 	private fun spotRect(spot: Int): RectF? {
-		val dm = activity.resources.displayMetrics
-		val w = dm.widthPixels.toFloat(); val h = dm.heightPixels.toFloat()
-		val bars = ViewCompat.getRootWindowInsets(activity.window.decorView)
-			?.getInsets(WindowInsetsCompat.Type.systemBars())
-		val top = (bars?.top ?: 0).toFloat(); val bottom = (bars?.bottom ?: 0).toFloat()
+		val w = scrim.width.toFloat(); val h = scrim.height.toFloat()
+		if (w <= 0f || h <= 0f) return null
+		val main = activity as? MainActivity
+		val pad = dp(2).toFloat()
 		return when (spot) {
-			1 -> (activity as? MainActivity)?.toolbarBounds()?.let { RectF(it).apply { inset(-dp(2).toFloat(), -dp(2).toFloat()) } }
-				?: RectF(dp(6).toFloat(), top + dp(4), w - dp(6), top + dp(160))
-			2 -> RectF(dp(5).toFloat(), h - bottom - dp(80), w - dp(5), h - bottom - dp(4))
-			3 -> RectF(0f, h * 0.30f, dp(50).toFloat(), h * 0.70f)
+			1 -> main?.toolbarBounds()?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+				?: RectF(dp(6).toFloat(), dp(4).toFloat(), w - dp(6), h * 0.22f)
+			2 -> main?.paletteBounds()?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+				?: RectF(dp(5).toFloat(), h * 0.88f, w - dp(5), h - dp(4))
+			3 -> main?.cableParkBounds()?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+				?: RectF(0f, h * 0.30f, w * 0.12f, h * 0.70f)
 			else -> null
 		}
 	}

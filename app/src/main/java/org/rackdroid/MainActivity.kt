@@ -206,6 +206,21 @@ class MainActivity : NativeActivity() {
 		return android.graphics.Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
 	}
 
+	/** Screen bounds of the module palette, for the same tour. */
+	fun paletteBounds(): android.graphics.Rect? = modulePalette.bounds()
+
+	/** Screen bounds of the cable parking bar, which the render thread draws --
+	 * there is no view to measure, so the geometry comes back through JNI in
+	 * window pixels and is shifted into screen space by the canvas position. */
+	fun cableParkBounds(): android.graphics.Rect? {
+		val b = runCatching { nativeCableParkBounds() }.getOrNull() ?: return null
+		if (b.size < 4) return null
+		val loc = IntArray(2)
+		window.decorView.getLocationOnScreen(loc)
+		return android.graphics.Rect(
+			loc[0] + b[0], loc[1] + b[1], loc[0] + b[2], loc[1] + b[3])
+	}
+
 	/** Native Android top toolbar, covering the tiny canvas MenuBar strip:
 	 *  a full-width row of File/Edit/View/Engine/Library/Help buttons (equal
 	 *  weight, so all six always fit with no scrolling) — each injects a
@@ -362,15 +377,20 @@ class MainActivity : NativeActivity() {
 			Toast.makeText(this, getString(R.string.copy_modules_done), Toast.LENGTH_SHORT).show()
 		}
 		val pasteButton = iconButton(R.drawable.ic_tb_paste, getString(R.string.paste_modules_title)) { nativePasteSelection() }
+		// Delete the selection. Always confirmed: the rack is the patch, and a
+		// mis-tap here costs work that the user cannot see leaving the screen.
+		val deleteButton = iconButton(R.drawable.ic_tb_delete, getString(R.string.delete_modules_title)) {
+			confirmDeleteSelection()
+		}
+		deleteButton.imageTintList = android.content.res.ColorStateList.valueOf(AppTheme.current.danger)
 		// Row 1: things used to build/play/view the rack. Row 2: edit and
 		// protection commands. The grouping is stable even when more space is
 		// available, so muscle memory does not depend on device width.
 		listOf(paletteButton, installButton, cableParkButton!!, themeButton,
 			midiButton, keyboardButton, recordButton, creditsButton,
 			undoButton, redoButton, selectButton, copyButton, pasteButton,
-			lockButton, fullLockButton).forEachIndexed { index, view -> addTool(view, index) }
-		// Preserve the eight-column measure on the seven-item second row.
-		addTool(View(this).apply { visibility = View.INVISIBLE }, 15)
+			deleteButton, lockButton, fullLockButton)
+			.forEachIndexed { index, view -> addTool(view, index) }
 		menuRow.setBackgroundColor(Color.TRANSPARENT)
 		val menuDivider = View(this).apply {
 			setBackgroundColor(AppTheme.withAlpha(Color.WHITE, 10))
@@ -1069,6 +1089,23 @@ class MainActivity : NativeActivity() {
 		} catch (t: Throwable) {
 			Toast.makeText(this, getString(R.string.install_failed), Toast.LENGTH_LONG).show()
 		}
+	}
+
+	/** Deleting is the one toolbar action that destroys work, and on a touch
+	 * screen the selection is easy to lose track of -- so it always asks, and
+	 * says how many modules are going. Undo still covers a confirmed mistake. */
+	private fun confirmDeleteSelection() {
+		val count = runCatching { nativeSelectionCount() }.getOrDefault(0)
+		if (count <= 0) {
+			Toast.makeText(this, R.string.delete_modules_none, Toast.LENGTH_SHORT).show()
+			return
+		}
+		AlertDialog.Builder(this)
+			.setTitle(R.string.delete_modules_title)
+			.setMessage(resources.getQuantityString(R.plurals.delete_modules_message, count, count))
+			.setNegativeButton(android.R.string.cancel, null)
+			.setPositiveButton(R.string.delete_action) { _, _ -> nativeDeleteSelection() }
+			.show()
 	}
 
 	private fun confirmPickModulePacks() {
@@ -1818,6 +1855,9 @@ class MainActivity : NativeActivity() {
 	private external fun nativeSetMultiSelect(on: Boolean)
 	private external fun nativeCopySelection()
 	private external fun nativePasteSelection()
+	private external fun nativeDeleteSelection()
+	private external fun nativeSelectionCount(): Int
+	private external fun nativeCableParkBounds(): IntArray?
 	private external fun nativeGetCableTension(): Float
 	private external fun nativeSetCableTension(v: Float)
 	private external fun nativeGetCableOpacity(): Float

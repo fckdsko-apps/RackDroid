@@ -488,6 +488,13 @@
 	<string name="copy_modules_title">Copia moduli</string>
 	<string name="copy_modules_done">Copiato</string>
 	<string name="paste_modules_title">Incolla moduli</string>
+	<string name="delete_modules_title">Elimina moduli</string>
+	<string name="delete_modules_none">Seleziona prima i moduli da eliminare</string>
+	<string name="delete_action">Elimina</string>
+	<plurals name="delete_modules_message">
+		<item quantity="one">Eliminare il modulo selezionato e i suoi cavi?</item>
+		<item quantity="other">Eliminare i %d moduli selezionati e i loro cavi?</item>
+	</plurals>
 	<string name="cable_park_title">Parcheggio cavi</string>
 	<string name="cable_park_hint">Trascina un capo del cavo in un buco, scorri fino alla destinazione, poi trascinalo su una porta.</string>
 	<string name="palette_search_hint">Cerca moduli</string>

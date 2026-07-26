@@ -24,6 +24,7 @@
 #include <asset.hpp>
 #include <engine/PortInfo.hpp>
 #include <plugin/Model.hpp>
+#include <atomic>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -73,6 +74,11 @@ static Slot g_slots[MAX_SLOTS];
 // Shown by default: the bar is up as soon as the app opens (the toolbar button
 // and the bar's own handle toggle it from there).
 static bool g_visible = true;
+
+/** The bar's rectangle in window pixels, republished every frame by the render
+thread for the interface tour to read from the UI thread. */
+static std::atomic<int> g_boundsPx[4];
+static std::atomic<bool> g_boundsValid{false};
 // Collapsed to just its handle (the bar tucked away but not gone), toggled by
 // the handle chevron. Separate from g_visible, which is the toolbar on/off.
 static bool g_collapsed = false;
@@ -243,6 +249,9 @@ struct CableParkBar : widget::Widget {
 		// Follows rotation/resize here, where the context is guaranteed.
 		if (APP->scene)
 			box.size = APP->scene->box.size;
+		// Republish the bar's rectangle for the interface tour, which reads it
+		// from the UI thread and must never touch the context itself.
+		cableParkPublishBounds();
 		// Drop any parked end whose module has been deleted. It has nowhere to
 		// return to, so leaving it in the hole just dangles a reference to a
 		// module that no longer exists. Keyed on the module id, which survives a
@@ -665,11 +674,76 @@ void cableParkSetInflightPos(float x, float y) {
 }
 
 
+void cableParkPublishBounds() {
+	// Render thread only: holeY() and pixelRatio both read the Rack context,
+	// which is thread-local. Java asks for this from the UI thread, so the
+	// answer has to be sitting in plain atomics by the time it does.
+	if (!g_visible) {
+		g_boundsValid.store(false, std::memory_order_release);
+		return;
+	}
+	float x, y, w, h;
+	if (g_collapsed) {
+		x = holeX() - PILL_W * 0.5f;
+		y = handleY() - PILL_H * 0.5f;
+		w = PILL_W;
+		h = PILL_H;
+	}
+	else {
+		int holes = visibleHoles();
+		if (holes <= 0) {
+			g_boundsValid.store(false, std::memory_order_release);
+			return;
+		}
+		// Same geometry the draw pass uses, so a spotlight over the bar lands
+		// on exactly what is on screen.
+		float top = holeY(0) - HOLE_GAP * 0.5f - 8.f - HANDLE_CAP;
+		x = 4.f;
+		y = top;
+		w = BAR_W - 8.f;
+		h = holeY(holes - 1) + HOLE_GAP * 0.5f + 10.f - top;
+	}
+	float ratio = APP && APP->window ? APP->window->pixelRatio : 1.f;
+	g_boundsPx[0].store((int) (x * ratio), std::memory_order_relaxed);
+	g_boundsPx[1].store((int) (y * ratio), std::memory_order_relaxed);
+	g_boundsPx[2].store((int) ((x + w) * ratio), std::memory_order_relaxed);
+	g_boundsPx[3].store((int) ((y + h) * ratio), std::memory_order_relaxed);
+	g_boundsValid.store(true, std::memory_order_release);
+}
+
+
+bool cableParkBoundsPx(int* out4) {
+	if (!g_boundsValid.load(std::memory_order_acquire))
+		return false;
+	for (int i = 0; i < 4; i++)
+		out4[i] = g_boundsPx[i].load(std::memory_order_relaxed);
+	return true;
+}
+
+
 } // namespace rackdroid
 
 
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeSetCableParkVisible(JNIEnv*, jobject, jboolean visible) {
 	rackdroid::cableParkSetVisible(visible);
+}
+
+/** The bar's on-screen rectangle as {left, top, right, bottom} window pixels,
+ * or null when it is not showing. The interface tour spotlights it, and the bar
+ * is drawn by the render thread -- Java has no view to measure. Scene units are
+ * window pixels divided by pixelRatio, the same conversion the touch layer
+ * applies in reverse. */
+extern "C" JNIEXPORT jintArray JNICALL
+Java_org_rackdroid_MainActivity_nativeCableParkBounds(JNIEnv* env, jobject) {
+	int px[4];
+	if (!rackdroid::cableParkBoundsPx(px))
+		return NULL;
+	jint values[4] = { px[0], px[1], px[2], px[3] };
+	jintArray out = env->NewIntArray(4);
+	if (!out)
+		return NULL;
+	env->SetIntArrayRegion(out, 0, 4, values);
+	return out;
 }
 

@@ -37,6 +37,7 @@
 #include <app/Scene.hpp>
 #include "window_android.hpp"
 #include "jni_bridge.hpp"
+#include "menu_native.hpp"
 #include <logger.hpp>
 
 
@@ -87,6 +88,11 @@ struct TouchState {
 	// marquee, which now needs the toolbar's multi-select mode).
 	bool panSingle = false;
 
+	// Multi-select mode only: the module this press landed on. Rack never sees
+	// the press, so the release can toggle the module's selection and a hold can
+	// turn it into a move instead of a context menu.
+	rack::app::ModuleWidget* selectTarget = NULL;
+
 	// Pan inertia after the fingers lift
 	bool inertiaActive = false;
 	rack::math::Vec inertiaVel;
@@ -107,18 +113,36 @@ static std::atomic<int> lockMode{0};
  * pans the view. On: one finger on empty rack draws Rack's selection marquee. */
 static std::atomic<bool> multiSelect{false};
 
+/** The module owning the freshly-hovered widget, or NULL on empty rack. Knobs
+ * and ports are children of their ModuleWidget, so this walks up to it. */
+static rack::app::ModuleWidget* hoveredModule() {
+	for (rack::widget::Widget* w = APP->event->hoveredWidget; w; w = w->parent) {
+		if (auto* mw = dynamic_cast<rack::app::ModuleWidget*>(w))
+			return mw;
+	}
+	return NULL;
+}
+
 /** True when the freshly-hovered widget is something a single finger should act
  * on -- a module (its body, knobs and ports are children) or a cable plug. When
  * it is NOT, the press is on empty rack, where a one-finger drag pans instead of
  * starting the selection box. */
 static bool overInteractive() {
+	if (hoveredModule())
+		return true;
 	for (rack::widget::Widget* w = APP->event->hoveredWidget; w; w = w->parent) {
-		if (dynamic_cast<rack::app::ModuleWidget*>(w))
-			return true;
 		if (dynamic_cast<rack::app::PlugWidget*>(w))
 			return true;
 	}
 	return false;
+}
+
+/** Add or remove one module from Rack's selection. Render-thread only, which is
+ * where every touch event is already dispatched from. */
+static void toggleSelection(rack::app::ModuleWidget* mw) {
+	if (!mw || !APP->scene || !APP->scene->rack)
+		return;
+	APP->scene->rack->select(mw, !APP->scene->rack->isSelected(mw));
 }
 
 /** Decide from the freshly-hovered widget whether this press is frozen.
@@ -290,6 +314,17 @@ int touchHandleEvent(AInputEvent* event) {
 			// a second finger still enters pan/zoom as usual.
 			if (pressBlockedByLock())
 				return 1;
+			// Multi-select mode, finger on a module: a selection gesture, not a
+			// Rack interaction. Nothing is sent, so knobs, ports and the module
+			// itself stay put; the release toggles the selection and a hold
+			// (touchStep) turns it into a move. Empty rack still falls through
+			// to the marquee below.
+			if (multiSelect.load(std::memory_order_relaxed)) {
+				if (rack::app::ModuleWidget* mw = hoveredModule()) {
+					st.selectTarget = mw;
+					return 1;
+				}
+			}
 			// Empty rack, normal mode: one finger pans the view. Sending the
 			// left button here would start Rack's selection marquee instead --
 			// that only happens now in the toolbar's multi-select mode.
@@ -311,6 +346,7 @@ int touchHandleEvent(AInputEvent* event) {
 			if (pointerCount == 2) {
 				endLeftDrag(st.lastPos);
 				st.panSingle = false;
+				st.selectTarget = NULL;
 				st.gesture = true;
 				st.inertiaActive = false;
 				st.panVelocity = rack::math::Vec();
@@ -323,6 +359,20 @@ int touchHandleEvent(AInputEvent* event) {
 		}
 
 		case AMOTION_EVENT_ACTION_MOVE: {
+			// Multi-select: the finger left the module before the hold fired, so
+			// this was never a tap on it. Hand the gesture to the view pan --
+			// dragging must not move a module unless it was held first.
+			if (st.selectTarget) {
+				if (pos.minus(st.downPos).norm() > LONG_PRESS_SLOP_PX) {
+					st.selectTarget = NULL;
+					st.panSingle = true;
+					st.lastCentroid = pos;
+					st.lastMoveTime = rack::system::getTime();
+					st.panVelocity = rack::math::Vec();
+				}
+				st.lastPos = pos;
+				return 1;
+			}
 			// One-finger pan on empty rack: scroll the view, and track velocity
 			// so the release can coast, exactly like the two-finger pan.
 			if (st.panSingle) {
@@ -409,6 +459,16 @@ int touchHandleEvent(AInputEvent* event) {
 		}
 
 		case AMOTION_EVENT_ACTION_UP: {
+			// Multi-select tap on a module: add it to the selection, or take it
+			// out if it was already in. A hold already cleared selectTarget and
+			// turned the gesture into a move, so it never lands here.
+			if (st.selectTarget) {
+				toggleSelection(st.selectTarget);
+				st.selectTarget = NULL;
+				st.down = false;
+				st.gesture = false;
+				return 1;
+			}
 			// One-finger pan released: coast, then done.
 			if (st.panSingle) {
 				st.panSingle = false;
@@ -509,6 +569,7 @@ int touchHandleEvent(AInputEvent* event) {
 			st.down = false;
 			st.gesture = false;
 			st.panSingle = false;
+			st.selectTarget = NULL;
 			return 1;
 		}
 
@@ -537,6 +598,22 @@ void touchStep() {
 			st.inertiaActive = false;
 	}
 
+	// Multi-select: holding a module starts moving it. The press Rack never saw
+	// is sent now, so the following MOVEs drag the module exactly as they would
+	// outside this mode. No context menu here -- while selecting, a hold means
+	// "pick this up", and the menu would fight the gesture for the same finger.
+	if (st.down && st.selectTarget && !st.gesture && !st.longPressFired) {
+		double held = rack::system::getTime() - st.stillTime;
+		float moved = st.lastPos.minus(st.downPos).norm();
+		if (held >= LONG_PRESS_SECONDS && moved < LONG_PRESS_SLOP_PX) {
+			st.longPressFired = true;
+			st.selectTarget = NULL;
+			APP->event->handleHover(st.lastPos, rack::math::Vec());
+			sendLeftButton(st.lastPos, GLFW_PRESS);
+			st.leftSent = true;
+		}
+	}
+
 	// Long-press without movement → context menu (right click). Timed from when
 	// the finger last came to rest, and only while it is still near the press
 	// point -- so a drag (even a slow one) never opens the menu.
@@ -545,6 +622,10 @@ void touchStep() {
 		float moved = st.lastPos.minus(st.downPos).norm();
 		if (held >= LONG_PRESS_SECONDS && moved < LONG_PRESS_SLOP_PX) {
 			st.longPressFired = true;
+			// A module's menu no longer carries Copy/Paste (the toolbar has
+			// them); tell the menu layer before the menu is built.
+			if (hoveredModule())
+				menuExpectModuleMenu();
 			// Release the left drag, then emit a right click at the position.
 			endLeftDrag(st.lastPos);
 			APP->event->handleButton(st.lastPos, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, 0);

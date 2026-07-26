@@ -101,9 +101,16 @@ struct NativeMenu {
 	std::atomic<int> toolbarTap{-1};
 	// -1 none, 0 undo, 1 redo (toolbar ↶/↷ buttons)
 	std::atomic<int> historyPending{-1};
-	// Toolbar copy/paste of the selected modules (run on the render thread).
+	// Toolbar copy/paste/delete of the selected modules (run on the render
+	// thread). selectionCount is republished every frame so Java can size its
+	// confirmation dialog without reaching into the rack from the UI thread.
 	std::atomic<bool> copyPending{false};
 	std::atomic<bool> pastePending{false};
+	std::atomic<bool> deletePending{false};
+	std::atomic<int> selectionCount{0};
+	// The next captured top-level menu belongs to a module: drop its Copy and
+	// Paste rows. Set by the touch layer before it emits the right click.
+	bool moduleMenuPending = false;
 	// The next captured top-level menu is the File menu (toolbar tap 0):
 	// present() appends the synthetic Share row to it.
 	bool fileMenuPending = false;
@@ -153,7 +160,25 @@ static bool hiddenOnAndroid(const std::string& text) {
 }
 
 
+/** Copy/Paste on a module's own context menu, which the toolbar owns now. The
+ * very same labels also appear on the rack menu and on every text field, so
+ * matching by text alone would strip those too: this is only ever consulted for
+ * a menu the touch layer flagged as belonging to a module. */
+static bool moduleClipboardRow(const std::string& text) {
+	static const std::set<std::string> rows = {
+		string::translate("ModuleWidget.copy"),
+		string::translate("ModuleWidget.paste"),
+	};
+	return rows.count(text) > 0;
+}
+
+
 static void present(ui::Menu* menu) {
+	// Only the module's own top-level menu is filtered; its submenus (presets,
+	// and anything a plugin adds) keep every row they came with.
+	bool moduleMenu = g.moduleMenuPending && !menu->parentMenu;
+	if (!menu->parentMenu)
+		g.moduleMenuPending = false;
 	g.menu = menu;
 	g.rows.clear();
 	std::vector<std::string> labels, rights;
@@ -181,6 +206,8 @@ static void present(ui::Menu* menu) {
 		}
 		else if (auto* it = dynamic_cast<ui::MenuItem*>(c)) {
 			if (hiddenOnAndroid(it->text))
+				continue;
+			if (moduleMenu && moduleClipboardRow(it->text))
 				continue;
 			int f = 0;
 			if (it->disabled)
@@ -392,6 +419,11 @@ static void processClipboard() {
 		APP->scene->rack->copyClipboardSelection();
 	if (g.pastePending.exchange(false))
 		APP->scene->rack->pasteClipboardAction();
+	// One undoable action for the whole selection, like the desktop menu.
+	if (g.deletePending.exchange(false) && APP->scene->rack->hasSelection())
+		APP->scene->rack->deleteSelectionAction();
+	g.selectionCount.store((int) APP->scene->rack->getSelected().size(),
+		std::memory_order_relaxed);
 }
 
 
@@ -415,6 +447,11 @@ static void processShare() {
 	catch (std::exception& e) {
 		LOGE("share failed: %s", e.what());
 	}
+}
+
+
+void menuExpectModuleMenu() {
+	g.moduleMenuPending = true;
 }
 
 
@@ -558,6 +595,19 @@ Java_org_rackdroid_MainActivity_nativeCopySelection(JNIEnv*, jobject) {
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativePasteSelection(JNIEnv*, jobject) {
 	g.pastePending.store(true);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeDeleteSelection(JNIEnv*, jobject) {
+	g.deletePending.store(true);
+}
+
+/** How many modules are selected, as of the last render pass. Java asks before
+ * offering to delete them; a frame of staleness cannot matter, since the finger
+ * that would change it is the same one now holding the toolbar. */
+extern "C" JNIEXPORT jint JNICALL
+Java_org_rackdroid_MainActivity_nativeSelectionCount(JNIEnv*, jobject) {
+	return (jint) g.selectionCount.load(std::memory_order_relaxed);
 }
 
 extern "C" JNIEXPORT void JNICALL

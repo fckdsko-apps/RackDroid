@@ -184,6 +184,17 @@ class ModulePalette(
 		popup = null
 	}
 
+	/** Screen bounds of the palette as it currently stands, or null while it is
+	 * not laid out. Its height depends on whether the tile strip is open, so the
+	 * interface tour has to measure it rather than assume a size. */
+	fun bounds(): android.graphics.Rect? {
+		val v = popup?.contentView ?: return null
+		if (!v.isAttachedToWindow || v.width == 0 || v.height == 0) return null
+		val loc = IntArray(2)
+		v.getLocationOnScreen(loc)
+		return android.graphics.Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
+	}
+
 	/** Collapse only the open tile strip (the "modules menu"), keeping the chip
 	 * bar itself visible -- same as tapping the active chip again. */
 	private fun collapseStrip() {
