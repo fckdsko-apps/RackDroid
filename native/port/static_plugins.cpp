@@ -123,13 +123,13 @@ static bool finishLoadPlugin(void* handle, const std::string& path, const std::s
 }
 
 
-static void loadBundledPlugin(const std::string& slug, const std::string& libraryName) {
+static bool loadBundledPlugin(const std::string& slug, const std::string& libraryName) {
 	void* handle = dlopen(libraryName.c_str(), RTLD_NOW | RTLD_LOCAL);
 	if (!handle) {
 		WARN("Could not dlopen bundled plugin %s: %s", libraryName.c_str(), dlerror());
-		return;
+		return false;
 	}
-	finishLoadPlugin(handle, asset::system("plugins/" + slug), slug);
+	return finishLoadPlugin(handle, asset::system("plugins/" + slug), slug);
 }
 
 
@@ -156,8 +156,12 @@ void loadStaticPlugins() {
 	// Drums. Every other pack ships as an on-demand .rdmod, loaded from the
 	// user Modules folder (ModuleInstaller / MODULES.md). The tutorials use
 	// only these base modules.
-	loadBundledPlugin("Fundamental", "libplugin_fundamental.so");
-	loadBundledPlugin("RackDroidDrums", "libplugin_drums.so");
+	bool baseLoaded = loadBundledPlugin("Fundamental", "libplugin_fundamental.so");
+	baseLoaded = loadBundledPlugin("RackDroidDrums", "libplugin_drums.so") && baseLoaded;
+#ifndef ANDROID
+	if (!baseLoaded)
+		throw Exception("Host smoke test could not load every base plugin");
+#endif
 
 	// Host smoke coverage hook: RACKDROID_EXTRA_PLUGINS is a colon-separated
 	// list of slug=soname pairs (e.g. "Bogaudio=libplugin_bogaudio.so:...").
@@ -167,15 +171,25 @@ void loadStaticPlugins() {
 	if (const char* extra = std::getenv("RACKDROID_EXTRA_PLUGINS")) {
 		std::string list = extra;
 		size_t pos = 0;
+		int requested = 0;
+		int loaded = 0;
 		while (pos < list.size()) {
 			size_t colon = list.find(':', pos);
 			if (colon == std::string::npos) colon = list.size();
 			std::string pair = list.substr(pos, colon - pos);
 			size_t eq = pair.find('=');
-			if (eq != std::string::npos)
-				loadBundledPlugin(pair.substr(0, eq), pair.substr(eq + 1));
+			if (eq != std::string::npos) {
+				requested++;
+				if (loadBundledPlugin(pair.substr(0, eq), pair.substr(eq + 1)))
+					loaded++;
+			}
 			pos = colon + 1;
 		}
+#ifndef ANDROID
+		if (loaded != requested)
+			throw Exception("Host smoke test loaded %d of %d requested extra plugins",
+				loaded, requested);
+#endif
 	}
 }
 

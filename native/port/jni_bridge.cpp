@@ -52,6 +52,8 @@ static void (*pumpOnce)(int timeoutMs) = NULL; // installed by main_android
 static std::atomic<bool> dialogDone{false};
 static std::atomic<bool> userPluginsDone{false};
 static std::atomic<bool> pumping{false};
+static std::atomic<bool> safeStartup{false};
+static std::atomic<bool> skipStartupUserPlugins{false};
 static int dialogResultInt = 0;
 static bool dialogResultHasStr = false;
 static std::string dialogResultStr;
@@ -64,6 +66,22 @@ void jniSetPump(void (*pump)(int timeoutMs)) {
 
 bool dialogIsPumping() {
 	return pumping.load();
+}
+
+
+void setStartupOptions(bool safeMode, bool skipUserPlugins) {
+	safeStartup.store(safeMode, std::memory_order_release);
+	skipStartupUserPlugins.store(skipUserPlugins, std::memory_order_release);
+}
+
+
+bool startupSafeModeRequested() {
+	return safeStartup.load(std::memory_order_acquire);
+}
+
+
+bool userPluginsDisabled() {
+	return skipStartupUserPlugins.load(std::memory_order_acquire);
 }
 
 
@@ -350,6 +368,12 @@ bool dialogFile(bool save, const std::string& dir, const std::string& filename, 
 
 
 // ---- results posted by MainActivity (UI thread) ----
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeSetStartupOptions(JNIEnv* env, jobject thiz,
+		jboolean safeMode, jboolean skipUserPlugins) {
+	setStartupOptions(safeMode, skipUserPlugins);
+}
 
 /** MainActivity signals that loadUserPlugins() has finished, so the startup
 path may proceed to launch the patch with every side-loaded pack registered. */

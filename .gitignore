@@ -9,5 +9,39 @@ captures/
 .externalNativeBuild/
 .kotlin/
 build-host/
+build-host-ui/
 ui_smoke_frame.png
 __pycache__/
+
+# Local editor and AI-agent state (never part of a release/source transfer).
+.claude/
+.continue/
+.vscode/
+CLAUDE.md
+CLAUDE_HANDOFF*.md
+.github/copilot-instructions.md
+docs/AI_ROUTING.md
+scripts/ollama_task.mjs
+
+# Credentials and private signing material. The already-tracked development
+# keystore is intentionally public; no production key may match these paths.
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+keystore.properties
+*keystore*.properties
+
+# Generated release/transfer artifacts and logs.
+*.apk
+*.aab
+*.apks
+*.rdmod
+*.zip
+*.log
+.DS_Store

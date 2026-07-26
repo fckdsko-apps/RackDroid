@@ -101,6 +101,9 @@ struct NativeMenu {
 	std::atomic<int> toolbarTap{-1};
 	// -1 none, 0 undo, 1 redo (toolbar ↶/↷ buttons)
 	std::atomic<int> historyPending{-1};
+	// Toolbar copy/paste of the selected modules (run on the render thread).
+	std::atomic<bool> copyPending{false};
+	std::atomic<bool> pastePending{false};
 	// The next captured top-level menu is the File menu (toolbar tap 0):
 	// present() appends the synthetic Share row to it.
 	bool fileMenuPending = false;
@@ -379,6 +382,19 @@ static void processHistory() {
 }
 
 
+/** Toolbar copy/paste of the selected modules -- Rack's own selection
+ * clipboard, run on the render thread (it owns the rack widget). Copy is a
+ * no-op with nothing selected; paste drops the clipboard near the last view. */
+static void processClipboard() {
+	if (!APP->scene || !APP->scene->rack)
+		return;
+	if (g.copyPending.exchange(false) && APP->scene->rack->hasSelection())
+		APP->scene->rack->copyClipboardSelection();
+	if (g.pastePending.exchange(false))
+		APP->scene->rack->pasteClipboardAction();
+}
+
+
 /** Save the live patch to user/share/<name>.vcv and hand it to Java for
  * the system share sheet. Runs on the render thread (patch/engine owner);
  * PatchManager::save() archives the current state without touching the
@@ -411,6 +427,7 @@ void processNativeMenus() {
 	processBackKey(scene);
 	processToolbarTap(scene);
 	processHistory();
+	processClipboard();
 	processShare();
 	if (!scene || g.disabled)
 		return;
@@ -531,6 +548,16 @@ Java_org_rackdroid_MainActivity_nativeBackPressed(JNIEnv*, jobject) {
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeHistoryAction(JNIEnv*, jobject, jint action) {
 	g.historyPending.store(action);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeCopySelection(JNIEnv*, jobject) {
+	g.copyPending.store(true);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativePasteSelection(JNIEnv*, jobject) {
+	g.pastePending.store(true);
 }
 
 extern "C" JNIEXPORT void JNICALL

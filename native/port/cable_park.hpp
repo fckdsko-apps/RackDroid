@@ -26,7 +26,7 @@ covers the panel in overlapping rings. */
 static const float CABLE_PARK_SNAP_JACKS = 2.2f;
 /** Floor, in scene units: a fingertip cannot aim better than this however far
 out the rack is zoomed. */
-static const float CABLE_PARK_SNAP_MIN = 7.f;
+static const float CABLE_PARK_SNAP_MIN = 10.f;
 
 /** Width of the bar, in screen units. Shared so the touch layer can tell "over
 the bar" (a cancel / a drop target) from "in the rack void" (a discard). */

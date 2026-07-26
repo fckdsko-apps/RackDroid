@@ -24,7 +24,43 @@ private class SizedLruCache(maxBytes: Int) : LruCache<String, Bitmap>(maxBytes) 
 }
 
 internal object ThumbnailCache {
-	private val cache = SizedLruCache(32 * 1024 * 1024) // 32MB of decoded pixels
+	private const val MIB = 1024 * 1024
+	private const val MIN_CACHE_BYTES = 8 * MIB
+	private const val MAX_CACHE_BYTES = 32 * MIB
+	// ComponentCallbacks2's named constants are deprecated at API 35, but the
+	// callback still delivers the documented level values on minSdk 29 devices.
+	private const val TRIM_RUNNING_LOW = 10
+	private const val TRIM_MODERATE = 60
+	private val cache = SizedLruCache(MAX_CACHE_BYTES)
+	private var budgetBytes = MAX_CACHE_BYTES
+
+	/** Size decoded art to the device instead of reserving the same 32MB on a
+	 * low-RAM phone and a flagship. One twelfth of the Java heap leaves ample
+	 * room for the palette/views while the 8–32MB clamp keeps scrolling useful. */
+	fun configure(context: android.content.Context) {
+		val am = context.getSystemService(android.content.Context.ACTIVITY_SERVICE)
+			as android.app.ActivityManager
+		val heapBudget = (am.memoryClass.toLong() * MIB / 12L)
+			.coerceIn(MIN_CACHE_BYTES.toLong(), MAX_CACHE_BYTES.toLong()).toInt()
+		budgetBytes = if (am.isLowRamDevice) minOf(heapBudget, 12 * MIB) else heapBudget
+		cache.resize(budgetBytes)
+	}
+
+	/** Release artwork promptly when Android asks. The files remain on disk and
+	 * are decoded lazily again if the user returns to the palette. */
+	fun trim(level: Int) {
+		when {
+			level >= TRIM_MODERATE -> cache.evictAll()
+			level >= TRIM_RUNNING_LOW -> cache.trimToSize(budgetBytes / 2)
+		}
+	}
+
+	fun clear() = cache.evictAll()
+
+	fun removePlugin(slug: String) {
+		val prefix = "$slug/"
+		cache.snapshot().keys.filter { it.startsWith(prefix) }.forEach(cache::remove)
+	}
 
 	fun get(filesDir: File, key: String, targetWidthPx: Int): Bitmap? {
 		cache.get(key)?.let { return it }

@@ -9,13 +9,21 @@ attributed in-app (ⓘ button) and in NOTICE-graphics.md.
 ## Build artifacts
 
 ```sh
-cd rack-android
+cd rackdroid
 export ANDROID_HOME=/path/to/android-sdk
-./gradlew assembleRelease   # signed APK  -> app/build/outputs/apk/release/
-./gradlew bundleRelease     # AAB (Play)  -> app/build/outputs/bundle/release/
+./gradlew assembleRelease -PdevKeystore  # sideload APK, public development key
+./gradlew assembleRelease -PdevKeystore -PtargetAbis=x86_64 # x86_64 sideload APK
+./gradlew bundleRelease -PtargetAbis=arm64-v8a,x86_64       # Play AAB, both 64-bit ABIs
+# Expansion packs are ABI-specific and require every optional target:
+./gradlew assembleRelease -PdevKeystore -PallPlugins -PtargetAbis=x86_64
+scripts/make_rdmods.sh /tmp/rdmods-x86_64 x86_64 # requires 21 valid archives
 ```
 
 Play Store accepts only the **AAB**. Sideloading/other stores use the APK.
+The current application is version **0.1.2** (`versionCode 3`), targets API 35,
+supports Android 10+ (`minSdk 29`), and builds arm64-v8a libraries with 16 KB
+page-size support. The optional x86_64 target is intended for emulators and
+compatible ChromeOS devices. The 32-bit x86 ABI is not supported.
 
 ## Signing key — REQUIRED before publishing
 
@@ -28,8 +36,17 @@ only gives update continuity for sideloads. **Before publishing to Play**:
    keytool -genkeypair -v -keystore my-upload.keystore -alias upload \
      -keyalg RSA -keysize 2048 -validity 10000
    ```
-2. Point `signingConfigs.release` in `app/build.gradle.kts` at it, ideally via
-   `local.properties` / env vars so the secret isn't committed.
+2. Create `~/rackdroid-keystore.properties` (outside the repository):
+  ```properties
+  storeFile=/absolute/path/to/my-upload.keystore
+  storePassword=...
+  keyAlias=upload
+  keyPassword=...
+  ```
+  `app/build.gradle.kts` reads this file automatically. Never commit the
+  properties file, private keystore, passwords, `.claude/`, or backup keys.
+3. Build `bundleRelease` **without** `-PdevKeystore`, then verify the resulting
+  AAB/upload certificate before uploading it.
 
 ## GPLv3 compliance (mandatory when selling)
 
@@ -50,20 +67,21 @@ current build:
 > permissions are used only locally, in real time, to process audio and
 > connect controllers; nothing is recorded or sent anywhere. Patches you save
 > stay in the app's private storage until you export them yourself.
-> Contact: <your email>
+> Contact: patrik.meneguot@gmail.com
 
 ## Store listing (draft)
 
 - **Title**: RackDroid — Modular Synth
-- **Short description**: A powerful modular synthesizer for Android. 150+
-  modules, low-latency audio, USB & Bluetooth MIDI.
+- **Short description**: A touch-first modular synthesizer for Android with
+  66 built-in modules and installable expansion packs.
 - **Full description**:
   > RackDroid brings full modular synthesis to your phone and tablet. Patch
   > oscillators, filters, envelopes, sequencers and effects together with
   > virtual cables and build your own sounds from scratch.
   >
-  > • 150+ modules (Fundamental + Bogaudio): VCOs, VCFs, VCAs, LFOs, ADSRs,
-  >   mixers, sequencers, scopes, logic, and much more
+  > • 66 built-in modules: oscillators, filters, envelopes, drums, sequencers,
+  >   scopes and utilities
+  > • 21 optional expansion packs, including Bogaudio, Valley and Befaco
   > • Low-latency audio engine (Oboe/AAudio)
   > • USB and Bluetooth LE MIDI controllers
   > • Multitouch: drag knobs and cables, pinch to zoom, two-finger pan
@@ -75,12 +93,67 @@ current build:
 - **Content rating**: Everyone
 - **Required assets**: 512×512 icon (derive from ic_launcher), feature
   graphic 1024×500, and phone/tablet screenshots (capture from a device).
+  Existing repository screenshots are documentation assets; recapture the
+  final two-row toolbar before using them in a store listing.
+
+## Device release smoke test
+
+With one authorized Android device attached:
+
+```sh
+ANDROID_HOME=/path/to/android-sdk scripts/device_smoke.sh
+```
+
+The script installs the development-signed release APK, launches it, checks
+that the activity remains resumed and scans the process log for fatal errors.
+It also saves a screenshot under `app/build/reports/device-smoke/`.
+
+Manual checks still required on at least one phone:
+
+- grant/deny microphone and notification permissions;
+- hear audio from the included template and test background playback;
+- open the two-row toolbar, every menu, module palette, search and keyboard;
+- drag a normal cable near a compatible jack and verify highlight + snap;
+- park a cable, pan, reconnect it, and verify cancellation/discard behavior;
+- install at least one `.rdmod`, verify its brand/modules/thumbnails appear
+  immediately, restart, then uninstall it;
+- save, reopen, import and share a `.vcv` patch;
+- connect USB MIDI and, where available, Bluetooth LE MIDI;
+- start/stop WAV recording and verify the file in `Documents/RackDroid`.
+
+### Recorded device checks
+
+- 2026-07-26 — Samsung SM-S901E, Android 16 / API 36: development-signed
+  0.1.2 APK installed, cold start completed, patch rendered, foreground audio
+  service active, 372 models published, two-row toolbar rendered and no fatal
+  startup exception detected. Audio/MIDI and `.rdmod` interaction checks remain
+  manual and are not implied by this automated smoke result.
+
+### Recorded build checks
+
+- Linux host smoke loaded Core, both base plugins and all 21 optional plugins,
+  then instantiated and rendered 1004 registered models successfully.
+- Development-signed arm64 APK and AAB built successfully. The APK/AAB payload
+  contains only Fundamental and RackDroid Drums; optional libraries remain out
+  of the base application.
+- Development-signed x86_64 APK built successfully and its payload contains
+  only x86_64 native libraries. Runtime smoke testing still requires an
+  x86_64 emulator or device.
+- All 21 `.rdmod` archives were generated from the arm64 release build and
+  passed ZIP integrity, required-library and required-resource checks.
 
 ## Pre-launch checklist
 
-- [ ] Private signing key (not the dev keystore)
-- [ ] Privacy policy hosted + URL in listing
-- [ ] Source repo public and matching the released build (GPLv3)
-- [ ] `minSdk` acceptable (currently 33 = Android 13+; lower to widen reach)
-- [ ] Test on several devices (GPU rendering, audio latency, MIDI)
-- [ ] Screenshots + feature graphic
+- [x] Android 10+ (`minSdk 29`), target API 35 and 16 KB native page support
+- [x] Development-signed release APK and technical-validation AAB build
+- [x] All 21 optional `.rdmod` archives build and pass integrity checks
+- [x] Privacy policy text maintained in `PRIVACY.md`
+- [x] Base APK contains 66 modules; non-base packs are on-demand `.rdmod`
+- [ ] Private upload key configured and backed up securely
+- [ ] Production AAB generated and signing certificate verified
+- [ ] Privacy policy hosted publicly and URL added to the listing
+- [ ] Source repository public and tagged at the exact released commit (GPLv3)
+- [ ] Smoke test completed on Android 10, one mid-range device and current API
+- [ ] Audio latency, background audio, USB MIDI and BLE MIDI tested on hardware
+- [ ] Final phone/tablet screenshots, 512×512 icon and 1024×500 feature graphic
+- [ ] Play internal test completed before production rollout

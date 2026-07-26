@@ -5,8 +5,8 @@
 #            AND renders every registered model (rack_ui_smoke --all-modules).
 #            This is the check that actually catches plugin regressions, and it
 #            needs no Android SDK, so it fails fast.
-#   apk   -- builds the shipping arm64 APK, proving the NDK/CMake path and the
-#            asset packing still work end to end.
+#   android -- builds arm64-v8a and x86_64 APKs/AABs plus all 21 matching
+#              .rdmod packs, proving both NDK/CMake paths end to end.
 name: CI
 
 on:
@@ -20,7 +20,7 @@ jobs:
     name: Host smoke test (all modules)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install build + Mesa dependencies
         run: |
@@ -31,39 +31,44 @@ jobs:
             build-essential cmake ninja-build xxd \
             libegl1-mesa-dev libgles-dev libgl1-mesa-dri
 
-      - name: Configure
-        run: cmake -S native -B build-host-ui -G Ninja -DRACKDROID_HOST_UI=ON
+      - name: Build, load and render every plugin model
+        # Stages every plugin manifest/resource directory, requires all 21
+        # optional libraries to load, then instantiates every registered model.
+        run: scripts/host_smoke.sh
 
-      - name: Build
-        run: cmake --build build-host-ui
-
-      - name: Instantiate and render every registered model
-        env:
-          EGL_PLATFORM: surfaceless
-          LIBGL_ALWAYS_SOFTWARE: "1"
-        # A crash in any module's constructor or draw path fails the job.
-        run: ./build-host-ui/rack_ui_smoke 30 --all-modules
-
-  apk:
-    name: Release APK (arm64)
+  android:
+    name: Release APK, AAB and packs (${{ matrix.abi }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: "21"
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
 
-      - name: Build
+      - name: Build APK, AAB and all plugin libraries
         # -PdevKeystore: the private key is deliberately not in the repo, so CI
         # signs with the public development key. Never publish this artifact.
-        run: ./gradlew assembleRelease -PdevKeystore --no-daemon
+        run: >-
+          ./gradlew assembleRelease bundleRelease
+          -PdevKeystore -PallPlugins
+          -PtargetAbis=${{ matrix.abi }} --no-daemon
 
-      - uses: actions/upload-artifact@v4
+      - name: Package and validate all 21 expansion packs
+        run: scripts/make_rdmods.sh "$RUNNER_TEMP/rdmods" "${{ matrix.abi }}"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: rackdroid-debugkey-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          name: rackdroid-debugkey-release-${{ matrix.abi }}
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+            ${{ runner.temp }}/rdmods/*.rdmod
           if-no-files-found: error

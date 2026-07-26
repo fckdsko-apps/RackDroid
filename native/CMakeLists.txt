@@ -16,6 +16,15 @@
 cmake_minimum_required(VERSION 3.22)
 project(rackdroid LANGUAGES C CXX)
 
+# CMake 4 removed implicit compatibility with projects declaring versions
+# older than 3.5. Some pinned dependencies (notably Jansson) still declare an
+# old minimum despite building correctly with modern policies. Set the floor
+# centrally so documented host builds work on both CMake 3.x and 4.x without
+# requiring a machine-specific command-line flag.
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 4.0)
+	set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+endif()
+
 # Rack's logger prints __FILE__, which the compiler expands to the absolute
 # path of the developer's checkout — leaked verbatim into the app's log.txt.
 # Remap both the repo root and the build dir (generated/patched sources) so
@@ -62,8 +71,8 @@ set(JANSSON_WITHOUT_TESTS ON CACHE BOOL "" FORCE)
 set(JANSSON_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(jansson
 	GIT_REPOSITORY https://github.com/akheron/jansson.git
-	GIT_TAG v2.14
-	GIT_SHALLOW TRUE)
+	# v2.14, pinned to an immutable commit for reproducible builds.
+	GIT_TAG de5460cf7108b3161026a85800004e208e19f902)
 FetchContent_MakeAvailable(jansson)
 
 # zstd (patch archives are .tar.zst)
@@ -73,8 +82,8 @@ set(ZSTD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ZSTD_LEGACY_SUPPORT OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(zstd
 	GIT_REPOSITORY https://github.com/facebook/zstd.git
-	GIT_TAG v1.5.6
-	GIT_SHALLOW TRUE
+	# v1.5.6
+	GIT_TAG 35016bc1c0b9a2f7121b7ecc312100aad7d9f2ad
 	SOURCE_SUBDIR build/cmake)
 FetchContent_MakeAvailable(zstd)
 
@@ -113,8 +122,8 @@ set(ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
 set(ENABLE_WERROR OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(libarchive
 	GIT_REPOSITORY https://github.com/libarchive/libarchive.git
-	GIT_TAG v3.7.4
-	GIT_SHALLOW TRUE)
+	# v3.7.4
+	GIT_TAG 313aa1fa10b657de791e3202c168a6c833bc3543)
 FetchContent_MakeAvailable(libarchive)
 
 # libsamplerate (used by Fundamental's Delay)
@@ -123,8 +132,8 @@ set(LIBSAMPLERATE_INSTALL OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(libsamplerate
 	GIT_REPOSITORY https://github.com/libsndfile/libsamplerate.git
-	GIT_TAG 0.2.2
-	GIT_SHALLOW TRUE)
+	# 0.2.2
+	GIT_TAG b9c20b93660c3683fda12e3c2a01f0021bf96c56)
 FetchContent_MakeAvailable(libsamplerate)
 
 # speexdsp resampler (single-file build, standard OUTSIDE_SPEEX recipe)

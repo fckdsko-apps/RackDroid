@@ -8,11 +8,26 @@
 	<string name="menu_help">Aiuto</string>
 	<string name="menu_back">Indietro</string>
 	<string name="menu_share_patch">Condividi patch…</string>
+	<string name="toolbar_undo">Annulla</string>
+	<string name="toolbar_redo">Ripeti</string>
+	<string name="toolbar_midi">Dispositivi MIDI</string>
+	<string name="toolbar_keyboard">Tastiera a schermo</string>
+	<string name="toolbar_info">Informazioni e licenze</string>
+	<string name="toolbar_record">Registra l’uscita master</string>
+	<string name="toolbar_lock_layout">Blocca posizione dei moduli e cavi</string>
+	<string name="toolbar_lock_all">Blocca tutti i controlli</string>
+	<string name="toolbar_collapse">Comprimi la barra degli strumenti</string>
+	<string name="toolbar_expand">Espandi la barra degli strumenti</string>
 
 	<!-- Browser moduli -->
 	<string name="browser_search_hint">Cerca moduli</string>
 	<string name="browser_module_count">%1$d moduli</string>
 	<string name="browser_favorites">★ Preferiti</string>
+	<string name="palette_search_modules">Cerca moduli</string>
+	<string name="palette_category">Categoria moduli: %1$s</string>
+	<string name="palette_results_count">%1$d moduli trovati</string>
+	<string name="palette_module_description">%1$s di %2$s. Tocca per aggiungerlo; tieni premuto e trascina per posizionarlo.</string>
+	<string name="palette_module_info">Informazioni su %1$s</string>
 
 	<!-- Toast / dialoghi -->
 	<string name="toast_recording">Registrazione…</string>
@@ -26,6 +41,16 @@
 	<string name="toast_ble_scan_failed">Scansione BLE non riuscita (%1$d)</string>
 	<string name="dialog_edit_text">Modifica testo</string>
 	<string name="share_patch_chooser">Condividi patch</string>
+	<string name="service_channel_name">Audio RackDroid</string>
+	<string name="service_channel_description">Mantiene il sintetizzatore attivo in background</string>
+	<string name="service_running">Motore audio in esecuzione</string>
+	<string name="service_stop">Ferma audio</string>
+	<string name="recovery_title">Avvio sicuro</string>
+	<string name="recovery_message">RackDroid ha rilevato due avvii interrotti ed è partito senza l’ultima sessione né i pack di moduli utente. Patch e pack non sono stati eliminati. Le modifiche in questa sessione sicura non vengono autosalvate: salvale esplicitamente se necessario. Rimuovi un pack sospetto, mantieni aperta la sessione oppure archivia l’autosalvataggio e riparti da zero. Chiudendo e riaprendo l’app verrà tentato un avvio normale.</string>
+	<string name="recovery_keep_open">Mantieni aperto</string>
+	<string name="recovery_manage_modules">Pack moduli</string>
+	<string name="recovery_start_fresh">Riparti da zero</string>
+	<string name="recovery_archive_failed">Impossibile archiviare l’ultima sessione; non è stato eliminato nulla</string>
 
 	<!-- Voci extra del menu Aiuto -->
 	<string name="menu_guide">Guida</string>
@@ -449,6 +474,9 @@
 	<string name="theme_restart_later">Più tardi</string>
 	<string name="modules_manager_title">Moduli</string>
 	<string name="install_from_file">＋ Installa da file…</string>
+	<string name="module_pack_security_title">Avviso sul codice nativo</string>
+	<string name="module_pack_security_message">I pacchetti di moduli contengono codice nativo eseguibile e usano i permessi di RackDroid. Installa solo pacchetti ottenuti da una fonte attendibile.</string>
+	<string name="continue_action">Continua</string>
 	<string name="no_modules_installed">Nessun pack extra installato. Tocca “Installa da file” per aggiungere un .rdmod.</string>
 	<string name="modules_installed_header">INSTALLATI (%1$d)</string>
 	<string name="uninstall">Disinstalla</string>
@@ -456,6 +484,10 @@
 	<string name="uninstall_message">I suoi moduli spariscono subito dalla palette. Quelli già inseriti restano attivi fino al riavvio.</string>
 	<string name="uninstalled_restart">Disinstallato — moduli rimossi dalla palette</string>
 	<!-- Module palette: search field and brand filter (the magnifier chip). -->
+	<string name="select_modules_title">Seleziona moduli</string>
+	<string name="copy_modules_title">Copia moduli</string>
+	<string name="copy_modules_done">Copiato</string>
+	<string name="paste_modules_title">Incolla moduli</string>
 	<string name="cable_park_title">Parcheggio cavi</string>
 	<string name="cable_park_hint">Trascina un capo del cavo in un buco, scorri fino alla destinazione, poi trascinalo su una porta.</string>
 	<string name="palette_search_hint">Cerca moduli</string>

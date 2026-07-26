@@ -56,6 +56,10 @@ using namespace rack;
 
 int main(int argc, char* argv[]) {
 	std::string tmpDir = system::getTempDirectory() + "/rackdroid-ui-smoke";
+	// Never inherit an autosave/settings file from a previous smoke run. In
+	// particular, --all-modules used to persist every tested module and made
+	// the next run load ~1000 stale instances before the test even started.
+	system::removeRecursively(tmpDir);
 	// RACKDROID_SYSTEM_DIR can point at a copy of what the APK actually ships
 	// (assets/system.zip contents) to reproduce the on-device layout.
 	const char* sysDirEnv = std::getenv("RACKDROID_SYSTEM_DIR");
@@ -165,9 +169,17 @@ int main(int argc, char* argv[]) {
 				engine::Module* module = model->createModule();
 				APP->engine->addModule(module);
 				app::ModuleWidget* widget = model->createModuleWidget(module);
+				if (!widget)
+					throw std::runtime_error("createModuleWidget returned NULL for " +
+						p->slug + "/" + model->slug);
 				// Same call the module browser makes on selection
 				APP->scene->rack->addModuleAtMouse(widget);
 				APP->window->step();
+				// One live instance is enough to cover constructor and draw paths.
+				// Keeping all ~1000 instances made teardown take several minutes;
+				// ModuleWidget's destructor removes and deletes its engine module.
+				APP->scene->rack->removeModule(widget);
+				delete widget;
 				count++;
 			}
 		}

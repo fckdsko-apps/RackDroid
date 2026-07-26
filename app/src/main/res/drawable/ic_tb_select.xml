@@ -1,0 +1,15 @@
+<!-- Selection marquee: four corner brackets around two modules -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+	android:width="24dp" android:height="24dp"
+	android:viewportWidth="24" android:viewportHeight="24">
+	<!-- corner brackets -->
+	<path android:strokeColor="#ECECEC" android:strokeWidth="2"
+		android:strokeLineCap="round" android:strokeLineJoin="round"
+		android:fillColor="#00000000"
+		android:pathData="M3,8 V3 H8 M16,3 H21 V8 M21,16 V21 H16 M8,21 H3 V16" />
+	<!-- two little modules inside -->
+	<path android:fillColor="#ECECEC"
+		android:pathData="M7,8 h3 v8 h-3 z" />
+	<path android:fillColor="#ECECEC"
+		android:pathData="M14,8 h3 v8 h-3 z" />
+</vector>

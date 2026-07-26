@@ -2,7 +2,7 @@
 <resources>
 	<!-- "RackDroid" is a working title. Do NOT ship under a name/logo using
 	     the "VCV" trademark; see README.md (Licensing). -->
-	<string name="app_name">RackDroid</string>
+	<string name="app_name" translatable="false">RackDroid</string>
 
 	<!-- Toolbar menu buttons (mirror Rack's MenuBar entries) -->
 	<string name="menu_file">File</string>
@@ -12,11 +12,26 @@
 	<string name="menu_help">Help</string>
 	<string name="menu_back">Back</string>
 	<string name="menu_share_patch">Share patch…</string>
+	<string name="toolbar_undo">Undo</string>
+	<string name="toolbar_redo">Redo</string>
+	<string name="toolbar_midi">MIDI devices</string>
+	<string name="toolbar_keyboard">On-screen keyboard</string>
+	<string name="toolbar_info">Information and licenses</string>
+	<string name="toolbar_record">Record master output</string>
+	<string name="toolbar_lock_layout">Lock module layout and cables</string>
+	<string name="toolbar_lock_all">Lock all controls</string>
+	<string name="toolbar_collapse">Collapse toolbar</string>
+	<string name="toolbar_expand">Expand toolbar</string>
 
 	<!-- Module browser -->
 	<string name="browser_search_hint">Search modules</string>
 	<string name="browser_module_count">%1$d modules</string>
 	<string name="browser_favorites">★ Favorites</string>
+	<string name="palette_search_modules">Search modules</string>
+	<string name="palette_category">Module category: %1$s</string>
+	<string name="palette_results_count">%1$d modules found</string>
+	<string name="palette_module_description">%1$s by %2$s. Tap to add; hold and drag to place.</string>
+	<string name="palette_module_info">Information about %1$s</string>
 
 	<!-- Toasts / dialogs -->
 	<string name="toast_recording">Recording…</string>
@@ -30,6 +45,16 @@
 	<string name="toast_ble_scan_failed">BLE scan failed (%1$d)</string>
 	<string name="dialog_edit_text">Edit text</string>
 	<string name="share_patch_chooser">Share patch</string>
+	<string name="service_channel_name">RackDroid audio</string>
+	<string name="service_channel_description">Keeps the synthesizer running in the background</string>
+	<string name="service_running">Synth engine running</string>
+	<string name="service_stop">Stop audio</string>
+	<string name="recovery_title">Safe startup</string>
+	<string name="recovery_message">RackDroid detected two interrupted starts and opened without the last session or user module packs. Your patch and packs have not been deleted. Changes in this safe session are not autosaved; save them explicitly if needed. Remove a suspect pack, keep this session open, or archive the last autosave and start fresh. Closing and reopening the app tries a normal start.</string>
+	<string name="recovery_keep_open">Keep open</string>
+	<string name="recovery_manage_modules">Module packs</string>
+	<string name="recovery_start_fresh">Start fresh</string>
+	<string name="recovery_archive_failed">Could not archive the last session; nothing was deleted</string>
 
 	<!-- Help menu extras -->
 	<string name="menu_guide">Guide</string>
@@ -453,6 +478,9 @@
 	<string name="theme_restart_later">Later</string>
 	<string name="modules_manager_title">Modules</string>
 	<string name="install_from_file">＋ Install from file…</string>
+	<string name="module_pack_security_title">Native code warning</string>
+	<string name="module_pack_security_message">Module packs contain executable native code and run with RackDroid’s permissions. Install only packs obtained from a source you trust.</string>
+	<string name="continue_action">Continue</string>
 	<string name="no_modules_installed">No extra packs installed yet. Tap “Install from file” to add a .rdmod.</string>
 	<string name="modules_installed_header">INSTALLED (%1$d)</string>
 	<string name="uninstall">Uninstall</string>
@@ -460,6 +488,10 @@
 	<string name="uninstall_message">Its modules leave the palette right away. Any you already placed keep working until you restart.</string>
 	<string name="uninstalled_restart">Uninstalled — modules removed from the palette</string>
 	<!-- Module palette: search field and brand filter (the magnifier chip). -->
+	<string name="select_modules_title">Select modules</string>
+	<string name="copy_modules_title">Copy modules</string>
+	<string name="copy_modules_done">Copied</string>
+	<string name="paste_modules_title">Paste modules</string>
 	<string name="cable_park_title">Cable parking</string>
 	<string name="cable_park_hint">Drag a cable end into a hole, scroll to the target, then drag it out onto a port.</string>
 	<string name="palette_search_hint">Search modules</string>

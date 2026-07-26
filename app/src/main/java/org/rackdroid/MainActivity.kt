@@ -49,6 +49,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import java.io.File
+import java.lang.ref.WeakReference
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
@@ -82,11 +83,16 @@ class MainActivity : NativeActivity() {
 	private var midiManager: MidiManager? = null
 	private val midiDevices = HashMap<Int, MidiDevice>()
 	private val nextMidiId = AtomicInteger(1)
+	private var startupRecoveryActive = false
+	private var recoveryDialogShown = false
 
 	override fun onCreate(savedInstanceState: Bundle?) {
+		prepareStartupRecovery()
 		super.onCreate(savedInstanceState)
+		activeActivity = WeakReference(this)
 
 		AppTheme.init(this) // before any themed view gets built below
+		ThumbnailCache.configure(this)
 		hideSystemBars()
 		jlog("RackDroid ${packageManager.getPackageInfo(packageName, 0).versionName} starting")
 
@@ -119,10 +125,75 @@ class MainActivity : NativeActivity() {
 		// First launch: a spotlight tour of the whole interface (toolbar,
 		// palette, cable-park bar, gestures). Shown once; finishing/skipping it
 		// sets "tour_done". The patch-building Wizard stays in Help ▸ Tutorials.
-		if (!getSharedPreferences("guide", Context.MODE_PRIVATE).getBoolean("tour_done", false))
+		if (!startupRecoveryActive &&
+			!getSharedPreferences("guide", Context.MODE_PRIVATE).getBoolean("tour_done", false))
 			uiHandler.postDelayed({
 				runCatching { Tour(this).show() }
 			}, 2500)
+	}
+
+	/** Mark every launch as incomplete before NativeActivity starts. If two
+	 * consecutive launches fail before patchReadyFromNative(), the third skips
+	 * both the autosave and side-loaded native plugins. No user file is changed. */
+	private fun prepareStartupRecovery() {
+		val prefs = getSharedPreferences("startup_recovery", Context.MODE_PRIVATE)
+		val now = System.currentTimeMillis()
+		val previousIncomplete = prefs.getBoolean("in_progress", false)
+		val recent = now - prefs.getLong("started_at", 0L) <= 5 * 60 * 1000L
+		val failures = if (previousIncomplete && recent)
+			(prefs.getInt("failures", 0) + 1).coerceAtMost(3)
+		else 0
+		startupRecoveryActive = failures >= 2
+		prefs.edit()
+			.putBoolean("in_progress", true)
+			.putLong("started_at", now)
+			.putInt("failures", failures)
+			.commit()
+		nativeSetStartupOptions(startupRecoveryActive, startupRecoveryActive)
+	}
+
+	private fun markStartupReady() {
+		getSharedPreferences("startup_recovery", Context.MODE_PRIVATE).edit()
+			.putBoolean("in_progress", false)
+			.putInt("failures", 0)
+			.apply()
+	}
+
+	private fun showStartupRecoveryDialog() {
+		if (!startupRecoveryActive || recoveryDialogShown || isFinishing) return
+		recoveryDialogShown = true
+		AlertDialog.Builder(this)
+			.setTitle(R.string.recovery_title)
+			.setMessage(R.string.recovery_message)
+			.setNegativeButton(R.string.recovery_keep_open, null)
+			.setNeutralButton(R.string.recovery_manage_modules) { _, _ -> showModuleManager() }
+			.setPositiveButton(R.string.recovery_start_fresh) { _, _ -> archiveAutosaveAndRestart() }
+			.show()
+	}
+
+	/** Move, never delete, the suspect autosave. A normal restart then creates
+	 * a fresh session while the complete previous autosave remains recoverable. */
+	private fun archiveAutosaveAndRestart() {
+		val source = File(filesDir, "user/autosave")
+		var archived = !source.exists()
+		if (source.exists()) {
+			val recovery = File(filesDir, "user/recovery").apply { mkdirs() }
+			val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+				.format(java.util.Date())
+			val dest = File(recovery, "autosave-$stamp")
+			archived = source.renameTo(dest)
+		}
+		if (!archived) {
+			Toast.makeText(this, R.string.recovery_archive_failed, Toast.LENGTH_LONG).show()
+			return
+		}
+		getSharedPreferences("startup_recovery", Context.MODE_PRIVATE).edit().clear().commit()
+		packageManager.getLaunchIntentForPackage(packageName)?.let {
+			it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+			startActivity(it)
+		}
+		finishAffinity()
+		Runtime.getRuntime().exit(0)
 	}
 
 	/** Screen bounds of the toolbar card, so the interface tour can spotlight
@@ -154,11 +225,16 @@ class MainActivity : NativeActivity() {
 	// when a tutorial opens so the card folds to just its glass arrow,
 	// clearing the top for the tutorial step card.
 	private var collapseToolbar: ((Boolean) -> Unit)? = null
+	private var toolbarUserCollapsed = false
 	fun setToolbarCollapsedForTutorial(collapsed: Boolean) {
-		uiHandler.post { runCatching { collapseToolbar?.invoke(collapsed) } }
+		uiHandler.post {
+			runCatching { collapseToolbar?.invoke(if (collapsed) true else toolbarUserCollapsed) }
+		}
 	}
 
 	private fun addMidiButton() {
+		val toolbarPrefs = getSharedPreferences("toolbar", Context.MODE_PRIVATE)
+		toolbarUserCollapsed = toolbarPrefs.getBoolean("collapsed", false)
 		val menuRow = LinearLayout(this).apply {
 			orientation = LinearLayout.HORIZONTAL
 			// Translucent: the rack scrolls under a smoked-glass strip (the
@@ -191,9 +267,14 @@ class MainActivity : NativeActivity() {
 				setOnClickListener { nativeToolbarTap(i) }
 			})
 		}
-		val iconRow = LinearLayout(this).apply {
-			orientation = LinearLayout.HORIZONTAL
-			gravity = Gravity.CENTER_VERTICAL
+		// Fifteen tools do not have a usable touch target when squeezed into one
+		// phone-width row. Keep eight fixed columns and flow them over two rows;
+		// an invisible final cell keeps the second row aligned with the first.
+		val toolGrid = android.widget.GridLayout(this).apply {
+			columnCount = 8
+			rowCount = 2
+			alignmentMode = android.widget.GridLayout.ALIGN_BOUNDS
+			useDefaultMargins = false
 			layoutParams = LinearLayout.LayoutParams(
 				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 		}
@@ -211,10 +292,17 @@ class MainActivity : NativeActivity() {
 				contentDescription = desc
 				minimumWidth = 0; minimumHeight = 0
 				setPadding(dp(7), dp(9), dp(7), dp(9))
-				layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f)
-					.apply { setMargins(dp(1), 0, dp(1), 0) }
 				setOnClickListener { onClick(this) }
 			}
+		fun addTool(view: View, index: Int) {
+			toolGrid.addView(view, android.widget.GridLayout.LayoutParams(
+				android.widget.GridLayout.spec(index / 8),
+				android.widget.GridLayout.spec(index % 8, 1f)).apply {
+				width = 0
+				height = dp(42)
+				setMargins(dp(1), 0, dp(1), 0)
+			})
+		}
 		val paletteButton = iconButton(R.drawable.ic_tb_modules, getString(R.string.menu_view)) { modulePalette.toggle() }
 		val installButton = iconButton(R.drawable.ic_tb_install, getString(R.string.modules_manager_title)) { showModuleManager() }
 		// Cable parking bar: you cannot pan the rack while dragging a cable, so
@@ -229,12 +317,12 @@ class MainActivity : NativeActivity() {
 		}
 		styleCableParkButton()
 		val themeButton = iconButton(R.drawable.ic_tb_theme, getString(R.string.theme_picker_title)) { showThemePicker() }
-		val undoButton = iconButton(R.drawable.ic_tb_undo, "Undo") { nativeHistoryAction(0) }
-		val redoButton = iconButton(R.drawable.ic_tb_redo, "Redo") { nativeHistoryAction(1) }
-		val midiButton = iconButton(R.drawable.ic_tb_midi, "MIDI") { showBleMidiScanner() }
-		val keyboardButton = iconButton(R.drawable.ic_tb_keyboard, "Keyboard") { toggleVirtualKeyboard() }
-		val creditsButton = iconButton(R.drawable.ic_tb_info, "Info") { showCredits() }
-		val recordButton = iconButton(R.drawable.ic_tb_record, "Record") { toggleRecording(it) }
+		val undoButton = iconButton(R.drawable.ic_tb_undo, getString(R.string.toolbar_undo)) { nativeHistoryAction(0) }
+		val redoButton = iconButton(R.drawable.ic_tb_redo, getString(R.string.toolbar_redo)) { nativeHistoryAction(1) }
+		val midiButton = iconButton(R.drawable.ic_tb_midi, getString(R.string.toolbar_midi)) { showBleMidiScanner() }
+		val keyboardButton = iconButton(R.drawable.ic_tb_keyboard, getString(R.string.toolbar_keyboard)) { toggleVirtualKeyboard() }
+		val creditsButton = iconButton(R.drawable.ic_tb_info, getString(R.string.toolbar_info)) { showCredits() }
+		val recordButton = iconButton(R.drawable.ic_tb_record, getString(R.string.toolbar_record)) { toggleRecording(it) }
 		recordButton.imageTintList = android.content.res.ColorStateList.valueOf(AppTheme.current.danger)
 		// Patch padlocks. Outline lock freezes the layout (module positions +
 		// cables, knobs stay live); the solid lock freezes everything including
@@ -253,21 +341,36 @@ class MainActivity : NativeActivity() {
 			fullLockButton.imageTintList = if (fullLock) amberTint else iconTint
 			fullLockButton.alpha = if (fullLock) 1f else 0.6f
 		}
-		lockButton = iconButton(R.drawable.ic_tb_lock_outline, "Lock layout") { layoutLock = !layoutLock; applyLocks() }
-		fullLockButton = iconButton(R.drawable.ic_tb_lock, "Lock all") { fullLock = !fullLock; applyLocks() }
+		lockButton = iconButton(R.drawable.ic_tb_lock_outline, getString(R.string.toolbar_lock_layout)) { layoutLock = !layoutLock; applyLocks() }
+		fullLockButton = iconButton(R.drawable.ic_tb_lock, getString(R.string.toolbar_lock_all)) { fullLock = !fullLock; applyLocks() }
 		applyLocks() // restore persisted state (also styles both buttons)
-		iconRow.addView(paletteButton)
-		iconRow.addView(installButton)
-		iconRow.addView(cableParkButton!!)
-		iconRow.addView(themeButton)
-		iconRow.addView(undoButton)
-		iconRow.addView(redoButton)
-		iconRow.addView(lockButton)
-		iconRow.addView(fullLockButton)
-		iconRow.addView(midiButton)
-		iconRow.addView(keyboardButton)
-		iconRow.addView(recordButton)
-		iconRow.addView(creditsButton)
+		// Multi-select: while on, a one-finger drag on empty rack draws the
+		// selection marquee; while off (default), that drag pans the view.
+		// Session-only, dimmed when off.
+		var multiSelect = false
+		lateinit var selectButton: ImageButton
+		selectButton = iconButton(R.drawable.ic_tb_select, getString(R.string.select_modules_title)) {
+			multiSelect = !multiSelect
+			nativeSetMultiSelect(multiSelect)
+			selectButton.imageTintList = if (multiSelect) amberTint else iconTint
+			selectButton.alpha = if (multiSelect) 1f else 0.6f
+		}
+		selectButton.alpha = 0.6f
+		// Copy / paste the selected modules (Rack's own selection clipboard).
+		val copyButton = iconButton(R.drawable.ic_tb_copy, getString(R.string.copy_modules_title)) {
+			nativeCopySelection()
+			Toast.makeText(this, getString(R.string.copy_modules_done), Toast.LENGTH_SHORT).show()
+		}
+		val pasteButton = iconButton(R.drawable.ic_tb_paste, getString(R.string.paste_modules_title)) { nativePasteSelection() }
+		// Row 1: things used to build/play/view the rack. Row 2: edit and
+		// protection commands. The grouping is stable even when more space is
+		// available, so muscle memory does not depend on device width.
+		listOf(paletteButton, installButton, cableParkButton!!, themeButton,
+			midiButton, keyboardButton, recordButton, creditsButton,
+			undoButton, redoButton, selectButton, copyButton, pasteButton,
+			lockButton, fullLockButton).forEachIndexed { index, view -> addTool(view, index) }
+		// Preserve the eight-column measure on the seven-item second row.
+		addTool(View(this).apply { visibility = View.INVISIBLE }, 15)
 		menuRow.setBackgroundColor(Color.TRANSPARENT)
 		val menuDivider = View(this).apply {
 			setBackgroundColor(AppTheme.withAlpha(Color.WHITE, 10))
@@ -301,12 +404,14 @@ class MainActivity : NativeActivity() {
 			val vis = if (collapsed) View.GONE else View.VISIBLE
 			menuRow.visibility = vis
 			menuDivider.visibility = vis
-			iconRow.visibility = vis
+			toolGrid.visibility = vis
 			// Collapsed: only this arrow, as a standalone glass button (the
 			// card's own glass background disappears). Expanded: the full
 			// glass card, arrow flat inside it.
 			card.background = if (collapsed) null else cardBg
 			collapseButton.background = if (collapsed) glassPill() else amberRippleRounded()
+			collapseButton.contentDescription = getString(
+				if (collapsed) R.string.toolbar_expand else R.string.toolbar_collapse)
 			collapseButton.animate().rotation(if (collapsed) 180f else 0f).setDuration(240L).start()
 		}
 		collapseToolbar = { c -> applyCollapsed(c) }
@@ -314,10 +419,14 @@ class MainActivity : NativeActivity() {
 			setImageResource(R.drawable.ic_tb_chevron)
 			imageTintList = android.content.res.ColorStateList.valueOf(AppTheme.current.textPrimary)
 			scaleType = ImageView.ScaleType.FIT_CENTER
-			contentDescription = getString(R.string.menu_view)
+			contentDescription = getString(R.string.toolbar_collapse)
 			minimumWidth = 0; minimumHeight = 0
 			setPadding(dp(10), dp(4), dp(10), dp(4))
-			setOnClickListener { applyCollapsed(!collapsed) }
+			setOnClickListener {
+				toolbarUserCollapsed = !collapsed
+				toolbarPrefs.edit().putBoolean("collapsed", toolbarUserCollapsed).apply()
+				applyCollapsed(toolbarUserCollapsed)
+			}
 		}
 		val handleRow = LinearLayout(this).apply {
 			orientation = LinearLayout.HORIZONTAL
@@ -332,10 +441,11 @@ class MainActivity : NativeActivity() {
 			layoutTransition = android.animation.LayoutTransition()
 			addView(menuRow, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 			addView(menuDivider)
-			addView(iconRow)
+			addView(toolGrid)
 			addView(handleRow)
 		}
 		collapseButton.background = amberRippleRounded()
+		applyCollapsed(toolbarUserCollapsed)
 		val holder = android.widget.FrameLayout(this).apply {
 			setPadding(dp(8), dp(4), dp(8), 0)
 			addView(card)
@@ -645,14 +755,11 @@ class MainActivity : NativeActivity() {
 			else -> null
 		} ?: return
 		try {
-			var name = queryDisplayName(uri) ?: "imported.vcv"
-			if (!name.endsWith(".vcv")) name += ".vcv"
+			val name = safeIncomingName(queryDisplayName(uri), "imported.vcv", listOf(".vcv"))
 			val dir = File(filesDir, "user/patches")
 			dir.mkdirs()
-			val dest = File(dir, name)
-			contentResolver.openInputStream(uri)?.use { input ->
-				dest.outputStream().use { input.copyTo(it) }
-			}
+			val dest = uniqueDestination(dir, name)
+			copyUriAtomically(uri, dest, MAX_PATCH_IMPORT_BYTES)
 			uiHandler.post {
 				Toast.makeText(this, getString(R.string.toast_patch_imported, dest.name), Toast.LENGTH_LONG).show()
 			}
@@ -670,6 +777,56 @@ class MainActivity : NativeActivity() {
 				return cursor.getString(idx)
 		}
 		return uri.lastPathSegment
+	}
+
+	private fun safeIncomingName(raw: String?, fallback: String, allowedExtensions: List<String>): String {
+		val base = (raw ?: fallback).replace('\\', '/').substringAfterLast('/')
+		var name = base.filter { it.code in 32..126 }
+			.replace(Regex("[^A-Za-z0-9._ ()+-]"), "_")
+			.trim().take(128)
+		if (name.isEmpty() || name == "." || name == "..") name = fallback
+		if (allowedExtensions.none { name.endsWith(it, ignoreCase = true) })
+			name += allowedExtensions.first()
+		return name
+	}
+
+	private fun uniqueDestination(dir: File, requestedName: String): File {
+		val root = dir.canonicalFile
+		val dot = requestedName.lastIndexOf('.')
+		val stem = if (dot > 0) requestedName.substring(0, dot) else requestedName
+		val extension = if (dot > 0) requestedName.substring(dot) else ""
+		for (index in 0..9999) {
+			val name = if (index == 0) requestedName else "$stem ($index)$extension"
+			val candidate = File(root, name).canonicalFile
+			if (candidate.parentFile != root)
+				throw SecurityException("import path escapes destination")
+			if (!candidate.exists()) return candidate
+		}
+		throw IllegalStateException("too many files with the same name")
+	}
+
+	private fun copyUriAtomically(uri: Uri, destination: File, maxBytes: Long) {
+		val tmp = File(destination.parentFile, ".${destination.name}.${UUID.randomUUID()}.tmp")
+		try {
+			val input = contentResolver.openInputStream(uri)
+				?: throw IllegalArgumentException("cannot open selected file")
+			input.use { source ->
+				tmp.outputStream().use { output ->
+					val buffer = ByteArray(64 * 1024)
+					var total = 0L
+					while (true) {
+						val count = source.read(buffer)
+						if (count < 0) break
+						total += count
+						if (total > maxBytes) throw IllegalArgumentException("selected file is too large")
+						output.write(buffer, 0, count)
+					}
+				}
+			}
+			if (!tmp.renameTo(destination)) throw IllegalStateException("cannot finalize imported file")
+		} finally {
+			if (tmp.exists()) tmp.delete()
+		}
 	}
 
 	private val REQ_PICK_RDMOD = 4711
@@ -698,7 +855,7 @@ class MainActivity : NativeActivity() {
 			background = GradientDrawable().apply {
 				cornerRadius = dp(14).toFloat(); setColor(AppTheme.current.accent)
 			}
-			setOnClickListener { moduleManagerDialog?.dismiss(); pickModulePacks() }
+			setOnClickListener { moduleManagerDialog?.dismiss(); confirmPickModulePacks() }
 		})
 
 		val packs = ModuleInstaller.installedPacks(this)
@@ -881,6 +1038,7 @@ class MainActivity : NativeActivity() {
 			.setPositiveButton(R.string.uninstall) { _, _ ->
 				val ok = ModuleInstaller.uninstall(this, slug)
 				if (ok) {
+					ThumbnailCache.removePlugin(slug)
 					// Drop it from the live registry so its modules leave the
 					// palette immediately, then refresh the palette snapshot.
 					runCatching { nativeBrowserUnloadPlugin(slug) }
@@ -913,6 +1071,15 @@ class MainActivity : NativeActivity() {
 		}
 	}
 
+	private fun confirmPickModulePacks() {
+		AlertDialog.Builder(this)
+			.setTitle(R.string.module_pack_security_title)
+			.setMessage(R.string.module_pack_security_message)
+			.setNegativeButton(android.R.string.cancel, null)
+			.setPositiveButton(R.string.continue_action) { _, _ -> pickModulePacks() }
+			.show()
+	}
+
 	@Deprecated("Deprecated in Java")
 	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
 		super.onActivityResult(requestCode, resultCode, data)
@@ -927,12 +1094,9 @@ class MainActivity : NativeActivity() {
 		Thread {
 			val copied = uris.count { uri ->
 				runCatching {
-					var name = queryDisplayName(uri) ?: "pack.rdmod"
-					if (!name.endsWith(".rdmod") && !name.endsWith(".zip")) name += ".rdmod"
-					val dest = File(ModuleInstaller.modulesDir(this), name)
-					contentResolver.openInputStream(uri)?.use { input ->
-						dest.outputStream().use { input.copyTo(it) }
-					}
+					val name = safeIncomingName(queryDisplayName(uri), "pack.rdmod", listOf(".rdmod", ".zip"))
+					val dest = uniqueDestination(ModuleInstaller.modulesDir(this), name)
+					copyUriAtomically(uri, dest, MAX_MODULE_PACK_BYTES)
 					true
 				}.getOrDefault(false)
 			}
@@ -970,7 +1134,8 @@ class MainActivity : NativeActivity() {
 	private val modulePalette by lazy {
 		ModulePalette(this,
 			getModelsJson = { nativeBrowserModelsJson() },
-			requestBuild = { runCatching { nativeBrowserRequestBuild() } },
+			getModelsGeneration = { nativeBrowserModelsGeneration() },
+			requestBuild = { nativeBrowserRequestBuild() },
 			chooseAt = { key, x, y -> runCatching { nativeBrowserChooseAt(key, x, y) } })
 	}
 
@@ -1028,6 +1193,8 @@ class MainActivity : NativeActivity() {
 	}
 
 	override fun onDestroy() {
+		if (isFinishing)
+			markStartupReady()
 		if (recordingFile != null) {
 			// Finalize the WAV header so an in-flight recording stays playable.
 			try { nativeRecordStop() } catch (_: Throwable) {}
@@ -1036,7 +1203,19 @@ class MainActivity : NativeActivity() {
 		buttonPopup?.dismiss()
 		buttonPopup = null
 		RackService.stop(this)
+		if (activeActivity?.get() === this)
+			activeActivity = null
 		super.onDestroy()
+	}
+
+	override fun onTrimMemory(level: Int) {
+		super.onTrimMemory(level)
+		ThumbnailCache.trim(level)
+	}
+
+	override fun onLowMemory() {
+		super.onLowMemory()
+		ThumbnailCache.clear()
 	}
 
 	/** Immersive fullscreen: without this the Android status bar overlaps
@@ -1561,8 +1740,9 @@ class MainActivity : NativeActivity() {
 	private external fun nativeBackPressed()
 	private external fun nativeToolbarTap(index: Int)
 	private external fun nativeBrowserModelsJson(): String
+	private external fun nativeBrowserModelsGeneration(): Long
 	private external fun nativeBrowserChooseAt(key: String, x: Float, y: Float)
-	private external fun nativeBrowserRequestBuild()
+	private external fun nativeBrowserRequestBuild(): Long
 	private external fun nativeBrowserUnloadPlugin(slug: String)
 	private external fun nativeLoadUserPlugin(dir: String, soname: String): Boolean
 	private external fun nativeIsPluginLoaded(slug: String): Boolean
@@ -1595,6 +1775,7 @@ class MainActivity : NativeActivity() {
 
 	private external fun nativeUserPluginsLoaded()
 	private external fun nativeSetCableParkVisible(visible: Boolean)
+	private external fun nativeSetStartupOptions(safeMode: Boolean, skipUserPlugins: Boolean)
 
 	/** Called from native once the patch has been restored and the engine is
 	 * running. Building the model list needs every plugin registered, and the
@@ -1603,8 +1784,10 @@ class MainActivity : NativeActivity() {
 	 * it. Slow device or slow patch and the palette came up empty. */
 	fun patchReadyFromNative() {
 		uiHandler.post {
+			markStartupReady()
 			runCatching { nativeBrowserRequestBuild() }
 			runCatching { modulePalette.show() }
+			showStartupRecoveryDialog()
 		}
 	}
 
@@ -1632,6 +1815,9 @@ class MainActivity : NativeActivity() {
 	private external fun nativeRecordStop()
 	private external fun nativeHistoryAction(action: Int)
 	private external fun nativeSetLockMode(mode: Int)
+	private external fun nativeSetMultiSelect(on: Boolean)
+	private external fun nativeCopySelection()
+	private external fun nativePasteSelection()
 	private external fun nativeGetCableTension(): Float
 	private external fun nativeSetCableTension(v: Float)
 	private external fun nativeGetCableOpacity(): Float
@@ -1792,6 +1978,17 @@ class MainActivity : NativeActivity() {
 	private external fun nativeMidiDeviceRemoved(id: Int)
 
 	companion object {
+		private const val MAX_PATCH_IMPORT_BYTES = 256L * 1024 * 1024
+		private const val MAX_MODULE_PACK_BYTES = 256L * 1024 * 1024
+		@Volatile private var activeActivity: WeakReference<MainActivity>? = null
+
+		/** Notification action entry point. Finishing the task, rather than only
+		 * stopping the service, guarantees the native audio stream is closed too. */
+		fun requestStopFromNotification() {
+			val activity = activeActivity?.get() ?: return
+			activity.runOnUiThread { activity.finishAndRemoveTask() }
+		}
+
 		init {
 			// Load rack_engine explicitly so the JVM registers it for JNI
 			// method resolution: the native menu callbacks (nativeMenuSelect/

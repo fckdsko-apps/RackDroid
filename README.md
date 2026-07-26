@@ -68,26 +68,29 @@ Package format, the native loading mechanism, and instructions for
 
 ## Requirements
 
-**Android 10 (API 29)** or later, `arm64-v8a` architecture. Requires
-OpenGL ES 3.0 (basically any phone/tablet from 2018 onward).
+**Android 10 (API 29)** or later on a 64-bit `arm64-v8a` or `x86_64`
+device. Requires OpenGL ES 3.0. `arm64-v8a` is the normal phone/tablet build;
+`x86_64` is intended mainly for emulators and compatible ChromeOS devices.
 
 ## Build
 
-Gradle project at the repo root (arm64-v8a, `minSdk 29`). All `third_party/`
+Gradle project at the repo root (`minSdk 29`). All `third_party/`
 sources (Rack v2.6.4, Oboe, all plugins) are **vendored in the repo**: a clean
 clone compiles as-is, no submodule init needed.
 
 ```sh
 export JAVA_HOME=~/jdk21; export ANDROID_HOME=~/android-sdk
-gradle assembleRelease -PdevKeystore    # gradle 8.7+, or open in Android Studio
+./gradlew assembleRelease -PdevKeystore                         # arm64-v8a (default)
+./gradlew assembleRelease -PdevKeystore -PtargetAbis=x86_64     # x86_64
+./gradlew bundleRelease -PtargetAbis=arm64-v8a,x86_64           # Play AAB, both 64-bit ABIs
 ```
 
 - `-PdevKeystore` signs with the public development key (update continuity for
   sideloading; use a private key for Play).
-- The base APK is ~40 MB: it contains only the built-in modules; CMake still
-  compiles all plugins, but non-base `.so` files are excluded from the APK and
-  distributed as `.rdmod` (`packaging.jniLibs.excludes`, see
-  `scripts/make_rdmods.sh`).
+- The base APK is ~40 MB and contains only the built-in modules. Optional
+  libraries are built with `-PallPlugins`, excluded from the APK, and
+  distributed as ABI-specific `.rdmod` files (`packaging.jniLibs.excludes`,
+  see `scripts/make_rdmods.sh`).
 
 ## Structure
 

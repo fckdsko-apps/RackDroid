@@ -206,6 +206,38 @@ static int labelFont(const widget::Widget::DrawArgs& args) {
 }
 
 
+/** Ring every port of `want` type that could take a cable end aimed at
+ * (cx, cy), the nearest one emphasised. Shared by the parked-end drag and a
+ * normal in-rack cable drag, so both give the same "here is where this fits"
+ * feedback. Off-screen ports are culled -- a big patch has hundreds and this
+ * runs every frame next to a live audio engine. */
+static void highlightCompatiblePorts(NVGcontext* vg, math::Vec boxSize,
+		int want, float cx, float cy, NVGcolor tint) {
+	if (!APP->scene || !APP->scene->rack)
+		return;
+	app::PortWidget* pick = cableParkNearestPort(cx, cy, want);
+	for (app::ModuleWidget* mw : APP->scene->rack->getModules()) {
+		if (!mw)
+			continue;
+		for (app::PortWidget* pw : mw->getPorts()) {
+			if (!pw || pw->type != want)
+				continue;
+			math::Vec c = pw->getAbsoluteOffset(pw->box.size.div(2.f));
+			if (c.x < -20.f || c.y < -20.f ||
+				c.x > boxSize.x + 20.f || c.y > boxSize.y + 20.f)
+				continue;
+			bool chosen = (pw == pick);
+			float r = cableParkPortRadius(pw);
+			nvgBeginPath(vg);
+			nvgCircle(vg, c.x, c.y, chosen ? r * 1.7f : r * 1.15f);
+			nvgStrokeColor(vg, nvgTransRGBA(tint, chosen ? 0xFF : 0x55));
+			nvgStrokeWidth(vg, chosen ? r * 0.3f : r * 0.14f);
+			nvgStroke(vg);
+		}
+	}
+}
+
+
 struct CableParkBar : widget::Widget {
 	void step() override {
 		// Follows rotation/resize here, where the context is guaranteed.
@@ -237,6 +269,23 @@ struct CableParkBar : widget::Widget {
 	}
 
 	void draw(const DrawArgs& args) override {
+		// A normal in-rack cable drag gets the same compatible-port highlight as
+		// a parked end -- and it must show even when the bar is hidden or
+		// collapsed, so it runs before those early returns. Rack keeps the
+		// half-made cable as an incomplete cable; g_dragSlot < 0 excludes our own
+		// parked-end pull-out (which has no incomplete cable and highlights below).
+		if (g_dragSlot < 0 && APP->scene && APP->scene->rack) {
+			std::vector<app::CableWidget*> inc = APP->scene->rack->getIncompleteCables();
+			if (!inc.empty()) {
+				app::CableWidget* cw = inc.back();
+				int want = cw->inputPort ? engine::Port::OUTPUT
+					: (cw->outputPort ? engine::Port::INPUT : -1);
+				if (want >= 0)
+					highlightCompatiblePorts(args.vg, box.size, want,
+						g_inflightX, g_inflightY, cw->color);
+			}
+		}
+
 		if (!g_visible)
 			return;
 
@@ -356,35 +405,8 @@ struct CableParkBar : widget::Widget {
 		if (g_dragSlot >= 0 && g_slots[g_dragSlot].filled() && APP->scene->rack) {
 			int want = g_slots[g_dragSlot].type == engine::Port::INPUT
 				? engine::Port::OUTPUT : engine::Port::INPUT;
-			// The one that would actually be chosen right now, so the strong
-			// ring is a promise rather than a hint.
-			app::PortWidget* pick =
-				cableParkNearestPort(g_dragX, g_dragY, want);
-			NVGcolor tint = g_slots[g_dragSlot].color;
-			for (app::ModuleWidget* mw : APP->scene->rack->getModules()) {
-				if (!mw)
-					continue;
-				for (app::PortWidget* pw : mw->getPorts()) {
-					if (!pw || pw->type != want)
-						continue;
-					math::Vec c = pw->getAbsoluteOffset(pw->box.size.div(2.f));
-					// Cull off-screen jacks: a big patch has hundreds and this
-					// runs every frame alongside a real-time audio engine.
-					if (c.x < -20.f || c.y < -20.f ||
-						c.x > box.size.x + 20.f || c.y > box.size.y + 20.f)
-						continue;
-					bool chosen = (pw == pick);
-					// Ring the jack at its actual on-screen size. With a fixed
-					// radius the rings overlap into a mesh as soon as the rack
-					// is zoomed out, and the panel underneath disappears.
-					float r = cableParkPortRadius(pw);
-					nvgBeginPath(args.vg);
-					nvgCircle(args.vg, c.x, c.y, chosen ? r * 1.7f : r * 1.15f);
-					nvgStrokeColor(args.vg, nvgTransRGBA(tint, chosen ? 0xFF : 0x55));
-					nvgStrokeWidth(args.vg, chosen ? r * 0.3f : r * 0.14f);
-					nvgStroke(args.vg);
-				}
-			}
+			highlightCompatiblePorts(args.vg, box.size, want,
+				g_dragX, g_dragY, g_slots[g_dragSlot].color);
 		}
 
 		// The end being pulled out, drawn as ONE cable from its fixed source
@@ -466,7 +488,7 @@ int cableParkSlotAt(float x, float y) {
 		float dy = y - holeY(i);
 		float dx = x - holeX();
 		// Generous radius: fingers are not mouse pointers.
-		if (dx * dx + dy * dy <= (HOLE_R + 9.f) * (HOLE_R + 9.f))
+		if (dx * dx + dy * dy <= (HOLE_R + 12.f) * (HOLE_R + 12.f))
 			return i;
 	}
 	return -1;

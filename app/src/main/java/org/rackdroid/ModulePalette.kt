@@ -32,7 +32,8 @@ import org.json.JSONArray
 class ModulePalette(
 	private val activity: Activity,
 	private val getModelsJson: () -> String,
-	private val requestBuild: () -> Unit,
+	private val getModelsGeneration: () -> Long,
+	private val requestBuild: () -> Long,
 	private val chooseAt: (String, Float, Float) -> Unit,
 ) {
 	companion object {
@@ -118,6 +119,9 @@ class ModulePalette(
 	private var activePred: ((Entry) -> Boolean)? = null
 	private var query: String = ""
 	private var brandFilter: String? = null
+	private var pendingSearchAnnouncement: Runnable? = null
+	/** Invalidates an older rebuild waiter when another pack operation arrives. */
+	private var rebuildToken = 0
 
 	private fun filtersActive() = query.isNotBlank() || brandFilter != null
 
@@ -143,20 +147,33 @@ class ModulePalette(
 		}
 	}
 
-	/** Re-read the model list after new packs are installed at runtime. Forces
-	 * a native rebuild, then repopulates a short delay later (the build hops to
-	 * the render thread). The next chip tap shows the freshly added modules. */
+	/** Re-read the model list after new packs are installed at runtime. The
+	 * native generation advances only after the render thread has published a
+	 * complete JSON snapshot, so this never guesses how long a rebuild takes. */
 	fun reload() {
 		entries = emptyList()
-		requestBuild()
-		android.os.Handler(activity.mainLooper).postDelayed({
-			runCatching { loadEntries() }
-			// A newly installed pack brings its own brand with it.
-			runCatching { buildBrandChips() }
-			// A category is open: re-filter it so new modules appear now.
-			runCatching { refresh() }
-			runCatching { refreshSearch() }
-		}, 450)
+		val token = ++rebuildToken
+		val before = runCatching { requestBuild() }.getOrElse { return }
+		val deadline = android.os.SystemClock.uptimeMillis() + 10_000L
+
+		fun awaitPublishedSnapshot() {
+			if (token != rebuildToken || activity.isFinishing || activity.isDestroyed)
+				return
+			val ready = runCatching { getModelsGeneration() > before }.getOrDefault(false)
+			if (ready) {
+				if (runCatching { loadEntries() }.getOrDefault(false)) {
+					// A newly installed pack brings its own brand with it.
+					runCatching { buildBrandChips() }
+					// A category/search may be open: apply the new snapshot now.
+					runCatching { refresh() }
+					runCatching { refreshSearch() }
+				}
+				return
+			}
+			if (android.os.SystemClock.uptimeMillis() < deadline)
+				activity.window.decorView.postOnAnimation { awaitPublishedSnapshot() }
+		}
+		activity.window.decorView.postOnAnimation { awaitPublishedSnapshot() }
 	}
 
 	fun hide() {
@@ -173,6 +190,7 @@ class ModulePalette(
 		val chip = activeChip ?: return
 		chip.background = chipBg(false)
 		chip.setTextColor(AppTheme.current.textPrimary)
+		chip.isSelected = false
 		activeChip = null
 		activePred = null
 		if (::strip.isInitialized) strip.visibility = View.GONE
@@ -225,7 +243,7 @@ class ModulePalette(
 		if (popup != null)
 			return
 		if (entries.isEmpty())
-			loadEntries()
+			reload()
 
 		val font = AppFont.get(activity)
 		strip = RecyclerView(activity).apply {
@@ -249,6 +267,7 @@ class ModulePalette(
 		// row so it scrolls away with the categories instead of eating width.
 		searchButton = TextView(activity).apply {
 			text = "🔍"
+			contentDescription = activity.getString(R.string.palette_search_modules)
 			textSize = 12f
 			setTypeface(font, Typeface.BOLD)
 			setTextColor(AppTheme.current.textPrimary)
@@ -263,6 +282,7 @@ class ModulePalette(
 		for ((label, pred) in categories) {
 			chipRow.addView(TextView(activity).apply {
 				text = label
+				contentDescription = activity.getString(R.string.palette_category, label)
 				textSize = 12f
 				setTypeface(font, Typeface.BOLD)
 				setTextColor(AppTheme.current.textPrimary)
@@ -323,6 +343,7 @@ class ModulePalette(
 			// Tap the active chip again: collapse the strip.
 			chip.background = chipBg(false)
 			chip.setTextColor(AppTheme.current.textPrimary)
+			chip.isSelected = false
 			activeChip = null
 			activePred = null
 			strip.visibility = View.GONE
@@ -331,10 +352,12 @@ class ModulePalette(
 		}
 		activeChip?.background = chipBg(false)
 		activeChip?.setTextColor(AppTheme.current.textPrimary)
+		activeChip?.isSelected = false
 		activeChip = chip
 		activePred = pred
 		chip.background = chipBg(true)
 		chip.setTextColor(AppTheme.current.onAccent)
+		chip.isSelected = true
 		refresh()
 	}
 
@@ -342,8 +365,10 @@ class ModulePalette(
 	 * their own window now, so this no longer has to compose three filters. */
 	private fun refresh() {
 		val pred = activePred ?: return
-		if (entries.isEmpty())
-			loadEntries()
+		if (entries.isEmpty()) {
+			reload()
+			return
+		}
 		val items = entries.asSequence().filter(pred)
 			// Beginner-friendly ordering: the stock VCV modules first, then A-Z.
 			.sortedWith(compareBy({ it.brand != "VCV" }, { it.name }))
@@ -359,8 +384,10 @@ class ModulePalette(
 	private fun refreshSearch() {
 		if (!::searchGrid.isInitialized)
 			return
-		if (entries.isEmpty())
-			loadEntries()
+		if (entries.isEmpty()) {
+			reload()
+			return
+		}
 		val q = query.trim().lowercase()
 		val items = entries.asSequence()
 			.filter { brandFilter == null || it.brand == brandFilter }
@@ -376,6 +403,19 @@ class ModulePalette(
 		crossfade(searchGrid, items.isNotEmpty())
 		crossfade(emptyLabel, items.isEmpty())
 		if (items.isNotEmpty()) searchGrid.scheduleLayoutAnimation()
+		announceSearchResults(items.size)
+	}
+
+	private fun announceSearchResults(count: Int) {
+		if (!filtersActive()) return
+		pendingSearchAnnouncement?.let(searchGrid::removeCallbacks)
+		val announcement = Runnable {
+			if (searchPopup != null)
+				searchGrid.announceForAccessibility(
+					activity.getString(R.string.palette_results_count, count))
+		}
+		pendingSearchAnnouncement = announcement
+		searchGrid.postDelayed(announcement, 300L)
 	}
 
 	/** Fades a view in or out instead of flipping visibility, so swapping the
@@ -406,7 +446,7 @@ class ModulePalette(
 	 * field down there would be typed into blind. */
 	private fun openSearch() {
 		if (popup == null) show() // filters need the entries the bar loads
-		if (entries.isEmpty()) loadEntries()
+		if (entries.isEmpty()) reload()
 		val font = AppFont.get(activity)
 
 		searchInput = EditText(activity).apply {
@@ -578,7 +618,7 @@ class ModulePalette(
 	 * pack must show up here without any hard-coded list to update. */
 	private fun buildBrandChips() {
 		if (!::brandRow.isInitialized) return
-		if (entries.isEmpty()) loadEntries()
+		if (entries.isEmpty()) return
 		brandRow.removeAllViews()
 		val font = AppFont.get(activity)
 		val brands = entries.map { it.brand }.filter { it.isNotBlank() }.distinct()
@@ -588,6 +628,7 @@ class ModulePalette(
 			textSize = 11f
 			setTypeface(font, Typeface.BOLD)
 			val on = brandFilter == value
+			isSelected = on
 			background = chipBg(on)
 			setTextColor(if (on) AppTheme.current.onAccent else AppTheme.current.textPrimary)
 			setPadding(dp(12), dp(6), dp(12), dp(6))
@@ -605,14 +646,10 @@ class ModulePalette(
 		for (b in brands) brandRow.addView(brandChip(b, b))
 	}
 
-	private fun loadEntries() {
-		var json = getModelsJson()
-		if (json.length < 4) {
-			// Not built yet: ask the render thread and retry shortly.
-			requestBuild()
-			android.os.Handler(activity.mainLooper).postDelayed({ loadEntries() }, 500)
-			return
-		}
+	private fun loadEntries(): Boolean {
+		val json = getModelsJson()
+		if (json.length < 4)
+			return false
 		val arr = try { JSONArray(json) } catch (_: Exception) { JSONArray() }
 		val list = ArrayList<Entry>(arr.length())
 		for (i in 0 until arr.length()) {
@@ -624,6 +661,7 @@ class ModulePalette(
 				tags, o.optString("description"), o.optString("plugin")))
 		}
 		entries = list
+		return true
 	}
 
 	/** Info popup for a module (the ⓘ badge on each tile): what it is and what
@@ -800,6 +838,7 @@ class ModulePalette(
 			// the row stays perfectly aligned -- the badge, being an overlay,
 			// can never push the box taller (that skewed the strip before).
 			val image = ImageView(activity).apply {
+				importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
 				adjustViewBounds = true
 				scaleType = ImageView.ScaleType.FIT_CENTER
 				layoutParams = FrameLayout.LayoutParams(
@@ -836,6 +875,7 @@ class ModulePalette(
 			// centered thumbnail + corner badge then looked off-centre. Fill
 			// the thumbnail's width instead and ellipsize anything longer.
 			val name = TextView(activity).apply {
+				importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
 				textSize = 10f
 				typeface = AppFont.get(activity)
 				setTextColor(AppTheme.current.textPrimary)
@@ -863,6 +903,11 @@ class ModulePalette(
 			val e = items[position]
 			holder.image.setImageBitmap(ThumbnailCache.get(activity.filesDir, e.key, dp(110)))
 			holder.name.text = e.name
+			holder.root.contentDescription = activity.getString(
+				R.string.palette_module_description, e.name, e.brand)
+			holder.root.isFocusable = true
+			holder.info.contentDescription = activity.getString(R.string.palette_module_info, e.name)
+			holder.info.isFocusable = true
 			holder.info.setOnClickListener {
 				it.animate().scaleX(1.3f).scaleY(1.3f).setDuration(90L)
 					.withEndAction { it.animate().scaleX(1f).scaleY(1f).setDuration(120L).start() }.start()

@@ -1,5 +1,16 @@
 import java.util.Properties
 
+val supportedAndroidAbis = setOf("arm64-v8a", "x86_64")
+val targetAndroidAbis = providers.gradleProperty("targetAbis").orNull
+	?.split(',')
+	?.map(String::trim)
+	?.filter(String::isNotEmpty)
+	?.distinct()
+	?: listOf("arm64-v8a")
+require(targetAndroidAbis.isNotEmpty() && targetAndroidAbis.all { it in supportedAndroidAbis }) {
+	"targetAbis must be a comma-separated subset of ${supportedAndroidAbis.joinToString()}"
+}
+
 plugins {
 	id("com.android.application")
 	id("org.jetbrains.kotlin.android")
@@ -122,7 +133,10 @@ android {
 		versionName = "0.1.2"
 
 		ndk {
-			abiFilters += listOf("arm64-v8a")
+			// Default remains the physical-device release. Build emulator /
+			// Chromebook variants with -PtargetAbis=x86_64. AAB builds may
+			// request both supported 64-bit ABIs as a comma-separated list.
+			abiFilters += targetAndroidAbis
 		}
 		externalNativeBuild {
 			cmake {
@@ -134,8 +148,22 @@ android {
 					"-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
 				)
 				// rackdroid pulls in librack_engine.so; the plugin .so are
-				// dlopen'd at runtime and must be packaged explicitly.
-				targets += listOf("rackdroid", "plugin_fundamental", "plugin_drums")
+				// dlopen'd at runtime and must be packaged explicitly. Normal
+				// builds compile only the base set; release-pack CI uses
+				// -PallPlugins so scripts/make_rdmods.sh has every selected-ABI library.
+				val baseTargets = listOf("rackdroid", "plugin_fundamental", "plugin_drums")
+				val optionalTargets = listOf(
+					"plugin_bogaudio", "plugin_valley", "plugin_hetrickcv", "plugin_jw",
+					"plugin_ml", "plugin_rj", "plugin_computerscare", "plugin_littleutils",
+					"plugin_autinn", "plugin_venom", "plugin_sonus", "plugin_nlc",
+					"plugin_aria", "plugin_packone", "plugin_frozenwasteland",
+					"plugin_audible", "plugin_impromptu", "plugin_bidoo", "plugin_grande",
+					"plugin_countmodula", "plugin_befaco"
+				)
+				targets += if (project.hasProperty("allPlugins"))
+					baseTargets + optionalTargets
+				else
+					baseTargets
 			}
 		}
 	}
@@ -189,11 +217,11 @@ android {
 		}
 	}
 
-	// Lean base APK: CMake still compiles every plugin (so
-	// scripts/make_rdmods.sh can package them from stripped_native_libs), but
-	// only Fundamental + Drums ride along in the APK. Every other plugin .so is
-	// dropped at packaging time and shipped instead as an on-demand .rdmod
-	// (MODULES.md). Keep this list in sync with native/CMakeLists.txt plugins.
+	// Lean base APK: -PallPlugins compiles every optional plugin for
+	// scripts/make_rdmods.sh, but only Fundamental + Drums ride along in the
+	// APK. Every other plugin .so is dropped at packaging time and shipped
+	// instead as an on-demand .rdmod (MODULES.md). Keep this list in sync with
+	// optionalTargets and native/CMakeLists.txt.
 	packaging {
 		jniLibs {
 			excludes += listOf(

@@ -1,7 +1,11 @@
 package org.rackdroid
 
 import android.app.Activity
+import android.os.Build
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.OutputStream
+import java.io.RandomAccessFile
 import java.util.zip.ZipInputStream
 import org.json.JSONObject
 
@@ -27,6 +31,14 @@ import org.json.JSONObject
  * Play violates Play policy, so this feature is for the sideload/GitHub
  * build. The Play build should deliver extra packs via Play asset packs. */
 object ModuleInstaller {
+	private const val MAX_PACK_BYTES = 256L * 1024 * 1024
+	private const val MAX_MANIFEST_BYTES = 1024L * 1024
+	private const val MAX_ENTRY_BYTES = 128L * 1024 * 1024
+	private const val MAX_UNPACKED_BYTES = 512L * 1024 * 1024
+	private const val MAX_ENTRIES = 10_000
+	private const val MAX_ENTRY_NAME_CHARS = 512
+	private val VALID_SLUG = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+	private val VALID_SONAME = Regex("libplugin_[A-Za-z0-9._-]+\\.so")
 
 	/** Public, user-visible drop folder. Created with a README on first run. */
 	fun modulesDir(activity: Activity): File =
@@ -67,7 +79,7 @@ object ModuleInstaller {
 	/** Every pack currently extracted into private storage (i.e. loaded at the
 	 * last startup, or just installed live). Sorted by slug. */
 	fun installedPacks(activity: Activity): List<InstalledPack> =
-		installedDir(activity).listFiles { f -> f.isDirectory }
+		installedDir(activity).listFiles { f -> f.isDirectory && isValidSlug(f.name) }
 			?.map { InstalledPack(it.name, it, dirSize(it)) }
 			?.sortedBy { it.slug.lowercase() }
 			?: emptyList()
@@ -78,7 +90,11 @@ object ModuleInstaller {
 	 * mid-session, so the module only fully disappears after a restart -- the
 	 * caller tells the user. Returns true if anything was removed. */
 	fun uninstall(activity: Activity, slug: String): Boolean {
-		var removed = File(installedDir(activity), slug).deleteRecursively()
+		if (!isValidSlug(slug)) {
+			jlog("refusing to uninstall invalid module slug")
+			return false
+		}
+		var removed = destinationForSlug(activity, slug).deleteRecursively()
 		// Drop any source pack in Modules/ whose plugin.json slug matches.
 		modulesDir(activity).listFiles { f ->
 			f.isFile && (f.name.endsWith(".rdmod") || f.name.endsWith(".zip"))
@@ -107,24 +123,32 @@ object ModuleInstaller {
 			return
 		}
 		for (pack in packs) {
+			var tmp: File? = null
 			try {
 				val slug = peekSlug(pack) ?: continue
-				val dest = File(installedDir(activity), slug)
+				val dest = destinationForSlug(activity, slug)
 				if (dest.exists()) continue // already installed; drop a new slug to add
-				val tmp = File(dest.parentFile, "$slug.tmp")
+				tmp = File(dest.parentFile, "$slug.tmp")
 				tmp.deleteRecursively()
-				unzip(pack, tmp)
-				tmp.renameTo(dest)
+				unzip(pack, tmp, slug)
+				if (!tmp.renameTo(dest))
+					throw IllegalStateException("could not finalize extracted pack")
 				jlog("installed module pack $slug from ${pack.name}")
 			} catch (t: Throwable) {
 				jlog("module pack ${pack.name} import failed: ${t.message}")
+				tmp?.deleteRecursively()
 			}
 		}
 	}
 
 	private fun loadInstalled(activity: Activity, dir: File): Boolean {
-		val so = dir.listFiles { f -> f.name.endsWith(".so") }?.firstOrNull() ?: return false
-		if (!File(dir, "plugin.json").exists()) return false
+		if (!isValidSlug(dir.name)) return false
+		val so = try {
+			validateInstalledLayout(dir, dir.name)
+		} catch (t: Throwable) {
+			jlog("installed pack ${dir.name} is invalid: ${t.message}")
+			return false
+		}
 		// Re-imports rescan every installed pack: skip the ones already
 		// registered (dir name == plugin slug) instead of paying a redundant
 		// System.load + dlopen that ends in a WARN on the native side.
@@ -142,12 +166,20 @@ object ModuleInstaller {
 	}
 
 	private fun peekSlug(pack: File): String? {
+		if (pack.length() !in 1..MAX_PACK_BYTES)
+			throw IllegalArgumentException("pack size is invalid or exceeds ${MAX_PACK_BYTES / 1048576} MB")
 		ZipInputStream(pack.inputStream()).use { zin ->
 			var e = zin.nextEntry
+			var manifestSeen = false
 			while (e != null) {
-				if (e.name.substringAfterLast('/') == "plugin.json") {
-					val json = zin.readBytes().toString(Charsets.UTF_8)
-					return JSONObject(json).optString("slug").ifEmpty { null }
+				if (e.name == "plugin.json") {
+					if (manifestSeen) throw IllegalArgumentException("duplicate plugin.json")
+					manifestSeen = true
+					val json = readEntryBytes(zin, MAX_MANIFEST_BYTES).toString(Charsets.UTF_8)
+					val slug = JSONObject(json).optString("slug")
+					if (!isValidSlug(slug))
+						throw IllegalArgumentException("invalid plugin slug")
+					return slug
 				}
 				e = zin.nextEntry
 			}
@@ -155,24 +187,117 @@ object ModuleInstaller {
 		return null
 	}
 
-	private fun unzip(pack: File, dest: File) {
+	private fun unzip(pack: File, dest: File, expectedSlug: String) {
 		dest.mkdirs()
+		val root = dest.canonicalFile
+		val seenPaths = HashSet<String>()
+		var entries = 0
+		var totalBytes = 0L
 		ZipInputStream(pack.inputStream()).use { zin ->
 			var e = zin.nextEntry
 			while (e != null) {
-				val out = File(dest, e.name)
-				// Zip-slip guard.
-				if (!out.canonicalPath.startsWith(dest.canonicalPath + File.separator)) {
-					e = zin.nextEntry; continue
-				}
+				entries++
+				if (entries > MAX_ENTRIES) throw IllegalArgumentException("too many archive entries")
+				validateEntryName(e.name)
+				val out = File(root, e.name).canonicalFile
+				// Zip-slip guard. Invalid entries reject the entire native-code pack.
+				if (!out.path.startsWith(root.path + File.separator))
+					throw IllegalArgumentException("archive entry escapes destination")
+				if (!seenPaths.add(out.path))
+					throw IllegalArgumentException("duplicate archive entry")
 				if (e.isDirectory) out.mkdirs()
 				else {
 					out.parentFile?.mkdirs()
-					out.outputStream().use { zin.copyTo(it) }
+					val remaining = MAX_UNPACKED_BYTES - totalBytes
+					if (remaining <= 0) throw IllegalArgumentException("archive is too large")
+					val limit = minOf(MAX_ENTRY_BYTES, remaining)
+					out.outputStream().use { totalBytes += copyLimited(zin, it, limit) }
 				}
 				e = zin.nextEntry
 			}
 		}
+		validateInstalledLayout(root, expectedSlug)
+	}
+
+	private fun validateInstalledLayout(dir: File, expectedSlug: String): File {
+		val root = dir.canonicalFile
+		val manifest = File(root, "plugin.json")
+		if (!manifest.isFile || manifest.length() !in 1..MAX_MANIFEST_BYTES)
+			throw IllegalArgumentException("missing or oversized plugin.json")
+		val slug = manifest.inputStream().use {
+			JSONObject(readEntryBytes(it, MAX_MANIFEST_BYTES).toString(Charsets.UTF_8)).optString("slug")
+		}
+		if (slug != expectedSlug || !isValidSlug(slug))
+			throw IllegalArgumentException("plugin slug does not match install directory")
+		val libraries = root.walkTopDown().filter { it.isFile && it.name.endsWith(".so") }.toList()
+		if (libraries.size != 1)
+			throw IllegalArgumentException("pack must contain exactly one native library")
+		val so = libraries.single().canonicalFile
+		if (so.parentFile != root || !VALID_SONAME.matches(so.name))
+			throw IllegalArgumentException("native library must be a root libplugin_*.so file")
+		validateElfForDevice(so)
+		return so
+	}
+
+	private fun validateElfForDevice(so: File) {
+		val header = ByteArray(20)
+		RandomAccessFile(so, "r").use { file ->
+			if (file.length() < header.size) throw IllegalArgumentException("native library is truncated")
+			file.readFully(header)
+		}
+		if (header[0] != 0x7f.toByte() || header[1] != 'E'.code.toByte() ||
+			header[2] != 'L'.code.toByte() || header[3] != 'F'.code.toByte() ||
+			header[4] != 2.toByte() || header[5] != 1.toByte())
+			throw IllegalArgumentException("native library is not a 64-bit little-endian ELF")
+		val machine = (header[18].toInt() and 0xff) or ((header[19].toInt() and 0xff) shl 8)
+		val supportedMachines = Build.SUPPORTED_64_BIT_ABIS.mapNotNull {
+			when (it) {
+				"arm64-v8a" -> 183 // EM_AARCH64
+				"x86_64" -> 62 // EM_X86_64
+				else -> null
+			}
+		}.toSet()
+		if (machine !in supportedMachines)
+			throw IllegalArgumentException("native library ABI is not supported by this device")
+	}
+
+	private fun destinationForSlug(activity: Activity, slug: String): File {
+		if (!isValidSlug(slug)) throw IllegalArgumentException("invalid plugin slug")
+		val root = installedDir(activity).canonicalFile
+		val dest = File(root, slug).canonicalFile
+		if (dest.parentFile != root) throw IllegalArgumentException("plugin path escapes install directory")
+		return dest
+	}
+
+	private fun isValidSlug(slug: String): Boolean =
+		VALID_SLUG.matches(slug) && slug != "." && slug != ".."
+
+	private fun validateEntryName(name: String) {
+		if (name.isBlank() || name.length > MAX_ENTRY_NAME_CHARS || name.indexOf('\u0000') >= 0 ||
+			name.startsWith('/') || name.startsWith('\\') || name.contains('\\'))
+			throw IllegalArgumentException("invalid archive entry name")
+		val path = name.trimEnd('/')
+		if (path.isEmpty() || path.split('/').any { it.isEmpty() || it == "." || it == ".." })
+			throw IllegalArgumentException("invalid archive entry path")
+	}
+
+	private fun readEntryBytes(input: java.io.InputStream, limit: Long): ByteArray {
+		val output = ByteArrayOutputStream()
+		copyLimited(input, output, limit)
+		return output.toByteArray()
+	}
+
+	private fun copyLimited(input: java.io.InputStream, output: OutputStream, limit: Long): Long {
+		val buffer = ByteArray(64 * 1024)
+		var total = 0L
+		while (true) {
+			val count = input.read(buffer)
+			if (count < 0) break
+			total += count
+			if (total > limit) throw IllegalArgumentException("archive entry exceeds size limit")
+			output.write(buffer, 0, count)
+		}
+		return total
 	}
 
 	private fun writeReadme(activity: Activity) {

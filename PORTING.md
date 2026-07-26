@@ -1,7 +1,8 @@
 # Roadmap tecnica del porting
 
-Stato: **fase 1 completata**. Le fasi sono ordinate in modo che ognuna produca
-qualcosa di verificabile su dispositivo.
+Stato: **release candidate 0.1.2**. Motore, rendering, input touch, MIDI,
+dialoghi, registrazione e plugin installabili sono operativi; il lavoro residuo
+è soprattutto collaudo su più dispositivi e rifinitura UX.
 
 ## Fase 1 — Motore headless ✅
 
@@ -52,12 +53,13 @@ Obiettivo: vedere il rack renderizzato e interagirci.
 - [x] Due dita = pan (scroll); pinch = zoom (Ctrl+scroll emulato)
 - [x] Tastiera software: prompt Android per i TextField (fase 4) e campo di
       ricerca in-place nella palette (`showSoftInput`, ModulePalette)
-- [~] Tolleranze di hit-test: fatte per il parcheggio cavi (aggancio alla
-      porta compatibile piu' vicina, `cableParkNearestPort`); le porte del
-      rack in generale usano ancora l'hit-test stretto di Rack
-- [ ] Evidenziare le porte compatibili durante il trascinamento di un cavo:
-      oggi l'utente non vede dove puo' rilasciare e tira a indovinare
-- [ ] Rifiniture: inerzia dello scroll, doppio tap, drag di moduli dal browser
+- [x] Tolleranze touch per i cavi: rilascio vicino a un jack agganciato alla
+      porta compatibile più vicina tramite `cableParkNearestPort`, sia per i
+      cavi normali sia per le estremità parcheggiate
+- [x] Porte compatibili evidenziate durante il trascinamento di un cavo; il
+      target che verrebbe scelto è mostrato con un anello più marcato
+- [x] Inerzia dello scroll e drag dei moduli dalla palette al punto di rilascio
+- [ ] Doppio tap (rifinitura opzionale, nessuna funzione dipende da questo)
 
 ## Fase 4 — MIDI, dialoghi e file ✅ (build; da validare su dispositivo)
 
@@ -71,7 +73,10 @@ Obiettivo: vedere il rack renderizzato e interagirci.
       preset, moduli e testo
 - [x] **Editing testo touch**: tap su un TextField apre un prompt Android con
       tastiera di sistema (ricerca nel browser moduli, Notes, ...)
-- [ ] Storage Access Framework per import/export fuori dalla sandbox app
+- [~] Integrazione storage: `.rdmod` selezionabili con Storage Access Framework,
+      patch `.vcv` importabili tramite VIEW/SEND e condivisibili tramite
+      FileProvider; manca solo un browser documenti generico per scegliere
+      direttamente una destinazione di export
 - [x] Import di patch .vcv da altre app (intent filter VIEW/SEND nel
       manifest + `MainActivity.handleImportIntent`)
 
@@ -90,15 +95,18 @@ Obiettivo: vedere il rack renderizzato e interagirci.
 - [x] Fix libarchive/zstd: i risultati dei check sono pre-seedati, altrimenti
       libarchive ripiega sul programma esterno `zstd` (inesistente su
       Android) e i file .vcv non si aprono
-- [x] **Bogaudio 2.6.46** nell'APK (111 moduli: oscillatori, filtri,
-      envelope, mixer, analyzer, sequencer...). Totale: 162 moduli con Core.
-      Verificato dal test host `rack_ui_smoke N --all-modules`, che istanzia
-      e renderizza ogni modulo registrato come farebbe il browser
-- [ ] Altri plugin GPL-compatibili con lo stesso meccanismo (Valley, ...) —
-      attenzione alle licenze non commerciali di alcuni
+- [x] APK base snello con 66 moduli: Core, Fundamental e RackDroid Drums.
+      Bogaudio e gli altri plugin non-base non appesantiscono l'APK
+- [x] **21 pacchetti `.rdmod` opzionali** generabili da
+      `scripts/make_rdmods.sh`, inclusi Bogaudio, Valley, Befaco, Audible,
+      HetrickCV e altri; set separati `arm64-v8a`/`x86_64`, con risorse e
+      thumbnail nel rispettivo pacchetto
+- [x] Test host `rack_ui_smoke N --all-modules`, che istanzia e renderizza ogni
+      modello registrato come farebbe la palette
 - [ ] Toolchain generica NDK per plugin fuori dall'APK (solo distribuzione
       fuori Play Store)
-- [ ] Niente store/account VCV su Android (network_stub resta)
+- [x] Niente store/account VCV su Android per scelta progettuale
+      (`network_stub` resta e ogni richiesta fallisce in modo controllato)
 
 ## Debiti tecnici correnti
 
@@ -112,12 +120,10 @@ Obiettivo: vedere il rack renderizzato e interagirci.
   WindowInsetsControllerCompat invece delle API dirette (che richiedevano
   30/31/33), così girano fino ad API 29 senza NoSuchMethodError.
 - La rejection del manifest Core in fase 1 è attesa (stub senza modelli)
-- Il branding va cambiato prima di qualunque distribuzione (trademark VCV,
-  asset CC BY-NC: vedi README)
-- Sincronizzazione a tempo residua: `ModulePalette` usa ancora due
-  `postDelayed` (450/500 ms) per ricaricare la lista modelli dopo
-  l'installazione di un pacchetto. Non critici (al peggio una striscia
-  vuota per un istante), ma sono la stessa classe di problema già corretta
-  all'avvio: una stima temporale al posto di una garanzia di ordine.
+- Branding e grafica distributiva sono stati sostituiti con asset originali;
+      le attribuzioni residue sono documentate in `graphics/NOTICE-graphics.md`.
+- La lista modelli pubblicata dal render thread è protetta da mutex e
+      generazione monotona; `ModulePalette` attende la generazione richiesta senza
+      timer empirici, anche dopo installazione o rimozione di un pacchetto.
 - Preferiti: rimossi insieme al browser a tutto schermo; se servono vanno
   reintrodotti nella palette (JNI e campo JSON `favorite` sono stati tolti).

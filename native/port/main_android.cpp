@@ -48,6 +48,7 @@
 #include "cable_park.hpp"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "rackdroid", __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "rackdroid", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "rackdroid", __VA_ARGS__)
 
 using namespace rack;
@@ -115,6 +116,10 @@ struct RackDroidApp {
 		catch (Exception& e) {
 			LOGE("settings corrupted, resetting: %s", e.what());
 		}
+		if (rackdroid::startupSafeModeRequested()) {
+			settings::safeMode = true;
+			LOGW("Recovery startup: autosave and user plugins disabled");
+		}
 		settings::headless = false;
 		if (settings::sampleRate <= 0.f)
 			settings::sampleRate = 48000.f;
@@ -168,7 +173,10 @@ struct RackDroidApp {
 				// drops them from the patch. Blocks (pumping the looper) until
 				// Java has loaded them; see jni_bridge's loadUserPluginsBlocking
 				// and MainActivity.loadUserPluginsFromNative.
-				rackdroid::loadUserPluginsBlocking();
+				if (!rackdroid::userPluginsDisabled())
+					rackdroid::loadUserPluginsBlocking();
+				else
+					LOGW("Recovery startup: skipped user plugin loading");
 				// Loads the last patch or falls back to the template.
 				APP->patch->launch("");
 				APP->engine->startFallbackThread();
@@ -189,7 +197,7 @@ struct RackDroidApp {
 	void stopRack() {
 		if (!rackStarted)
 			return;
-		if (APP->patch) {
+		if (APP->patch && !settings::safeMode) {
 			try {
 				// Persist the session like desktop autosave-on-quit.
 				APP->patch->saveAutosave();
@@ -197,6 +205,9 @@ struct RackDroidApp {
 			catch (Exception& e) {
 				LOGE("autosave failed: %s", e.what());
 			}
+		}
+		else if (settings::safeMode) {
+			LOGI("Recovery startup: preserving the existing autosave");
 		}
 		settings::save();
 

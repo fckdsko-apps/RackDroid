@@ -17,6 +17,12 @@ void jniSetPump(void (*pump)(int timeoutMs));
 events during this window (the dialog is modal anyway). */
 bool dialogIsPumping();
 
+/** One-shot options set by MainActivity before NativeActivity starts the
+native glue thread. Used for automatic recovery after repeated failed starts. */
+void setStartupOptions(bool safeMode, bool skipUserPlugins);
+bool startupSafeModeRequested();
+bool userPluginsDisabled();
+
 /** Shows the native (Android bottom-sheet) menu with the given rows.
 Non-blocking: taps are delivered back via the nativeMenuSelect JNI callback. */
 void nativeMenuShow(const std::vector<std::string>& labels,

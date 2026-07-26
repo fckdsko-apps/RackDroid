@@ -83,6 +83,10 @@ struct TouchState {
 	double lastMoveTime = 0.0;
 	rack::math::Vec panVelocity; // scene units/s, smoothed
 
+	// One-finger drag on empty rack pans the view (instead of the selection
+	// marquee, which now needs the toolbar's multi-select mode).
+	bool panSingle = false;
+
 	// Pan inertia after the fingers lift
 	bool inertiaActive = false;
 	rack::math::Vec inertiaVel;
@@ -98,6 +102,24 @@ static TouchState st;
  * immutable and only two-finger pan/zoom (and the toolbar, a separate
  * window) still works. Session-only by design. */
 static std::atomic<int> lockMode{0};
+
+/** Multi-select mode (toolbar toggle). Off by default: one finger on empty rack
+ * pans the view. On: one finger on empty rack draws Rack's selection marquee. */
+static std::atomic<bool> multiSelect{false};
+
+/** True when the freshly-hovered widget is something a single finger should act
+ * on -- a module (its body, knobs and ports are children) or a cable plug. When
+ * it is NOT, the press is on empty rack, where a one-finger drag pans instead of
+ * starting the selection box. */
+static bool overInteractive() {
+	for (rack::widget::Widget* w = APP->event->hoveredWidget; w; w = w->parent) {
+		if (dynamic_cast<rack::app::ModuleWidget*>(w))
+			return true;
+		if (dynamic_cast<rack::app::PlugWidget*>(w))
+			return true;
+	}
+	return false;
+}
 
 /** Decide from the freshly-hovered widget whether this press is frozen.
  * Called after handleHover so APP->event->hoveredWidget is the touch
@@ -184,6 +206,34 @@ static void endLeftDrag(rack::math::Vec pos) {
 }
 
 
+/** Snap a normal Rack cable release to the same compatible jack highlighted
+ * by the parking overlay. Rack still owns the drag and creates the cable; we
+ * only move its virtual cursor to a nearby compatible target before release. */
+static rack::math::Vec snapCableRelease(rack::math::Vec pos) {
+	if (!APP->scene || !APP->scene->rack)
+		return pos;
+	rack::app::PortWidget* from = NULL;
+	std::vector<rack::app::CableWidget*> cables = APP->scene->rack->getIncompleteCables();
+	if (!cables.empty()) {
+		rack::app::CableWidget* cw = cables.back();
+		from = cw->inputPort ? cw->inputPort : cw->outputPort;
+	}
+	if (!from)
+		from = dynamic_cast<rack::app::PortWidget*>(APP->event->getDraggedWidget());
+	if (!from)
+		return pos;
+	int want = from->type == rack::engine::Port::INPUT
+		? rack::engine::Port::OUTPUT : rack::engine::Port::INPUT;
+	rack::app::PortWidget* target = rackdroid::cableParkNearestPort(pos.x, pos.y, want);
+	if (!target)
+		return pos;
+	rack::math::Vec snapped = target->getAbsoluteOffset(target->box.size.div(2.f));
+	APP->event->handleHover(snapped, snapped.minus(st.lastPos));
+	rackdroid::cableParkSetInflightPos(snapped.x, snapped.y);
+	return snapped;
+}
+
+
 int touchHandleEvent(AInputEvent* event) {
 	if (AInputEvent_getType(event) != AINPUT_EVENT_TYPE_MOTION)
 		return 0;
@@ -240,15 +290,27 @@ int touchHandleEvent(AInputEvent* event) {
 			// a second finger still enters pan/zoom as usual.
 			if (pressBlockedByLock())
 				return 1;
+			// Empty rack, normal mode: one finger pans the view. Sending the
+			// left button here would start Rack's selection marquee instead --
+			// that only happens now in the toolbar's multi-select mode.
+			if (!multiSelect.load(std::memory_order_relaxed) && !overInteractive()) {
+				st.panSingle = true;
+				st.lastCentroid = pos;
+				st.lastMoveTime = st.downTime;
+				st.panVelocity = rack::math::Vec();
+				return 1;
+			}
 			sendLeftButton(pos, GLFW_PRESS);
 			st.leftSent = true;
 			return 1;
 		}
 
 		case AMOTION_EVENT_ACTION_POINTER_DOWN: {
-			// Second finger: abort the left drag, enter pan/zoom mode.
+			// Second finger: abort the left drag / one-finger pan, enter
+			// pan/zoom mode.
 			if (pointerCount == 2) {
 				endLeftDrag(st.lastPos);
+				st.panSingle = false;
 				st.gesture = true;
 				st.inertiaActive = false;
 				st.panVelocity = rack::math::Vec();
@@ -261,6 +323,22 @@ int touchHandleEvent(AInputEvent* event) {
 		}
 
 		case AMOTION_EVENT_ACTION_MOVE: {
+			// One-finger pan on empty rack: scroll the view, and track velocity
+			// so the release can coast, exactly like the two-finger pan.
+			if (st.panSingle) {
+				rack::math::Vec delta = pos.minus(st.lastPos);
+				APP->event->handleScroll(pos, delta);
+				double now = rack::system::getTime();
+				double dt = now - st.lastMoveTime;
+				if (dt > 1e-4) {
+					rack::math::Vec instV = delta.div(dt);
+					st.panVelocity = st.panVelocity.mult(0.5f).plus(instV.mult(0.5f));
+				}
+				st.lastCentroid = pos;
+				st.lastMoveTime = now;
+				st.lastPos = pos;
+				return 1;
+			}
 			if (g_parkDrag >= 0) {
 				// Hover so the port under the finger lights up as it would in a
 				// normal Rack cable drag; the bar draws the cable itself.
@@ -331,6 +409,13 @@ int touchHandleEvent(AInputEvent* event) {
 		}
 
 		case AMOTION_EVENT_ACTION_UP: {
+			// One-finger pan released: coast, then done.
+			if (st.panSingle) {
+				st.panSingle = false;
+				st.down = false;
+				startInertia();
+				return 1;
+			}
 			// Report the release point so a drop onto the spare hole still sees
 			// it (visibleHoles keys the spare on the in-flight end being on the
 			// bar, and this is the last position before the cable is discarded).
@@ -374,6 +459,7 @@ int touchHandleEvent(AInputEvent* event) {
 			// Releasing an in-flight Rack cable drag over an empty hole parks
 			// it: we only record which port it came from, then let Rack discard
 			// its half-made cable as usual.
+			rack::math::Vec releasePos = pos;
 			if (!st.gesture && st.leftSent) {
 				int slot = rackdroid::cableParkSlotAt(pos.x, pos.y);
 				if (slot >= 0) {
@@ -393,9 +479,12 @@ int touchHandleEvent(AInputEvent* event) {
 						rackdroid::cableParkFlashRefused(free);
 					}
 				}
+				else {
+					releasePos = snapCableRelease(pos);
+				}
 			}
 			if (!st.gesture) {
-				endLeftDrag(pos);
+				endLeftDrag(releasePos);
 				// Tap landed on a text field: no hardware keyboard on
 				// Android, so edit it through a system prompt.
 				rack::ui::TextField* field = dynamic_cast<rack::ui::TextField*>(APP->event->selectedWidget);
@@ -419,6 +508,7 @@ int touchHandleEvent(AInputEvent* event) {
 			endLeftDrag(st.lastPos);
 			st.down = false;
 			st.gesture = false;
+			st.panSingle = false;
 			return 1;
 		}
 
@@ -468,6 +558,13 @@ void touchStep() {
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeSetLockMode(JNIEnv*, jobject, jint mode) {
 	lockMode.store(mode, std::memory_order_relaxed);
+}
+
+// Toolbar multi-select toggle: on = one finger draws the selection marquee;
+// off (default) = one finger pans the rack.
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeSetMultiSelect(JNIEnv*, jobject, jboolean on) {
+	multiSelect.store(on, std::memory_order_relaxed);
 }
 
 

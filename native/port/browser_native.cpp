@@ -58,6 +58,11 @@ struct BrowserBridge {
 	bool wasVisible = false;
 	bool modelsBuilt = false;
 	std::string modelsJson = "[]";
+	// Java reads the snapshot on the UI thread while the render thread rebuilds
+	// it after a pack install. A mutex protects the string itself; the generation
+	// lets Java wait for the requested rebuild rather than guessing a delay.
+	std::mutex modelsMutex;
+	std::atomic<uint64_t> modelsGeneration{0};
 
 	std::mutex actionMutex;
 	std::string pendingChoose;   // "pluginSlug/modelSlug", empty = none
@@ -133,12 +138,19 @@ static void buildModelsJson() {
 			json_array_append_new(arr, o);
 		}
 	}
+	size_t modelCount = json_array_size(arr);
 	char* dump = json_dumps(arr, JSON_COMPACT);
-	g.modelsJson = dump ? dump : "[]";
+	std::string snapshot = dump ? dump : "[]";
+	size_t snapshotBytes = snapshot.size();
 	free(dump);
 	json_decref(arr);
+	{
+		std::lock_guard<std::mutex> lock(g.modelsMutex);
+		g.modelsJson.swap(snapshot);
+	}
 	g.modelsBuilt = true;
-	LOGI("built model list json (%zu models, %zu bytes)", json_array_size(arr), g.modelsJson.size());
+	g.modelsGeneration.fetch_add(1, std::memory_order_release);
+	LOGI("built model list json (%zu models, %zu bytes)", modelCount, snapshotBytes);
 }
 
 
@@ -264,10 +276,13 @@ void processNativeBrowser() {
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_org_rackdroid_MainActivity_nativeBrowserModelsJson(JNIEnv* env, jobject) {
-	// modelsJson is only ever (re)written on the render thread and only
-	// ever read here as a whole, immutable std::string snapshot -- no lock
-	// needed for this single pointer-sized read.
+	std::lock_guard<std::mutex> lock(g.modelsMutex);
 	return env->NewStringUTF(g.modelsJson.c_str());
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_org_rackdroid_MainActivity_nativeBrowserModelsGeneration(JNIEnv*, jobject) {
+	return (jlong) g.modelsGeneration.load(std::memory_order_acquire);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -282,9 +297,14 @@ Java_org_rackdroid_MainActivity_nativeBrowserChooseAt(JNIEnv* env, jobject, jstr
 	env->ReleaseStringUTFChars(key, chars);
 }
 
-extern "C" JNIEXPORT void JNICALL
+extern "C" JNIEXPORT jlong JNICALL
 Java_org_rackdroid_MainActivity_nativeBrowserRequestBuild(JNIEnv*, jobject) {
+	// Return the generation the caller must observe advancing. Setting the flag
+	// afterwards is safe: a concurrent render pass can only produce a newer
+	// generation, which also satisfies the caller.
+	jlong before = (jlong) g.modelsGeneration.load(std::memory_order_acquire);
 	g.buildRequested.store(true);
+	return before;
 }
 
 extern "C" JNIEXPORT void JNICALL
