@@ -945,11 +945,14 @@ class Tour(
 	 * sliding across the rack and the user watches an empty rack not move. So
 	 * on a rack that has been emptied, those steps are left out entirely. */
 	private val steps: List<Step> = run {
-		val modules = (activity as? MainActivity)?.tourModuleCount() ?: 0
+		// -1 means the render thread has not published a count yet (the welcome
+		// tour is built that early); keep everything rather than guess empty.
+		val modules = (activity as? MainActivity)?.tourModuleCount() ?: -1
 		allSteps.filter {
-			when (it.act) {
-				ACT_MOVE, ACT_SELECT -> modules >= 1
-				ACT_CABLE -> modules >= 2
+			when {
+				modules < 0 -> true
+				it.act == ACT_MOVE || it.act == ACT_SELECT -> modules >= 1
+				it.act == ACT_CABLE -> modules >= 2
 				else -> true // zoom and scrolling read fine on bare rails
 			}
 		}

@@ -1,7 +1,7 @@
 <meta charset="utf-8">
-<title>RackDroid — modular synthesizer for Android</title>
+<title>RackDroid — sintetizzatore modulare per Android</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="RackDroid: the VCV Rack 2 engine, native on Android. Build modular patches with your finger, anywhere.">
+<meta name="description" content="RackDroid: il motore di VCV Rack 2, nativo su Android. Costruisci patch modulari col dito, ovunque tu sia.">
 <style>
   @font-face {
     font-family: "Geomini";
@@ -70,6 +70,16 @@
   .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
   .nav-brand { display: flex; align-items: center; gap: 10px; font-family: "Geomini", sans-serif; font-size: 20px; letter-spacing: 0.02em; }
   .nav-brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
+  .nav-cta {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px; letter-spacing: 0.03em;
+    color: #17140f; background: var(--amber-soft);
+    border: none; border-radius: 999px; padding: 9px 18px;
+    text-decoration: none; font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    display: inline-block;
+  }
+  .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(249,177,48,0.28); }
   .nav-right { display: flex; align-items: center; gap: 16px; }
   .nav-lang {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -89,16 +99,6 @@
      phone width: drop the secondary links first, then the language switch. */
   @media (max-width: 860px) { .nav-link { display: none; } }
   @media (max-width: 560px) { .nav-lang { display: none; } }
-  .nav-cta {
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    font-size: 13px; letter-spacing: 0.03em;
-    color: #17140f; background: var(--amber-soft);
-    border: none; border-radius: 999px; padding: 9px 18px;
-    text-decoration: none; font-weight: 600;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    display: inline-block;
-  }
-  .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(249,177,48,0.28); }
 
   /* ---------- hero ---------- */
   .hero { position: relative; padding: 88px 0 60px; overflow: hidden; }
@@ -250,6 +250,8 @@
   }
   .showcase-frame:hover { transform: translateY(-6px); }
   .showcase-frame img { width: 100%; display: block; border-radius: 18px; }
+  svg.cable-connector { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .cable-path { fill: none; stroke: var(--amber); stroke-width: 2; opacity: 0.55; }
 
   /* ---------- feature rack rows ---------- */
   .rack-row {
@@ -314,11 +316,11 @@
     opacity: 0.55;
   }
 
-  /* Floating news badge: what is coming next, visible without scrolling. */
+  /* Riquadro novità: cosa sta per arrivare, visibile senza scorrere. */
   #update {
     position: fixed;
     top: 25%;
-    right: 10px;
+    left: 10px;
     padding: 5px;
     background-color: var(--amber);
     z-index: 100;
@@ -332,7 +334,7 @@
     text-align: left;
     padding-left: 5px;
   }
-  #update h2 { font-size: 10px; width: 90px; text-decoration: none;}
+  #update h2 { font-size: 10px; width: 90px; }
   #update h1 { text-decoration: #17140f underline; }
   #update span {
     margin: 5px 0 3px;
@@ -344,9 +346,8 @@
     font-size: 12px;
     border: solid 1px #17140f;
     border-radius: 5px;
-    text-decoration:none;
   }
-  #update a { color: #17140f; text-decoration:none;}
+  #update a { color: #17140f; }
   #update video { display: block; border-radius: 4px; }
   /* Il badge News è fissato sullo schermo: su un telefono, a un quarto
      dell'altezza, finisce esattamente sopra il titolo. Sotto i 760px scende
@@ -370,51 +371,86 @@
     #update h1 { font-size: 11px; padding-left: 0; }
     #update span { width: auto; margin: 0; padding: 5px 8px; font-size: 11px; }
   }
+
+  /* ---- Variante home con il video in testata --------------------------
+     Il filmato prende il posto delle linee disegnate a canvas: stessa
+     pagina, stessa struttura, solo l'apertura è diversa. Muto e in loop,
+     perché un video che parte con l'audio su un telefono è il modo più
+     rapido di far chiudere la pagina; playsinline perché iOS altrimenti lo
+     apre a schermo intero da solo. Sotto c'è sempre il poster, così chi ha
+     "risparmio dati" attivo vede comunque qualcosa. */
+  #patchCanvas { display: none; }
+  .hero { padding-top: 0; }
+  .hero-video-wrap {
+    position: absolute; inset: 0; overflow: hidden; z-index: 0;
+    background: #0b0906 center/cover no-repeat url(assets/hero-poster.jpg);
+  }
+  .hero-video-wrap video {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    opacity: .55;
+  }
+  /* Il testo deve restare leggibile su qualunque fotogramma. */
+  .hero-video-wrap::after {
+    content: ""; position: absolute; inset: 0;
+    background:
+      linear-gradient(to bottom, rgba(11,9,6,.55) 0%, rgba(11,9,6,.25) 35%, rgba(11,9,6,.92) 92%),
+      radial-gradient(120% 80% at 20% 40%, rgba(11,9,6,.10), rgba(11,9,6,.75));
+  }
+  .hero .wrap { padding-top: 88px; }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-video-wrap video { display: none; }
+  }
 </style>
 
 <nav class="nav">
   <div class="wrap">
     <div class="nav-brand"><img src="assets/logo.svg" style="width: 25%;"><span class="dot"></span>RackDroid</div>
     <div class="nav-right">
-      <a class="nav-link active" href="index.html">Home</a>
-      <a class="nav-link" href="coming-soon.html">News</a>
+      <a class="nav-link active" href="index.it.html">Home</a>
+      <a class="nav-link" href="coming-soon.it.html">News</a>
       <a class="nav-link" href="privacy.html">Privacy</a>
-      <a class="nav-lang" href="index.it.html">IT</a>
-      <a class="nav-cta" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">Download on GitHub</a>
+      <a class="nav-lang" href="index-video.html">EN</a>
+      <a class="nav-cta" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">Scarica su GitHub</a>
     </div>
   </div>
 </nav>
 
 <header class="hero">
-  <!-- What is coming next. The clip lives outside this repository (it is far
-       too big for it): keep U/U1.mp4 next to the page when publishing. -->
+  <!-- Cosa sta per arrivare. Il filmato non sta in questo repository (troppo
+       pesante): va tenuto in U/U1.mp4 accanto alla pagina al momento di pubblicare. -->
   <div id="update">
     <h1>News:</h1>
-    <a href="coming-soon.html"><span>PARKBAR COMING - 01/08/26</span></a>
+    <a href="coming-soon.it.html"><span>PARKBAR COMING - 01/08/26</span></a>
   </div>
   <canvas id="patchCanvas"></canvas>
+  <div class="hero-video-wrap">
+    <video autoplay muted loop playsinline preload="metadata" poster="assets/hero-poster.jpg"
+           aria-hidden="true" tabindex="-1">
+      <source src="assets/hero.mp4" type="video/mp4">
+    </video>
+  </div>
   <div class="wrap">
     <div>
-      <p class="kicker">Modular synthesizer for Android</p>
-      <h1 class="wordmark">Your modular<br>rack<span class="rd">.</span><br>In your pocket<span class="rd">.</span></h1>
+      <p class="kicker">Sintetizzatore modulare per Android</p>
+      <h1 class="wordmark">Il tuo rack<br>modulare<span class="rd">.</span><br>In tasca<span class="rd">.</span></h1>
       <p class="hero-lede">
-        <strong>RackDroid</strong> brings the VCV Rack 2 audio engine to Android, with touch
-        instead of a mouse. Drag real cables between oscillators, filters and sequencers —
-        no compromises, no clone: it's the same engine, made native for your phone.
+        <strong>RackDroid</strong> porta il motore audio di VCV Rack 2 su Android, col tocco al
+        posto del mouse. Trascini cavi veri tra oscillatori, filtri e sequencer — nessun
+        compromesso, nessun clone: è lo stesso engine, reso nativo per il telefono.
       </p>
       <div class="hero-ctas">
-        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download RackDroid</a>
-        <a class="btn btn-ghost" href="#showcase">See the interface</a>
+        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Scarica RackDroid</a>
+        <a class="btn btn-ghost" href="#showcase">Guarda l'interfaccia</a>
       </div>
       <div class="hero-meta">
-        <span><b>66</b> built-in modules</span>
+        <span><b>66</b> moduli inclusi</span>
         <span><b>Android 10+</b></span>
         <span><b>GPLv3</b>, open source</span>
         <span><b>~40 MB</b></span>
       </div>
     </div>
     <div class="device">
-      <img src="assets/screenshots/patch-rack.png" alt="RackDroid running: a patch with a sequencer, VCO, VCF and ADSR">
+      <img src="assets/screenshots/patch-rack.png" alt="RackDroid in esecuzione: una patch con sequencer, VCO, VCF e ADSR">
     </div>
   </div>
 </header>
@@ -424,40 +460,40 @@
 <section>
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">Why RackDroid</p>
-      <h2 class="section-title">Not a toy. A real rack.</h2>
-      <p>Every design choice starts with one question: would this work with a finger on a 6-inch screen? If the answer was no, we redesigned it — not just shrank it.</p>
+      <p class="kicker">Perché RackDroid</p>
+      <h2 class="section-title">Non un giocattolo. Un rack vero.</h2>
+      <p>Ogni scelta di design parte da una domanda: funzionerebbe con un dito su uno schermo da 6 pollici? Se la risposta era no, l'abbiamo ridisegnato — non solo ridimensionato.</p>
     </div>
     <div class="why-grid reveal-stagger">
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="13" stroke="#f9b130" stroke-width="2.4"/><path d="M20 20 L13 13" stroke="#ffda9f" stroke-width="2.4" stroke-linecap="round"/></svg>
-        <h3>It's VCV Rack, not a clone</h3>
-        <p>Same DSP engine, same 66 modules, same <code>.vcv</code> format — built on unmodified upstream v2.6.4 sources.</p>
+        <h3>È VCV Rack, non un clone</h3>
+        <p>Stesso motore DSP, stessi 66 moduli, stesso formato <code>.vcv</code> — sui sorgenti upstream v2.6.4, non modificati.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M8 30 C14 14, 26 14, 32 30" stroke="#d45b52" stroke-width="2.4" fill="none"/><circle cx="8" cy="30" r="3" fill="#d45b52"/><circle cx="32" cy="30" r="3" fill="#d45b52"/></svg>
-        <h3>Built for touch</h3>
-        <p>Not a shrunk-down desktop UI: drag cables with a finger, long-press a knob to type a value, pinch to zoom.</p>
+        <h3>Pensato per il tocco</h3>
+        <p>Non una UI desktop rimpicciolita: cavi trascinabili col dito, manopole a pressione lunga per digitare un valore, pizzico per lo zoom.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M6 24 L14 24 L18 10 L24 32 L28 20 L34 20" stroke="#4fb8a6" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
-        <h3>Low native latency</h3>
-        <p>Oboe/AAudio, full-duplex — it plays in real time, not a toy that stutters.</p>
+        <h3>Latenza nativa bassa</h3>
+        <p>Oboe/AAudio, full-duplex — suona in tempo reale, non un giocattolo che scatta.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><rect x="8" y="8" width="10" height="10" rx="2" stroke="#9b7fd4" stroke-width="2.2"/><rect x="22" y="22" width="10" height="10" rx="2" stroke="#ffda9f" stroke-width="2.2"/><path d="M18 13 L26 13 L26 22" stroke="#9b7fd4" stroke-width="2.2" fill="none"/></svg>
-        <h3>Grows with you</h3>
-        <p>Start with the 66 built-in modules, then add whole packages (Bogaudio, Valley, Befaco…) on the fly, without updating the app.</p>
+        <h3>Cresce con te</h3>
+        <p>Parti con i 66 moduli inclusi, poi aggiungi pacchetti interi (Bogaudio, Valley, Befaco…) al volo, senza aggiornare l'app.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><rect x="9" y="6" width="22" height="30" rx="3" stroke="#5b9bd5" stroke-width="2.2"/><path d="M15 30 L25 30" stroke="#5b9bd5" stroke-width="2.2" stroke-linecap="round"/></svg>
-        <h3>Even on older hardware</h3>
-        <p>Supported from Android 10 up: it runs on phones and tablets that aren't brand new anymore.</p>
+        <h3>Anche su hardware datato</h3>
+        <p>Supportato da Android 10 in su: gira anche su telefoni e tablet non più giovanissimi.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M8 20 L14 20 L17 10 L22 30 L25 20 L32 20" stroke="#f9b130" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
-        <h3>Open source, for good</h3>
-        <p>GPLv3, complete sources in the repository. No account, no paid license, no tracking.</p>
+        <h3>Codice aperto, per sempre</h3>
+        <p>GPLv3, sorgenti completi nel repository. Nessun account, nessuna licenza a pagamento, nessun tracking.</p>
       </div>
     </div>
   </div>
@@ -468,16 +504,16 @@
 <section id="showcase">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">Interface</p>
-      <h2 class="section-title">A real screenshot. Not a mockup.</h2>
-      <p>Sequencer, VCO, VCF, ADSR envelope and mixer — taken from a real device running the app, with the glass toolbar open above the rack.</p>
+      <p class="kicker">Interfaccia</p>
+      <h2 class="section-title">Uno screenshot vero. Non un mockup.</h2>
+      <p>Sequencer, VCO, VCF, inviluppo ADSR e mixer — presi da un dispositivo reale in esecuzione, con la barra strumenti a vetro che si apre sopra il rack.</p>
     </div>
     <div class="showcase-wrap reveal">
       <div class="showcase-frame">
-        <img src="assets/screenshots/patch-rack.png" alt="A live patch in RackDroid">
+        <img src="assets/screenshots/patch-rack.png" alt="Una patch attiva in RackDroid">
       </div>
       <div class="showcase-frame">
-        <img src="assets/screenshots/toolbar-menus.png" alt="RackDroid's toolbar and menus">
+        <img src="assets/screenshots/toolbar-menus.png" alt="Barra strumenti e menu di RackDroid">
       </div>
     </div>
   </div>
@@ -488,21 +524,21 @@
 <section>
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">Inside the rack</p>
-      <h2 class="section-title">What it includes</h2>
-      <p>Everything you need to build a sound from scratch, already in the base APK.</p>
+      <p class="kicker">Dentro il rack</p>
+      <h2 class="section-title">Cosa include</h2>
+      <p>Tutto quello che serve per costruire un suono dal nulla, già nell'APK base.</p>
     </div>
     <div class="rack-row reveal">
       <div class="feature-grid">
-        <div><span class="f-icon">🎚️</span><h4>Audio engine</h4><p>Native, Oboe/AAudio, full-duplex, low latency.</p></div>
-        <div><span class="f-icon">🧩</span><h4>66 modules</h4><p>Core, Fundamental (39 modules), RackDroid Drums (14 original voices).</p></div>
-        <div><span class="f-icon">👆</span><h4>Real touch</h4><p>Cables and modules with a finger, pinch to zoom, long-press for values.</p></div>
-        <div><span class="f-icon">🪟</span><h4>Glass toolbar</h4><p>Menus, module palette, plugin manager, undo/redo, layout lock.</p></div>
-        <div><span class="f-icon">🧲</span><h4>Module palette</h4><p>Chips by category, draggable previews, an info badge for every module.</p></div>
-        <div><span class="f-icon">🧵</span><h4>Cable parking</h4><p>Park a cable end on a bar, scroll to the far module, drop it on the port. 3 to 10 holes.</p></div>
-        <div><span class="f-icon">🎹</span><h4>MIDI</h4><p>On-screen keyboard, USB and Bluetooth LE MIDI.</p></div>
-        <div><span class="f-icon">⏺️</span><h4>Recording</h4><p>Output to a WAV file, saved in Documents/RackDroid/.</p></div>
-        <div><span class="f-icon">🎓</span><h4>Guided learning</h4><p>A spotlight interface tour on first run, 30 step-by-step tutorials, plus a topic guide.</p></div>
+        <div><span class="f-icon">🎚️</span><h4>Motore audio</h4><p>Nativo, Oboe/AAudio, full-duplex, bassa latenza.</p></div>
+        <div><span class="f-icon">🧩</span><h4>66 moduli</h4><p>Core, Fundamental (39 moduli), RackDroid Drums (14 voci originali).</p></div>
+        <div><span class="f-icon">👆</span><h4>Touch reale</h4><p>Cavi e moduli col dito, zoom a pizzico, valori a pressione lunga.</p></div>
+        <div><span class="f-icon">🪟</span><h4>Barra a vetro</h4><p>Menu, palette moduli, gestore plugin, undo/redo, blocco layout.</p></div>
+        <div><span class="f-icon">🧲</span><h4>Palette moduli</h4><p>Chip per categoria, anteprime trascinabili, badge info per ogni modulo.</p></div>
+        <div><span class="f-icon">🧵</span><h4>Parcheggio cavi</h4><p>Parcheggia un capo del cavo su una barra, scorri fino al modulo lontano, rilascialo sulla porta. Da 3 a 10 buchi.</p></div>
+        <div><span class="f-icon">🎹</span><h4>MIDI</h4><p>Tastiera a schermo, MIDI USB e Bluetooth LE.</p></div>
+        <div><span class="f-icon">⏺️</span><h4>Registrazione</h4><p>Uscita su file WAV, salvata in Documents/RackDroid/.</p></div>
+        <div><span class="f-icon">🎓</span><h4>Apprendimento guidato</h4><p>Tour dell'interfaccia al primo avvio, 30 tutorial passo-passo, più una guida per argomenti.</p></div>
       </div>
     </div>
   </div>
@@ -513,9 +549,9 @@
 <section class="tight">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">Additional modules</p>
-      <h2 class="section-title">Extra packages, no app update needed</h2>
-      <p>Install <code>.rdmod</code> files from the built-in module manager, or copy them into the <code>Modules/</code> folder — they load right away.</p>
+      <p class="kicker">Moduli aggiuntivi</p>
+      <h2 class="section-title">Pacchetti extra, senza aggiornare l'app</h2>
+      <p>Installi file <code>.rdmod</code> dal gestore moduli integrato, oppure li copi nella cartella <code>Modules/</code> — vengono caricati subito.</p>
     </div>
     <div class="plugin-pills reveal">
       <span class="pill">Bogaudio</span>
@@ -526,7 +562,7 @@
       <span class="pill">HetrickCV</span>
       <span class="pill">Aria</span>
       <span class="pill">Bidoo</span>
-      <span class="pill">…and more</span>
+      <span class="pill">…e altri</span>
     </div>
   </div>
 </section>
@@ -535,10 +571,10 @@
   <div class="wrap">
     <div class="cta-panel reveal">
       <svg class="scope" viewBox="0 0 400 46" preserveAspectRatio="none"><path id="scopePath" d="M0 23 L400 23" stroke="#f9b130" stroke-width="1.5" fill="none"/></svg>
-      <h2>Ready to build your first sound?</h2>
-      <p>Free, open source, no account. Download the APK from the repository and you're in within a minute.</p>
-      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download RackDroid on GitHub</a>
-      <div class="req-line">Requires Android 10 (API 29) or later · arm64-v8a · OpenGL ES 3.0</div>
+      <h2>Pronto a costruire il tuo primo suono?</h2>
+      <p>Gratis, open source, senza account. Scarica l'APK dal repository e sei dentro in un minuto.</p>
+      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Scarica RackDroid su GitHub</a>
+      <div class="req-line">Richiede Android 10 (API 29) o successivo · arm64-v8a · OpenGL ES 3.0</div>
     </div>
   </div>
 </section>
@@ -547,15 +583,14 @@
   <div class="wrap">
     <div class="foot-links">
       <a href="https://github.com/nowheel/RackDroid">Repository</a>
-      <a href="https://github.com/nowheel/RackDroid/blob/main/MODULES.md">Create a plugin</a>
-      <a href="https://github.com/nowheel/RackDroid/issues">Report an issue</a>
+      <a href="https://github.com/nowheel/RackDroid/blob/main/MODULES.md">Creare un plugin</a>
+      <a href="https://github.com/nowheel/RackDroid/issues">Segnala un problema</a>
       <a href="https://vcvrack.com" target="_blank" rel="noopener">VCV Rack</a>
     </div>
     <p class="foot-fine">
-      RackDroid is an <strong>unofficial</strong> port of the VCV Rack 2 engine, built on
-      unmodified upstream sources (GPLv3). Not affiliated with or endorsed by VCV; the "VCV"
-      name/logo is not used in the app. RackDroid's graphics are rebuilt and distributed under
-      GPLv3.
+      RackDroid è un port <strong>non ufficiale</strong> del motore di VCV Rack 2, costruito sui
+      sorgenti upstream non modificati (GPLv3). Non affiliato né approvato da VCV; il nome/logo
+      "VCV" non è usato nell'app. Grafica di RackDroid rifatta e distribuita in GPLv3.
     </p>
   </div>
 </footer>
@@ -667,6 +702,8 @@
   // ---- scope line idle animation ----
   var scopePath = document.getElementById('scopePath');
   if (scopePath && !reduced) {
+    var pts = [];
+    for (var i = 0; i <= 40; i++) pts.push(i);
     function scopeFrame(ts) {
       var d = 'M0 23 ';
       for (var i = 1; i <= 40; i++) {

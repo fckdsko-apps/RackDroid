@@ -109,8 +109,13 @@ TourDemo g;
 
 /** How many modules are on the rack, republished every frame so Java can read
 it from the UI thread: the rack widget belongs to the render thread, and the
-tour has to know before it builds its step list. */
-std::atomic<int> g_moduleCount{0};
+tour has to know before it builds its step list.
+ *
+ * Starts at -1, meaning "no frame has run yet". The first-run tour is built
+ * before the first frame, and a 0 there would be read as an empty rack -- which
+ * is how the welcome tour ended up dropping three of its steps on a patch that
+ * had nine modules in it. */
+std::atomic<int> g_moduleCount{-1};
 
 /** Flat at both ends, fastest in the middle: every movement here is eased, so
 it reads as deliberate rather than as a glitch. */

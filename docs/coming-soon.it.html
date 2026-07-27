@@ -347,6 +347,28 @@
   }
   #update a { color: #17140f; }
   #update video { display: block; border-radius: 4px; }
+  /* Il badge News è fissato sullo schermo: su un telefono, a un quarto
+     dell'altezza, finisce esattamente sopra il titolo. Sotto i 760px scende
+     nell'angolo in basso a sinistra, dove non copre niente da leggere. */
+  @media (max-width: 760px) {
+    /* In flusso, in cima all'eroe: fissato copriva prima il titolo e poi,
+       spostato in basso, il pulsante secondario. Qui scorre via con la
+       pagina e non si sovrappone mai a niente. */
+    #update {
+      /* In flusso ma sopra il video/le linee dell'eroe, che sono assoluti:
+         senza z-index il badge finisce sotto e sparisce. */
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      margin: 12px 0 0 16px;
+      padding: 5px 8px;
+    }
+    #update h1 { font-size: 11px; padding-left: 0; }
+    #update span { width: auto; margin: 0; padding: 5px 8px; font-size: 11px; }
+  }
 </style>
 
 <style>

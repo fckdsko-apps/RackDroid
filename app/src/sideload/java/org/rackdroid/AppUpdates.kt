@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.IntentCompat
 import android.content.pm.PackageInfo
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
@@ -92,6 +93,41 @@ object AppUpdates {
 
 	/** From Help ▸ Check for updates. Always looks, and says so even when the
 	 * app is already current — a silent no-op reads as a broken button. */
+	/** The installer session reports back through a PendingIntent aimed at
+	 * MainActivity, so every arriving intent passes through here.
+	 *
+	 * STATUS_PENDING_USER_ACTION is the one that matters: Android will not
+	 * install anything until the user has seen its own confirmation screen, and
+	 * that screen only appears if the app launches the intent handed to it. The
+	 * first version of this never did, so the session sat pending for ever --
+	 * the download worked, the checks passed, and nothing was installed, with
+	 * nothing on screen to say why. */
+	fun onNewIntent(activity: Activity, intent: Intent?) {
+		val status = intent?.getIntExtra(PackageInstaller.EXTRA_STATUS, Int.MIN_VALUE)
+			?: return
+		if (status == Int.MIN_VALUE)
+			return // not from the installer
+		when (status) {
+			PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+				val confirm = IntentCompat.getParcelableExtra(
+					intent, Intent.EXTRA_INTENT, Intent::class.java)
+				if (confirm != null)
+					runCatching { activity.startActivity(confirm) }
+				else
+					Log.w(TAG, "installer asked for user action without an intent")
+			}
+			PackageInstaller.STATUS_SUCCESS ->
+				Log.i(TAG, "update installed")
+			PackageInstaller.STATUS_FAILURE_ABORTED ->
+				Log.i(TAG, "update cancelled by the user")
+			else -> {
+				val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+				Log.w(TAG, "install failed (status ${'$'}status): ${'$'}message")
+				Toast.makeText(activity, R.string.updates_install_failed, Toast.LENGTH_LONG).show()
+			}
+		}
+	}
+
 	fun checkNow(activity: Activity) {
 		prefs(activity).edit()
 			.putBoolean(KEY_ASKED, true)
@@ -124,6 +160,18 @@ object AppUpdates {
 	}
 
 	private data class Release(val versionName: String, val notes: String, val apkUrl: String)
+
+	/** Release notes are written in Markdown for GitHub; an AlertDialog shows
+	 * plain text, so the asterisks and backticks arrived on screen as
+	 * literals. This strips the handful of marks that actually appear in these
+	 * notes rather than pretending to be a Markdown renderer. */
+	private fun plainNotes(raw: String): String = raw
+		.replace(Regex("\\*\\*(.+?)\\*\\*"), "$1")
+		.replace(Regex("`([^`]+)`"), "$1")
+		.replace(Regex("(?m)^#{1,6}\\s*"), "")
+		.replace(Regex("(?m)^[-*]\\s+"), "• ")
+		.replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
+		.trim()
 
 	private fun check(activity: Activity, explicit: Boolean) {
 		val current = versionName(activity)
@@ -232,7 +280,8 @@ object AppUpdates {
 	}
 
 	private fun offer(activity: Activity, release: Release) {
-		val notes = release.notes.take(700).ifEmpty { activity.getString(R.string.updates_no_notes) }
+		val notes = plainNotes(release.notes).take(700)
+			.ifEmpty { activity.getString(R.string.updates_no_notes) }
 		AlertDialog.Builder(activity)
 			.setTitle(activity.getString(R.string.updates_available_title, release.versionName))
 			.setMessage(notes)

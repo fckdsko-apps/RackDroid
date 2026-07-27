@@ -19,6 +19,9 @@ object AppUpdates {
 	/** Called once per launch. Nothing to do here. */
 	fun onStart(activity: Activity) {}
 
+	/** Never reached: this build never starts an install session. */
+	fun onNewIntent(activity: Activity, intent: android.content.Intent?) {}
+
 	/** Never reached: the menu row is hidden when SUPPORTED is false. */
 	fun checkNow(activity: Activity) {}
 }

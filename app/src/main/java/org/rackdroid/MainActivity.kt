@@ -250,9 +250,11 @@ class MainActivity : NativeActivity() {
 
 	fun tourMultiSelectIsOn(): Boolean = multiSelectOn
 
-	/** Modules on the rack right now. The tour asks before building its steps:
-	 * on an empty rack there is nothing to slide, select or patch. */
-	fun tourModuleCount(): Int = runCatching { nativeRackModuleCount() }.getOrDefault(0)
+	/** Modules on the rack right now, or -1 if the render thread has not run a
+	 * frame yet. The tour asks before building its steps: on an empty rack
+	 * there is nothing to slide, select or patch -- but "not known yet" must
+	 * not be mistaken for "empty". */
+	fun tourModuleCount(): Int = runCatching { nativeRackModuleCount() }.getOrDefault(-1)
 
 	fun tourSetMultiSelect(on: Boolean) = uiHandler.post {
 		runCatching { applyMultiSelect?.invoke(on) }
@@ -868,6 +870,10 @@ class MainActivity : NativeActivity() {
 
 	override fun onNewIntent(intent: Intent) {
 		super.onNewIntent(intent)
+		// The package installer reports the progress of a self-update through
+		// an intent aimed here; without this the confirmation screen is never
+		// shown and the update silently never happens.
+		runCatching { AppUpdates.onNewIntent(this, intent) }
 		handleImportIntent(intent)
 	}
 
