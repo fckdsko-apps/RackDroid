@@ -47,6 +47,7 @@
 #include "label_overlay.hpp"
 #include "cable_park.hpp"
 #include "selection_glow.hpp"
+#include "tour_demo.hpp"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "rackdroid", __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "rackdroid", __VA_ARGS__)
@@ -199,6 +200,7 @@ struct RackDroidApp {
 	void stopRack() {
 		if (!rackStarted)
 			return;
+		rackdroid::tourDemoRestore();
 		if (APP->patch && !settings::safeMode) {
 			try {
 				// Persist the session like desktop autosave-on-quit.
@@ -267,7 +269,10 @@ static void handleCmdInner(RackDroidApp* rd, int32_t cmd) {
 			break;
 		case APP_CMD_STOP:
 			// Android may kill a stopped app without APP_CMD_DESTROY:
-			// persist the session now.
+			// persist the session now. Undo any tour demonstration first, so a
+			// module parked mid-animation is never what gets written out.
+			if (rd->rackStarted)
+				rackdroid::tourDemoRestore();
 			if (rd->rackStarted && APP->patch) {
 				try {
 					APP->patch->saveAutosave();
@@ -343,6 +348,7 @@ void android_main(android_app* app) {
 		if (rd.rackStarted && APP->window && rackdroid::windowHasSurface()) {
 			try {
 				rackdroid::touchStep();
+				rackdroid::processTourDemo();
 				APP->window->step();
 			}
 			catch (std::exception& e) {

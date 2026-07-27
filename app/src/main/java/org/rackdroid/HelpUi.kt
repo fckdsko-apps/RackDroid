@@ -896,20 +896,32 @@ class Tour(
 	private val activity: Activity,
 	private val doneFlag: String? = "tour_done",
 ) {
-	// spot: 0 = none (centred card, no cut), 1 = toolbar, 2 = palette, 3 = cable park
-	private data class Step(val title: Int, val body: Int, val spot: Int)
+	// spot: 0 = none (centred card, no cut), 1 = toolbar, 2 = palette,
+	// 3 = cable park, 4..9 = pieces of the toolbar, 10 = the rack itself.
+	// act: what the tour DOES on this step -- see runAction below. A step that
+	// only talks about a control leaves the user to imagine it; these open the
+	// real menu, the real palette, and move real modules on the real rack.
+	private data class Step(
+		val title: Int, val body: Int, val spot: Int,
+		val spot2: Int = 0, val act: Int = ACT_NONE,
+	)
 	private val steps = listOf(
 		Step(R.string.tour_s1_t, R.string.tour_s1_b, 0),
 		Step(R.string.tour_s2_t, R.string.tour_s2_b, 1),
-		Step(R.string.tour_s7_t, R.string.tour_s7_b, 4),   // the menu strip
+		// the menu strip, with one menu opened for real
+		Step(R.string.tour_s7_t, R.string.tour_s7_b, 4, act = ACT_MENU),
 		Step(R.string.tour_s8_t, R.string.tour_s8_b, 5),   // tools, first row
 		Step(R.string.tour_s9_t, R.string.tour_s9_b, 6),   // tools, second row
 		Step(R.string.tour_s10_t, R.string.tour_s10_b, 7), // the two padlocks
-		Step(R.string.tour_s3_t, R.string.tour_s3_b, 2),   // module palette
+		// the palette, opened on the catalogue while the card explains it
+		Step(R.string.tour_s3_t, R.string.tour_s3_b, 2, act = ACT_PALETTE),
 		Step(R.string.tour_s11_t, R.string.tour_s11_b, 8), // module manager
 		Step(R.string.tour_s4_t, R.string.tour_s4_b, 3),   // cable parking
-		Step(R.string.tour_s5_t, R.string.tour_s5_b, 0),   // rack gestures
-		Step(R.string.tour_s12_t, R.string.tour_s12_b, 6), // choosing modules
+		// gestures: a module slides across the rack as it is described
+		Step(R.string.tour_s5_t, R.string.tour_s5_b, 10, act = ACT_MOVE),
+		// multi-select: modules light up, then move together, with the edit
+		// row lit at the same time so both halves of the idea are on screen
+		Step(R.string.tour_s12_t, R.string.tour_s12_b, 10, spot2 = 6, act = ACT_SELECT),
 		Step(R.string.tour_s13_t, R.string.tour_s13_b, 9), // sound, MIDI, recording
 		Step(R.string.tour_s14_t, R.string.tour_s14_b, 4), // where to learn more
 		Step(R.string.tour_s6_t, R.string.tour_s6_b, 0),
@@ -917,6 +929,11 @@ class Tour(
 
 	private fun dp(v: Int) = (v * activity.resources.displayMetrics.density).toInt()
 	private var step = 0
+	private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+	// What the current step has open or moved, so it can be put back exactly.
+	private var openedMenu = false
+	private var openedPalette = false
+	private var movedRack = false
 	private var popup: PopupWindow? = null
 	private lateinit var scrim: ScrimView
 	private lateinit var card: LinearLayout
@@ -929,6 +946,9 @@ class Tour(
 	 * spotlighted region, plus an accent ring around it. */
 	private inner class ScrimView(a: Activity) : View(a) {
 		var spot: RectF? = null
+		// A step can point at two things at once -- the modules lighting up on
+		// the rack AND the buttons that act on them.
+		var spot2: RectF? = null
 		private val scrimPaint = Paint().apply { color = 0xC8000000.toInt() }
 		private val clearPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
 			xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
@@ -943,8 +963,10 @@ class Tour(
 			val save = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
 			canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), scrimPaint)
 			spot?.let { canvas.drawRoundRect(it, r, r, clearPaint) }
+			spot2?.let { canvas.drawRoundRect(it, r, r, clearPaint) }
 			canvas.restoreToCount(save)
 			spot?.let { canvas.drawRoundRect(it, r, r, ringPaint) }
+			spot2?.let { canvas.drawRoundRect(it, r, r, ringPaint) }
 		}
 
 		/** First measure, rotation, split-screen resize: the views underneath
@@ -1052,12 +1074,75 @@ class Tour(
 
 		val rect = spotRect(s.spot)
 		scrim.spot = rect
+		scrim.spot2 = spotRect(s.spot2)
 		scrim.invalidate()
 		positionCard(rect)
+		runAction(s.act)
 
 		card.alpha = 0f; card.translationY = dp(14).toFloat()
 		card.animate().alpha(1f).translationY(0f).setDuration(240L)
 			.setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+	}
+
+	/** Everything the tour opened or moved, put back. Called before each step
+	 * and when the tour ends, however it ends -- Next, the scrim, or Skip. */
+	private fun undoAction() {
+		handler.removeCallbacksAndMessages(null)
+		val main = activity as? MainActivity ?: return
+		if (openedMenu) { main.tourCloseSheet(); openedMenu = false }
+		if (openedPalette) { main.tourShowPalette(false); openedPalette = false }
+		if (movedRack) { main.tourDemo(TOUR_RESTORE); movedRack = false }
+	}
+
+	/** Performs the step: opens the real menu, opens the real palette, or asks
+	 * the render thread to light up and slide real modules. Delayed a beat so
+	 * the card has landed and the user is reading before anything moves.
+	 *
+	 * The demonstration is never an edit. The menu is View -- settings, nothing
+	 * that could touch a patch -- and it closes itself; module positions are
+	 * restored to the exact coordinates they had, without going through undo.
+	 * The tour can be replayed from Help at any point over real work. */
+	private fun runAction(act: Int) {
+		undoAction()
+		val main = activity as? MainActivity ?: return
+		when (act) {
+			ACT_MENU -> handler.postDelayed({
+				openedMenu = true
+				main.tourOpenMenu(MENU_ENGINE)
+				// Long enough to read, short enough that the sheet never
+				// becomes something the user has to dismiss to carry on.
+				handler.postDelayed({ main.tourCloseSheet(); openedMenu = false }, 2600L)
+			}, 500L)
+			ACT_PALETTE -> handler.postDelayed({
+				// Already open: spotlight it and change nothing.
+				if (main.tourPaletteIsOpen()) { reaim(); return@postDelayed }
+				openedPalette = true
+				main.tourShowPalette(true)
+				// The bar is a window of its own: re-aim the hole once it is up.
+				handler.postDelayed({ if (popup != null) reaim() }, 420L)
+			}, 400L)
+			ACT_MOVE -> handler.postDelayed({
+				movedRack = true
+				main.tourDemo(TOUR_MOVE_ONE)
+			}, 600L)
+			ACT_SELECT -> handler.postDelayed({
+				movedRack = true
+				main.tourDemo(TOUR_SELECT)
+				// Chosen first, moved together after: the two halves of
+				// multi-select, in the order the user would do them.
+				handler.postDelayed({ main.tourDemo(TOUR_NUDGE) }, 1100L)
+			}, 600L)
+		}
+	}
+
+	/** Re-measures the holes for the step on screen, without replaying it. */
+	private fun reaim() {
+		val s = steps[step]
+		val rect = spotRect(s.spot)
+		scrim.spot = rect
+		scrim.spot2 = spotRect(s.spot2)
+		scrim.invalidate()
+		positionCard(rect)
 	}
 
 	/** Fits the card to the scrim: nine tenths of the width, capped so it does
@@ -1149,15 +1234,41 @@ class Tour(
 			8 -> main?.toolCellsBounds(0, 1, 1)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
 			// MIDI, keyboard and record sit together in the middle of row one.
 			9 -> main?.toolCellsBounds(0, 4, 3)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+			// The rack itself: the band under the toolbar, stopping well above
+			// the bottom so the card still has somewhere to sit. This is what
+			// the moving-module demonstrations are seen through.
+			10 -> {
+				val top = main?.toolbarBounds()?.let { toScrimSpace(it) }?.bottom ?: (h * 0.22f)
+				RectF(dp(6).toFloat(), top + dp(8), w - dp(6), h * 0.62f)
+			}
 			else -> null
 		}
 	}
 
 	private fun finish() {
+		undoAction()
 		popup?.let { runCatching { it.dismiss() } }
 		popup = null
 		if (doneFlag != null)
 			activity.getSharedPreferences("guide", Context.MODE_PRIVATE)
 				.edit().putBoolean(doneFlag, true).apply()
+	}
+
+	private companion object {
+		const val ACT_NONE = 0
+		const val ACT_MENU = 1
+		const val ACT_PALETTE = 2
+		const val ACT_MOVE = 3
+		const val ACT_SELECT = 4
+		// Engine, of the five: its sheet is short, so the caption card stays
+		// readable beside it, and its rows are audio settings -- an accidental
+		// tap during the demonstration cannot alter a patch. View, tried first,
+		// is long enough to cover the whole screen, card included.
+		const val MENU_ENGINE = 3
+		// Matches tourDemoRequest() in native/port/tour_demo.cpp.
+		const val TOUR_SELECT = 1
+		const val TOUR_NUDGE = 2
+		const val TOUR_RESTORE = 3
+		const val TOUR_MOVE_ONE = 4
 	}
 }

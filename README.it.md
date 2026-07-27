@@ -51,7 +51,7 @@ come su un rack hardware. Nessun compromesso: è il motore audio di
 | 🧵 **Parcheggio cavi** | una barra sul bordo sinistro dove un capo del cavo aspetta mentre scorri fino alla destinazione — cresce da 3 fino a 10 buchi man mano che li riempi, illumina le porte compatibili mentre miri, si richiude in una maniglia |
 | 🎹 **MIDI** | tastiera musicale a schermo, MIDI USB e Bluetooth LE |
 | ⏺️ **Registrazione** | uscita su file WAV in `Documents/RackDroid/` |
-| 🎓 **Apprendimento guidato** | un tour dell'interfaccia a spotlight al primo avvio, 30 tutorial passo-passo su 5 livelli, più una guida per argomenti |
+| 🎓 **Apprendimento guidato** | un tour dell'interfaccia in 14 passi al primo avvio che si dimostra da solo — apre i menu e la palette, muove i moduli veri e poi rimette tutto a posto — 30 tutorial passo-passo su 5 livelli, più una guida per argomenti |
 | 🔄 **Aggiornamenti (build GitHub)** | a scelta tua: RackDroid può chiedere a GitHub una volta al giorno se è uscita una versione nuova e installarla. Se rifiuti non si connette mai — la build per Play non ha l'aggiornatore né alcun permesso di rete |
 
 ## Moduli aggiuntivi (.rdmod)

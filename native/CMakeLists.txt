@@ -300,6 +300,7 @@ if(RACKDROID_UI)
 		${CMAKE_CURRENT_SOURCE_DIR}/port/label_overlay.cpp
 		${CMAKE_CURRENT_SOURCE_DIR}/port/menu_touch.cpp
 		${CMAKE_CURRENT_SOURCE_DIR}/port/selection_glow.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/port/tour_demo.cpp
 	)
 	if(ANDROID)
 		list(APPEND PORT_SOURCES

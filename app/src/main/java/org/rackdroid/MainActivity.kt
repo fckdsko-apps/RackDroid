@@ -215,6 +215,28 @@ class MainActivity : NativeActivity() {
 		return android.graphics.Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
 	}
 
+	/** Live demonstrations for the tour. Everything here is put back: the demo
+	 * deselects exactly what it selected and restores module positions to the
+	 * coordinates they had, so replaying the tour over real work changes
+	 * nothing. See native/port/tour_demo.cpp. */
+	fun tourDemo(what: Int) = runCatching { nativeTourDemo(what) }
+
+	/** Open one of the toolbar menus for the tour, or close what is open. */
+	fun tourOpenMenu(index: Int) = runCatching { nativeToolbarTap(index) }
+
+	fun tourCloseSheet() = uiHandler.post { runCatching { menuDialog?.dismiss() } }
+
+	/** Whether the module palette is on screen right now. The tour asks before
+	 * opening it, so a palette the user already had open is left exactly as it
+	 * was -- category chip included -- instead of being reset and then shut. */
+	fun tourPaletteIsOpen(): Boolean = modulePalette.bounds() != null
+
+	fun tourShowPalette(show: Boolean) = uiHandler.post {
+		runCatching { if (show) modulePalette.showAll() else modulePalette.hide() }
+	}
+
+	fun tourSetMultiSelect(on: Boolean) = runCatching { nativeSetMultiSelect(on) }
+
 	/** Screen bounds of the module palette, for the same tour. */
 	fun paletteBounds(): android.graphics.Rect? = modulePalette.bounds()
 
@@ -1919,6 +1941,7 @@ class MainActivity : NativeActivity() {
 	private external fun nativeDeleteSelection()
 	private external fun nativeSelectionCount(): Int
 	private external fun nativeCableParkBounds(): IntArray?
+	private external fun nativeTourDemo(what: Int)
 	private external fun nativeGetCableTension(): Float
 	private external fun nativeSetCableTension(v: Float)
 	private external fun nativeGetCableOpacity(): Float
