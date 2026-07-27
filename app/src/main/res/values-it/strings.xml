@@ -264,7 +264,7 @@
 	<!-- Libreria tutorial -->
 	<string name="tut_library_title">Tutorial</string>
 	<string name="tut_steps_count">%1$d passi</string>
-	<string name="tut_basic_sub">Il tuo primo suono in sei passi</string>
+	<string name="tut_basic_sub">Il tuo primo suono, passo per passo</string>
 	<string name="tut_pro_sub">La voce sottrattiva completa, spiegata</string>
 	<string name="tutlevel_1">Livello 1 — Fondamenta</string>
 	<string name="tutlevel_2">Livello 2 — Modulazione</string>
@@ -341,7 +341,7 @@
 	<string name="t12_title">Primo beat 808</string>
 	<string name="t12_sub">Cassa e rullante dal sequencer</string>
 	<string name="t12_s0">Aggiungi BD-808 e SD-808, e un SEQ 3 come cervello.</string>
-	<string name="t12_s1">Ogni step del SEQ 3 ha la sua uscita TRIG in basso. Uscite step 1 e 5 ▸ TRIG del BD-808 (cassa sui battere).</string>
+	<string name="t12_s1">Ogni step del SEQ 3 ha la sua uscita STEP in basso (TRIG, accanto, è un\'altra cosa: scatta sullo step attivo). Uscite STEP 1 e 5 ▸ TRIG del BD-808 (cassa sui battere).</string>
 	<string name="t12_s2">Uscite step 3 e 7 ▸ TRIG del SD-808: il controtempo.</string>
 	<string name="t12_s3">Mixa le due uscite AUDIO in un mixer ▸ Audio 2, poi premi RUN.</string>
 	<string name="t12_s4">Boom–clap! TEMPO regola la velocità. Benvenuto nella programmazione ritmica.</string>

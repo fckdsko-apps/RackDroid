@@ -268,7 +268,7 @@
 	<!-- Tutorial library -->
 	<string name="tut_library_title">Tutorials</string>
 	<string name="tut_steps_count">%1$d steps</string>
-	<string name="tut_basic_sub">Your first sound in six steps</string>
+	<string name="tut_basic_sub">Your first sound, step by step</string>
 	<string name="tut_pro_sub">The full subtractive voice, explained</string>
 	<string name="tutlevel_1">Level 1 — Foundations</string>
 	<string name="tutlevel_2">Level 2 — Modulation</string>
@@ -345,7 +345,7 @@
 	<string name="t12_title">First 808 beat</string>
 	<string name="t12_sub">Kick and snare from the sequencer</string>
 	<string name="t12_s0">Add BD-808 and SD-808, and a SEQ 3 as the brain.</string>
-	<string name="t12_s1">Each SEQ 3 step has its own TRIG output at the bottom. Step outs 1 and 5 ▸ BD-808 TRIG (kick on the downbeats).</string>
+	<string name="t12_s1">Each SEQ 3 step has its own STEP output at the bottom (the TRIG next to them is a different thing: it fires on whichever step is active). STEP outs 1 and 5 ▸ BD-808 TRIG (kick on the downbeats).</string>
 	<string name="t12_s2">Step outs 3 and 7 ▸ SD-808 TRIG: the backbeat.</string>
 	<string name="t12_s3">Mix both AUDIO outs into a mixer ▸ Audio 2, then press RUN.</string>
 	<string name="t12_s4">Boom–clap! TEMPO sets the speed. Welcome to drum programming.</string>
