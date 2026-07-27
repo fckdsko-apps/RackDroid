@@ -250,6 +250,10 @@ class MainActivity : NativeActivity() {
 
 	fun tourMultiSelectIsOn(): Boolean = multiSelectOn
 
+	/** Modules on the rack right now. The tour asks before building its steps:
+	 * on an empty rack there is nothing to slide, select or patch. */
+	fun tourModuleCount(): Int = runCatching { nativeRackModuleCount() }.getOrDefault(0)
+
 	fun tourSetMultiSelect(on: Boolean) = uiHandler.post {
 		runCatching { applyMultiSelect?.invoke(on) }
 	}
@@ -1976,6 +1980,7 @@ class MainActivity : NativeActivity() {
 	private external fun nativeSelectionCount(): Int
 	private external fun nativeCableParkBounds(): IntArray?
 	private external fun nativeTourDemo(what: Int)
+	private external fun nativeRackModuleCount(): Int
 	private external fun nativeGetCableTension(): Float
 	private external fun nativeSetCableTension(v: Float)
 	private external fun nativeGetCableOpacity(): Float

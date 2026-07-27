@@ -26,4 +26,9 @@ user left it at. Called when the tour ends or is dismissed, and before any
 autosave. */
 void tourDemoRestore();
 
+/** Modules on the rack, from the count the render thread republishes every
+frame. Safe from any thread; the tour uses it to leave out the steps it could
+not demonstrate on an empty rack. */
+int rackModuleCount();
+
 } // namespace rackdroid

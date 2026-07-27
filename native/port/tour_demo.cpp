@@ -107,6 +107,11 @@ struct TourDemo {
 
 TourDemo g;
 
+/** How many modules are on the rack, republished every frame so Java can read
+it from the UI thread: the rack widget belongs to the render thread, and the
+tour has to know before it builds its step list. */
+std::atomic<int> g_moduleCount{0};
+
 /** Flat at both ends, fastest in the middle: every movement here is eased, so
 it reads as deliberate rather than as a glitch. */
 float ease(double x) {
@@ -326,6 +331,11 @@ void endDemo() {
 } // namespace
 
 
+int rackModuleCount() {
+	return g_moduleCount.load();
+}
+
+
 void tourDemoRequest(int what) {
 	g.request.store(what);
 }
@@ -360,6 +370,7 @@ void tourDemoRestore() {
 void processTourDemo() {
 	if (!APP->scene || !APP->scene->rack)
 		return;
+	g_moduleCount.store((int) APP->scene->rack->getModules().size());
 
 	int request = g.request.exchange(0);
 	if (request == D_RESTORE) {
@@ -560,4 +571,10 @@ void processTourDemo() {
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeTourDemo(JNIEnv*, jobject, jint what) {
 	rackdroid::tourDemoRequest(what);
+}
+
+
+extern "C" JNIEXPORT jint JNICALL
+Java_org_rackdroid_MainActivity_nativeRackModuleCount(JNIEnv*, jobject) {
+	return rackdroid::rackModuleCount();
 }

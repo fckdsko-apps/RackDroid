@@ -908,7 +908,7 @@ class Tour(
 		 * spotlight, and MENU_INDICES[arg] for the menu the tour opens. */
 		val arg: Int = 0,
 	)
-	private val steps = listOf(
+	private val allSteps = listOf(
 		Step(R.string.tour_s1_t, R.string.tour_s1_b, 0),
 		Step(R.string.tour_s2_t, R.string.tour_s2_b, 1),
 		// One step per menu: the card says what is inside, then the tour opens
@@ -940,6 +940,21 @@ class Tour(
 		Step(R.string.tour_s6_t, R.string.tour_s6_b, 0),
 	)
 
+	/** What this run will actually show. A demonstration with nothing to
+	 * demonstrate on is worse than no demonstration: the card promises a module
+	 * sliding across the rack and the user watches an empty rack not move. So
+	 * on a rack that has been emptied, those steps are left out entirely. */
+	private val steps: List<Step> = run {
+		val modules = (activity as? MainActivity)?.tourModuleCount() ?: 0
+		allSteps.filter {
+			when (it.act) {
+				ACT_MOVE, ACT_SELECT -> modules >= 1
+				ACT_CABLE -> modules >= 2
+				else -> true // zoom and scrolling read fine on bare rails
+			}
+		}
+	}
+
 	private fun dp(v: Int) = (v * activity.resources.displayMetrics.density).toInt()
 	private var step = 0
 	private val handler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -953,6 +968,7 @@ class Tour(
 	private lateinit var card: LinearLayout
 	private lateinit var titleView: TextView
 	private lateinit var bodyView: TextView
+	private lateinit var bodyScroll: ScrollView
 	private lateinit var stepLabel: TextView
 	private lateinit var nextBtn: TextView
 
@@ -991,7 +1007,11 @@ class Tour(
 			post {
 				if (popup != null) {
 					applyCardWidth()
-					render()
+					// Re-aim only. Calling render() here replayed the step's
+					// action, and a demonstration can itself change the scrim
+					// size -- opening the palette adds a window and moves the
+					// insets -- so the step kept undoing and redoing itself.
+					reaim()
 				}
 			}
 		}
@@ -1034,7 +1054,16 @@ class Tour(
 		header.addView(titleView); header.addView(stepLabel)
 		card.addView(header)
 		bodyView = tv(14.5f, AppTheme.current.textPrimary).apply { setPadding(0, dp(9), 0, dp(12)) }
-		card.addView(bodyView)
+		// Scrollable, because the card has to fit the space the spotlight leaves
+		// it. In landscape the toolbar takes nearly half the height and these
+		// paragraphs run to six lines: laid out plain, the card ran off the
+		// bottom of the screen and took Skip and Next with it.
+		bodyScroll = ScrollView(activity).apply {
+			isFillViewport = false
+			overScrollMode = View.OVER_SCROLL_NEVER
+			addView(bodyView)
+		}
+		card.addView(bodyScroll)
 		val buttons = LinearLayout(activity).apply {
 			orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
 		}
@@ -1063,6 +1092,15 @@ class Tour(
 		val p = PopupWindow(root,
 			ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 		p.isFocusable = true
+		// Whatever takes the tour off screen -- Next past the last step, Skip,
+		// or the window system itself -- must not leave a demonstration behind:
+		// a module parked mid-slide, a half-made cable, the view somewhere the
+		// user never scrolled it. This is the one place that is guaranteed to
+		// run, so the undo lives here.
+		p.setOnDismissListener {
+			undoAction()
+			popup = null
+		}
 		popup = p
 		render()
 		activity.window.decorView.post {
@@ -1203,6 +1241,8 @@ class Tour(
 		val lp = card.layoutParams as FrameLayout.LayoutParams
 		lp.width = (w * 0.9f).toInt().coerceAtMost(dp(560))
 		card.layoutParams = lp
+		// positionCard may narrow it further to fit beside a spotlight; it runs
+		// after this, so the order matters.
 	}
 
 	/** Puts the card clear of the spotlight: beside a narrow vertical bar, or in
@@ -1216,6 +1256,18 @@ class Tour(
 		val gap = dp(16)
 		when {
 			spot == null || w <= 0f || h <= 0f -> lp.gravity = Gravity.CENTER
+			// A tall spot with a clear margin on one side: sit in that margin
+			// rather than squeezing above or below it. This is what makes the
+			// rack steps work in landscape, where there is nothing above or
+			// below to sit in.
+			spot.height() > h * 0.35f && maxOf(spot.left, w - spot.right) > w * 0.3f -> {
+				val onLeft = spot.centerX() < w * 0.5f
+				val room = (if (onLeft) w - spot.right else spot.left) - gap * 2
+				lp.width = room.toInt().coerceAtMost(dp(560))
+				lp.gravity = Gravity.CENTER_VERTICAL or
+					(if (onLeft) Gravity.END else Gravity.START)
+				if (onLeft) lp.rightMargin = gap else lp.leftMargin = gap
+			}
 			// Narrow and tall (the cable parking bar): sit next to it, on the
 			// opposite side, rather than trying to squeeze above or below.
 			spot.width() < w * 0.4f -> {
@@ -1236,6 +1288,26 @@ class Tour(
 			}
 		}
 		card.layoutParams = lp
+		fitCardHeight(lp)
+	}
+
+	/** Keeps the whole card -- buttons included -- inside the scrim, letting the
+	 * body scroll when the space the spotlight leaves is not enough. */
+	private fun fitCardHeight(lp: FrameLayout.LayoutParams) {
+		val h = scrim.height
+		if (h <= 0 || lp.width <= 0) return
+		val slp = bodyScroll.layoutParams
+		slp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+		bodyScroll.layoutParams = slp
+		card.measure(
+			View.MeasureSpec.makeMeasureSpec(lp.width, View.MeasureSpec.EXACTLY),
+			View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+		val available = h - lp.topMargin - lp.bottomMargin - dp(12)
+		val over = card.measuredHeight - available
+		if (over > 0) {
+			slp.height = (bodyScroll.measuredHeight - over).coerceAtLeast(dp(56))
+			bodyScroll.layoutParams = slp
+		}
 	}
 
 	/** Screen-space rect → scrim-space, and clipped to the scrim. The tour is a
@@ -1290,12 +1362,23 @@ class Tour(
 			11 -> main?.toolbarMenuButtonBounds(arg)?.let { toScrimSpace(it) }
 				?.apply { inset(-pad, -pad) }
 				?: main?.toolbarMenuRowBounds()?.let { toScrimSpace(it) }
-			// The rack itself: the band under the toolbar, stopping well above
-			// the bottom so the card still has somewhere to sit. This is what
-			// the moving-module demonstrations are seen through.
+			// The rack itself: what is left between the toolbar and the module
+			// palette. In portrait that is a tall band and the card sits under
+			// it; in landscape the toolbar eats nearly half the height, so the
+			// leftover strip is wide and shallow -- keeping the same rule left
+			// a letterbox slit with the demonstration happening inside it. So
+			// there the band takes the left of the strip and the card goes
+			// beside it, which is where the room actually is.
 			10 -> {
-				val top = main?.toolbarBounds()?.let { toScrimSpace(it) }?.bottom ?: (h * 0.22f)
-				RectF(dp(6).toFloat(), top + dp(8), w - dp(6), h * 0.62f)
+				val top = (main?.toolbarBounds()?.let { toScrimSpace(it) }?.bottom ?: (h * 0.22f)) + dp(8)
+				val paletteTop = main?.paletteBounds()?.let { toScrimSpace(it) }?.top
+				val bottom = (paletteTop ?: h) - dp(8)
+				val band = RectF(dp(6).toFloat(), top, w - dp(6), maxOf(bottom, top + dp(80)))
+				if (band.width() > band.height() * 1.6f)
+					band.right = w * 0.58f
+				else
+					band.bottom = minOf(band.bottom, h * 0.62f)
+				band
 			}
 			else -> null
 		}
