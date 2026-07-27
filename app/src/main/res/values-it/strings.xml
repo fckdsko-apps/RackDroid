@@ -139,7 +139,7 @@
 	<string name="tour_s11_t">Altri moduli</string>
 	<string name="tour_s11_b">Da qui installi i pacchetti .rdmod: decine di moduli in più, senza aggiornare l\'app. Compaiono subito nella palette, e da qui puoi anche rimuoverli.</string>
 	<string name="tour_s12_t">Scegliere più moduli</string>
-	<string name="tour_s12_b">Accendi la selezione multipla: un tocco su un modulo lo sceglie, un altro lo toglie, e i moduli scelti prendono un alone rosso. Poi tienine premuto uno per spostarli tutti insieme, oppure usa copia, incolla e cestino qui accanto.</string>
+	<string name="tour_s12_b">Il tasto della selezione multipla si sta accendendo — guarda. Con la modalità attiva, un tocco su un modulo lo sceglie e un altro lo toglie, e quelli scelti prendono un alone rosso. Tienine premuto uno per spostarli tutti insieme, oppure usa copia, incolla e cestino qui accanto.</string>
 	<string name="tour_s13_t">Suono, MIDI e registrazione</string>
 	<string name="tour_s13_b">La tastiera a schermo suona senza altro hardware; il pulsante MIDI cerca controller Bluetooth (quelli USB funzionano appena collegati). Il pallino rosso registra l\'uscita in un file WAV nella cartella Documenti.</string>
 	<!-- Un passo del tour per ogni menu: il tour lo apre davvero mentre la

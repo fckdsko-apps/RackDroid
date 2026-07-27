@@ -242,7 +242,17 @@ class MainActivity : NativeActivity() {
 		runCatching { if (show) modulePalette.showAll() else modulePalette.hide() }
 	}
 
-	fun tourSetMultiSelect(on: Boolean) = runCatching { nativeSetMultiSelect(on) }
+	/** Multi-select as the toolbar shows it. Held here (rather than as a local
+	 * of the toolbar builder) so the tour can switch it and have the button
+	 * light up with it. */
+	private var multiSelectOn = false
+	private var applyMultiSelect: ((Boolean) -> Unit)? = null
+
+	fun tourMultiSelectIsOn(): Boolean = multiSelectOn
+
+	fun tourSetMultiSelect(on: Boolean) = uiHandler.post {
+		runCatching { applyMultiSelect?.invoke(on) }
+	}
 
 	/** Screen bounds of the module palette, for the same tour. */
 	fun paletteBounds(): android.graphics.Rect? = modulePalette.bounds()
@@ -441,13 +451,18 @@ class MainActivity : NativeActivity() {
 		// Multi-select: while on, a one-finger drag on empty rack draws the
 		// selection marquee; while off (default), that drag pans the view.
 		// Session-only, dimmed when off.
-		var multiSelect = false
 		lateinit var selectButton: ImageButton
+		// One place that turns the mode on or off, because the tour drives it
+		// too: the button has to light up when the interface tour reaches the
+		// multi-select step, or it demonstrates a mode nothing shows as on.
+		applyMultiSelect = { on ->
+			multiSelectOn = on
+			nativeSetMultiSelect(on)
+			selectButton.imageTintList = if (on) amberTint else iconTint
+			selectButton.alpha = if (on) 1f else 0.6f
+		}
 		selectButton = iconButton(R.drawable.ic_tb_select, getString(R.string.select_modules_title)) {
-			multiSelect = !multiSelect
-			nativeSetMultiSelect(multiSelect)
-			selectButton.imageTintList = if (multiSelect) amberTint else iconTint
-			selectButton.alpha = if (multiSelect) 1f else 0.6f
+			applyMultiSelect?.invoke(!multiSelectOn)
 		}
 		selectButton.alpha = 0.6f
 		// Copy / paste the selected modules (Rack's own selection clipboard).

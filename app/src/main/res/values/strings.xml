@@ -143,7 +143,7 @@
 	<string name="tour_s11_t">More modules</string>
 	<string name="tour_s11_b">This is where .rdmod packs are installed: dozens more modules, without updating the app. They appear in the palette straight away, and you can remove them from here too.</string>
 	<string name="tour_s12_t">Choosing several modules</string>
-	<string name="tour_s12_b">Turn on multi-select: a tap picks a module, another tap drops it, and chosen modules get a red halo. Then hold one to move them all together, or use copy, paste and the bin right beside it.</string>
+	<string name="tour_s12_b">The multi-select button is lighting up now — watch. With it on, a tap picks a module and another tap drops it, and the chosen ones get a red halo. Hold one to move them all together, or use copy, paste and the bin beside it.</string>
 	<string name="tour_s13_t">Sound, MIDI and recording</string>
 	<string name="tour_s13_b">The on-screen keyboard plays without any other hardware; the MIDI button scans for Bluetooth controllers (USB ones work as soon as they are plugged in). The red dot records the output to a WAV file in your Documents folder.</string>
 	<!-- One tour step per menu: the tour opens each one for real while its

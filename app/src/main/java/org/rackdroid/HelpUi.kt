@@ -934,7 +934,7 @@ class Tour(
 		Step(R.string.tour_s4_t, R.string.tour_s4_b, 3),   // cable parking
 		// multi-select: modules light up, then move together, with the edit
 		// row lit at the same time so both halves of the idea are on screen
-		Step(R.string.tour_s12_t, R.string.tour_s12_b, 10, spot2 = 6, act = ACT_SELECT),
+		Step(R.string.tour_s12_t, R.string.tour_s12_b, 10, spot2 = 12, act = ACT_SELECT),
 		Step(R.string.tour_s13_t, R.string.tour_s13_b, 9), // sound, MIDI, recording
 		Step(R.string.tour_s14_t, R.string.tour_s14_b, 4), // where to learn more
 		Step(R.string.tour_s6_t, R.string.tour_s6_b, 0),
@@ -947,6 +947,7 @@ class Tour(
 	private var openedMenu = false
 	private var openedPalette = false
 	private var movedRack = false
+	private var turnedOnMultiSelect = false
 	private var popup: PopupWindow? = null
 	private lateinit var scrim: ScrimView
 	private lateinit var card: LinearLayout
@@ -1111,6 +1112,7 @@ class Tour(
 		main.tourMenuDemo = false
 		if (openedPalette) { main.tourShowPalette(false); openedPalette = false }
 		if (movedRack) { main.tourDemo(TOUR_RESTORE); movedRack = false }
+		if (turnedOnMultiSelect) { main.tourSetMultiSelect(false); turnedOnMultiSelect = false }
 	}
 
 	/** Performs the step: opens the real menu, opens the real palette, or asks
@@ -1156,10 +1158,19 @@ class Tour(
 			ACT_ZOOM -> demo(main, TOUR_ZOOM)
 			ACT_CABLE -> demo(main, TOUR_CABLE)
 			ACT_SELECT -> {
+				// Switch the mode on first, so the toolbar button lights up:
+				// the step is about that button, and modules acquiring a halo
+				// while nothing shows the mode as on explains half of it.
+				handler.postDelayed({
+					if (!main.tourMultiSelectIsOn()) {
+						turnedOnMultiSelect = true
+						main.tourSetMultiSelect(true)
+					}
+				}, 900L)
 				demo(main, TOUR_SELECT)
 				// Chosen first, moved together after: the two halves of
 				// multi-select, in the order the user would do them.
-				handler.postDelayed({ main.tourDemo(TOUR_NUDGE) }, 1900L)
+				handler.postDelayed({ main.tourDemo(TOUR_NUDGE) }, 2600L)
 			}
 		}
 	}
@@ -1273,6 +1284,8 @@ class Tour(
 			8 -> main?.toolCellsBounds(0, 1, 1)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
 			// MIDI, keyboard and record sit together in the middle of row one.
 			9 -> main?.toolCellsBounds(0, 4, 3)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+			// Multi-select, copy, paste and the bin: the four the step is about.
+			12 -> main?.toolCellsBounds(1, 2, 4)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
 			// One menu button of the strip, for the per-menu steps.
 			11 -> main?.toolbarMenuButtonBounds(arg)?.let { toScrimSpace(it) }
 				?.apply { inset(-pad, -pad) }
