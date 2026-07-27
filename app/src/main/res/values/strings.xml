@@ -89,6 +89,7 @@
 	<string name="menu_tour">Interface tour</string>
 
 	<!-- In-app guide -->
+	<string name="guide_show_me">▶  Show me</string>
 	<string name="guide_title">RackDroid Guide</string>
 	<string name="guide_s1_t">The rack</string>
 	<string name="guide_s1_b">RackDroid is a modular synthesizer: you place modules on a rack, connect them with cables, and everything makes sound in real time. The essentials are built in, with many more packs available on demand.</string>

@@ -72,16 +72,21 @@ private fun rowOfModules(activity: Activity, keys: List<String>, heightDp: Int):
 
 // ---- Guide library ----------------------------------------------------------
 
-data class GuideSection(val t: Int, val b: Int, val images: List<String> = emptyList())
+/** demo: what the "Mostrami" button under this section asks the rack to show,
+ * matching tourDemoRequest() in native/port/tour_demo.cpp (0 = no button). The
+ * guide already says what a gesture does; this lets it show it on the user's
+ * own patch, put back exactly as it was afterwards. */
+data class GuideSection(
+	val t: Int, val b: Int, val images: List<String> = emptyList(), val demo: Int = 0)
 data class GuideTopic(val icon: String, val title: Int, val subtitle: Int, val sections: List<GuideSection>)
 
 val GUIDE_TOPICS = listOf(
 	GuideTopic("🚀", R.string.guide_t1_title, R.string.guide_t1_sub, listOf(
 		GuideSection(R.string.guide_s1_t, R.string.guide_s1_b),
-		GuideSection(R.string.guide_s2_t, R.string.guide_s2_b),
+		GuideSection(R.string.guide_s2_t, R.string.guide_s2_b, demo = 6),   // zoom e scorrimento
 		GuideSection(R.string.guide_s3_t, R.string.guide_s3_b),
 		GuideSection(R.string.guide_s4_t, R.string.guide_s4_b),
-		GuideSection(R.string.guide_s5_t, R.string.guide_s5_b),
+		GuideSection(R.string.guide_s5_t, R.string.guide_s5_b, demo = 7),   // un cavo tracciato
 		GuideSection(R.string.guide_s6_t, R.string.guide_s6_b),
 		GuideSection(R.string.guide_s7_t, R.string.guide_s7_b),
 		GuideSection(R.string.guide_s8_t, R.string.guide_s8_b),
@@ -92,7 +97,7 @@ val GUIDE_TOPICS = listOf(
 		GuideSection(R.string.guide_t2_s1_t, R.string.guide_t2_s1_b),
 		GuideSection(R.string.guide_t2_s2_t, R.string.guide_t2_s2_b),
 		GuideSection(R.string.guide_t2_s3_t, R.string.guide_t2_s3_b),
-		GuideSection(R.string.guide_t2_s4_t, R.string.guide_t2_s4_b),
+		GuideSection(R.string.guide_t2_s4_t, R.string.guide_t2_s4_b, demo = 1), // alone rosso
 	)),
 	GuideTopic("🔌", R.string.guide_t3_title, R.string.guide_t3_sub, listOf(
 		GuideSection(R.string.guide_t3_s1_t, R.string.guide_t3_s1_b),
@@ -259,7 +264,10 @@ class GuideSheet(private val activity: Activity) {
 				textSize = 20f
 				setTextColor(AppTheme.current.textDisabled)
 			})
-			card.setOnClickListener { GuideTopicSheet(activity, topic).show() }
+			// The index is handed down so a demonstration can clear the whole
+			// guide off the screen: it happens on the rack, and dismissing only
+			// the topic sheet left the index sitting on top of it.
+			card.setOnClickListener { GuideTopicSheet(activity, topic, dialog).show() }
 			content.addView(card)
 		}
 		val dlg = glassDialog(activity, content)
@@ -270,11 +278,18 @@ class GuideSheet(private val activity: Activity) {
 
 
 /** One topic: scrollable titled sections, with module images where they help. */
-class GuideTopicSheet(private val activity: Activity, private val topic: GuideTopic) {
+class GuideTopicSheet(
+	private val activity: Activity,
+	private val topic: GuideTopic,
+	/** The guide index this was opened from, closed with the sheet when a
+	 * section demonstrates itself on the rack. */
+	private val index: android.app.Dialog? = null,
+) {
 	private fun dp(v: Int) = (v * activity.resources.displayMetrics.density).toInt()
 
 	fun show() {
 		val font = AppFont.get(activity)
+		lateinit var dialog: android.app.Dialog
 		val content = LinearLayout(activity).apply {
 			orientation = LinearLayout.VERTICAL
 			setPadding(dp(24), dp(16), dp(24), dp(28))
@@ -304,8 +319,38 @@ class GuideTopicSheet(private val activity: Activity, private val topic: GuideTo
 				it.setPadding(0, dp(10), 0, 0)
 				content.addView(it)
 			}
+			val main = activity as? MainActivity
+			if (s.demo != 0 && main != null) {
+				content.addView(TextView(activity).apply {
+					text = activity.getString(R.string.guide_show_me)
+					setTextColor(AppTheme.current.accent)
+					textSize = 14f
+					setTypeface(font, Typeface.BOLD)
+					setPadding(dp(14), dp(9), dp(14), dp(9))
+					background = GradientDrawable().apply {
+						cornerRadius = dp(18).toFloat()
+						setStroke(dp(1), AppTheme.withAlpha(AppTheme.current.accent, 90))
+					}
+					isClickable = true
+					setOnClickListener {
+						// Out of the way first: the demonstration happens on the
+						// rack, which this sheet and the index behind it cover.
+						runCatching { dialog.dismiss() }
+						runCatching { index?.dismiss() }
+						val h = android.os.Handler(android.os.Looper.getMainLooper())
+						h.postDelayed({ main.tourDemo(s.demo) }, 350L)
+						// Everything the demo touched goes back, same as the tour.
+						h.postDelayed({ main.tourDemo(3) }, 6000L)
+					}
+					layoutParams = LinearLayout.LayoutParams(
+						ViewGroup.LayoutParams.WRAP_CONTENT,
+						ViewGroup.LayoutParams.WRAP_CONTENT
+					).apply { topMargin = dp(12) }
+				})
+			}
 		}
-		glassDialog(activity, content).show()
+		dialog = glassDialog(activity, content)
+		dialog.show()
 	}
 }
 
