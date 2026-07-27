@@ -129,7 +129,7 @@
 	<string name="tour_s4_t">Cable parking</string>
 	<string name="tour_s4_b">On the left: park a cable end in a hole, scroll to the far module, then drag it out onto the port — compatible ports light up. It grows from 3 to 10 holes; the handle at the top collapses it.</string>
 	<string name="tour_s5_t">The rack — gestures</string>
-	<string name="tour_s5_b">Drag from a port to a port to patch. Drag a module\'s panel to move it. Pinch to zoom, drag the background with one finger to scroll. Long-press a knob to type a value; long-press a module for its menu.</string>
+	<string name="tour_s5_b">Drag a module\'s panel to move it — watch this one slide across and come back. Long-press a knob to type an exact value; long-press a module for its own menu.</string>
 	<string name="tour_s6_t">That\'s it</string>
 	<string name="tour_s6_b">You start on a demo patch that already makes sound. To go deeper, open Help ▸ Guide and Help ▸ Tutorials (30 guided paths). Have fun!</string>
 	<string name="tour_s7_t">The menus, up top</string>
@@ -146,6 +146,10 @@
 	<string name="tour_s12_b">Turn on multi-select: a tap picks a module, another tap drops it, and chosen modules get a red halo. Then hold one to move them all together, or use copy, paste and the bin right beside it.</string>
 	<string name="tour_s13_t">Sound, MIDI and recording</string>
 	<string name="tour_s13_b">The on-screen keyboard plays without any other hardware; the MIDI button scans for Bluetooth controllers (USB ones work as soon as they are plugged in). The red dot records the output to a WAV file in your Documents folder.</string>
+	<string name="tour_s15_t">Zoom and scrolling</string>
+	<string name="tour_s15_b">Pinch with two fingers to zoom in and out, and drag the background with one finger — or two fingers anywhere — to scroll. Let go while still moving and the rack glides on. Watch it come closer, then slide across.</string>
+	<string name="tour_s16_t">Patching</string>
+	<string name="tour_s16_b">Drag from an output to an input: the cable follows your finger and every jack that can take it lights up, so you can aim roughly and still land it. Watch one being drawn.</string>
 	<string name="tour_s14_t">If you want a hand</string>
 	<string name="tour_s14_b">Help holds the topic guide and thirty step-by-step tutorials that build real patches, from your first sound to the advanced techniques. You can run this tour again from there whenever you like.</string>
 	<string name="wizard_s0">Welcome! Let\'s build your first sound in six short steps. You can keep using the rack while this card is open.</string>

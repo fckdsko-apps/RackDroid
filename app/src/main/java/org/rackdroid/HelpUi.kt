@@ -908,7 +908,7 @@ class Tour(
 	private val steps = listOf(
 		Step(R.string.tour_s1_t, R.string.tour_s1_b, 0),
 		Step(R.string.tour_s2_t, R.string.tour_s2_b, 1),
-		// the menu strip, with one menu opened for real
+		// the menu strip, opening each menu in turn
 		Step(R.string.tour_s7_t, R.string.tour_s7_b, 4, act = ACT_MENU),
 		Step(R.string.tour_s8_t, R.string.tour_s8_b, 5),   // tools, first row
 		Step(R.string.tour_s9_t, R.string.tour_s9_b, 6),   // tools, second row
@@ -916,9 +916,13 @@ class Tour(
 		// the palette, opened on the catalogue while the card explains it
 		Step(R.string.tour_s3_t, R.string.tour_s3_b, 2, act = ACT_PALETTE),
 		Step(R.string.tour_s11_t, R.string.tour_s11_b, 8), // module manager
-		Step(R.string.tour_s4_t, R.string.tour_s4_b, 3),   // cable parking
-		// gestures: a module slides across the rack as it is described
+		// moving a module: one really slides across the rack
 		Step(R.string.tour_s5_t, R.string.tour_s5_b, 10, act = ACT_MOVE),
+		// the rack zooms in, back out, and scrolls sideways
+		Step(R.string.tour_s15_t, R.string.tour_s15_b, 10, act = ACT_ZOOM),
+		// a cable is drawn from an output to an input, jacks lighting up
+		Step(R.string.tour_s16_t, R.string.tour_s16_b, 10, act = ACT_CABLE),
+		Step(R.string.tour_s4_t, R.string.tour_s4_b, 3),   // cable parking
 		// multi-select: modules light up, then move together, with the edit
 		// row lit at the same time so both halves of the idea are on screen
 		Step(R.string.tour_s12_t, R.string.tour_s12_b, 10, spot2 = 6, act = ACT_SELECT),
@@ -1090,6 +1094,7 @@ class Tour(
 		handler.removeCallbacksAndMessages(null)
 		val main = activity as? MainActivity ?: return
 		if (openedMenu) { main.tourCloseSheet(); openedMenu = false }
+		main.tourMenuDemo = false
 		if (openedPalette) { main.tourShowPalette(false); openedPalette = false }
 		if (movedRack) { main.tourDemo(TOUR_RESTORE); movedRack = false }
 	}
@@ -1106,13 +1111,23 @@ class Tour(
 		undoAction()
 		val main = activity as? MainActivity ?: return
 		when (act) {
-			ACT_MENU -> handler.postDelayed({
+			ACT_MENU -> {
+				// Each menu in turn, in the order the card names them, so the
+				// step shows what is behind all five rather than one at random.
+				// Closed before the next is asked for: Rack's menu button
+				// toggles, so tapping a second one while the first is open just
+				// shuts it and the cycle stalls on the same sheet.
+				main.tourMenuDemo = true
 				openedMenu = true
-				main.tourOpenMenu(MENU_ENGINE)
-				// Long enough to read, short enough that the sheet never
-				// becomes something the user has to dismiss to carry on.
-				handler.postDelayed({ main.tourCloseSheet(); openedMenu = false }, 2600L)
-			}, 500L)
+				MENU_INDICES.forEachIndexed { n, menu ->
+					val at = 400L + n * MENU_DWELL
+					if (n > 0) handler.postDelayed({ main.tourCloseSheet() }, at)
+					handler.postDelayed({ main.tourOpenMenu(menu) }, at + 300L)
+				}
+				handler.postDelayed({
+					main.tourCloseSheet(); openedMenu = false; main.tourMenuDemo = false
+				}, 400L + MENU_INDICES.size * MENU_DWELL)
+			}
 			ACT_PALETTE -> handler.postDelayed({
 				// Already open: spotlight it and change nothing.
 				if (main.tourPaletteIsOpen()) { reaim(); return@postDelayed }
@@ -1121,18 +1136,26 @@ class Tour(
 				// The bar is a window of its own: re-aim the hole once it is up.
 				handler.postDelayed({ if (popup != null) reaim() }, 420L)
 			}, 400L)
-			ACT_MOVE -> handler.postDelayed({
-				movedRack = true
-				main.tourDemo(TOUR_MOVE_ONE)
-			}, 600L)
-			ACT_SELECT -> handler.postDelayed({
-				movedRack = true
-				main.tourDemo(TOUR_SELECT)
+			ACT_MOVE -> demo(main, TOUR_MOVE_ONE)
+			ACT_ZOOM -> demo(main, TOUR_ZOOM)
+			ACT_CABLE -> demo(main, TOUR_CABLE)
+			ACT_SELECT -> {
+				demo(main, TOUR_SELECT)
 				// Chosen first, moved together after: the two halves of
 				// multi-select, in the order the user would do them.
-				handler.postDelayed({ main.tourDemo(TOUR_NUDGE) }, 1100L)
-			}, 600L)
+				handler.postDelayed({ main.tourDemo(TOUR_NUDGE) }, 1900L)
+			}
 		}
+	}
+
+	/** Asks the render thread for a demonstration, a beat after the card has
+	 * landed so the user is reading before anything moves. Every one of them
+	 * moves the camera, so all of them need putting back. */
+	private fun demo(main: MainActivity, what: Int) {
+		handler.postDelayed({
+			movedRack = true
+			main.tourDemo(what)
+		}, 600L)
 	}
 
 	/** Re-measures the holes for the step on screen, without replaying it. */
@@ -1260,15 +1283,20 @@ class Tour(
 		const val ACT_PALETTE = 2
 		const val ACT_MOVE = 3
 		const val ACT_SELECT = 4
-		// Engine, of the five: its sheet is short, so the caption card stays
-		// readable beside it, and its rows are audio settings -- an accidental
-		// tap during the demonstration cannot alter a patch. View, tried first,
-		// is long enough to cover the whole screen, card included.
-		const val MENU_ENGINE = 3
+		const val ACT_ZOOM = 5
+		const val ACT_CABLE = 6
+		/** File, Edit, View, Engine, Help -- the strip as the user sees it.
+		 * Rack's menu bar has a Library button at index 4 that this port does
+		 * not show (it only manages a VCV account), so Help is 5, not 4. */
+		val MENU_INDICES = listOf(0, 1, 2, 3, 5)
+		/** How long each menu stays up before the next one is opened. */
+		const val MENU_DWELL = 1600L
 		// Matches tourDemoRequest() in native/port/tour_demo.cpp.
 		const val TOUR_SELECT = 1
 		const val TOUR_NUDGE = 2
 		const val TOUR_RESTORE = 3
 		const val TOUR_MOVE_ONE = 4
+		const val TOUR_ZOOM = 6
+		const val TOUR_CABLE = 7
 	}
 }

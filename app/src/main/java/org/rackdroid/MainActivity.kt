@@ -221,6 +221,13 @@ class MainActivity : NativeActivity() {
 	 * nothing. See native/port/tour_demo.cpp. */
 	fun tourDemo(what: Int) = runCatching { nativeTourDemo(what) }
 
+	/** True while the tour is opening menus to show what they hold. The sheets
+	 * it opens are made untouchable (see showNativeMenu): they are there to be
+	 * looked at, and a stray tap on File ▸ New during the demonstration would
+	 * throw away the patch the tour is running on top of. Taps fall through to
+	 * the tour's own scrim instead, which is what the user expects to hit. */
+	var tourMenuDemo = false
+
 	/** Open one of the toolbar menus for the tour, or close what is open. */
 	fun tourOpenMenu(index: Int) = runCatching { nativeToolbarTap(index) }
 
@@ -1550,7 +1557,12 @@ class MainActivity : NativeActivity() {
 			try {
 				jlog("showNativeMenu: ${labels.size} rows")
 				closeMenuDialogSilently()
-				menuDialog = buildMenuSheet(labels, rights, flags).also { it.show() }
+				menuDialog = buildMenuSheet(labels, rights, flags).also {
+					it.show()
+					if (tourMenuDemo) it.window?.addFlags(
+						android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+						android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+				}
 				nativeMenuShown() // tell native the sheet is up (hide canvas)
 				jlog("showNativeMenu: sheet up")
 			} catch (t: Throwable) {

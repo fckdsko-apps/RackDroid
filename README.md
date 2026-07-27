@@ -50,7 +50,7 @@ audio engine, made native for your phone.
 | 🧵 **Cable parking** | a left-edge bar where a cable end waits while you scroll to its destination — grows from 3 up to 10 holes as you fill them, lights up compatible ports while you aim, collapses to a handle |
 | 🎹 **MIDI** | on-screen musical keyboard, USB and Bluetooth LE MIDI |
 | ⏺️ **Recording** | output to a WAV file in `Documents/RackDroid/` |
-| 🎓 **Guided learning** | a 14-step interface tour on first run that demonstrates itself — it opens menus and the palette, and moves real modules, then puts everything back — 30 step-by-step tutorials across 5 levels, plus a topic-based guide |
+| 🎓 **Guided learning** | a 16-step interface tour on first run that demonstrates itself — it frames your modules, opens the menus and the palette, moves a module, zooms and scrolls the rack, and draws a cable with the compatible jacks lit, then puts everything back — 30 step-by-step tutorials across 5 levels, plus a topic-based guide |
 | 🔄 **Updates (GitHub build)** | opt-in: RackDroid can ask GitHub once a day whether a newer release exists and install it. Refuse and it never connects — the Play build has no updater and no network permission at all |
 
 ## Additional modules (.rdmod)

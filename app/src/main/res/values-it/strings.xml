@@ -125,7 +125,7 @@
 	<string name="tour_s4_t">Parcheggio cavi</string>
 	<string name="tour_s4_b">A sinistra: parcheggia un capo del cavo in un buco, scorri fino al modulo lontano, poi tiralo fuori sulla porta — le porte compatibili si illuminano. Cresce da 3 a 10 buchi; la maniglia in cima lo richiude.</string>
 	<string name="tour_s5_t">Il rack — i gesti</string>
-	<string name="tour_s5_b">Trascina da una porta a un\'altra per collegare. Trascina il pannello di un modulo per spostarlo. Pizzica per lo zoom, trascina lo sfondo con un dito per scorrere. Tieni premuta una manopola per digitare un valore; tieni premuto un modulo per il suo menu.</string>
+	<string name="tour_s5_b">Trascina il pannello di un modulo per spostarlo — guarda questo che scorre e torna al suo posto. Tieni premuta una manopola per digitare un valore esatto; tieni premuto un modulo per il suo menu.</string>
 	<string name="tour_s6_t">Tutto qui</string>
 	<string name="tour_s6_b">Parti da una patch dimostrativa che suona già. Per approfondire, apri Aiuto ▸ Guida e Aiuto ▸ Tutorial (30 percorsi guidati). Buon divertimento!</string>
 	<string name="tour_s7_t">I menu, in alto</string>
@@ -142,6 +142,10 @@
 	<string name="tour_s12_b">Accendi la selezione multipla: un tocco su un modulo lo sceglie, un altro lo toglie, e i moduli scelti prendono un alone rosso. Poi tienine premuto uno per spostarli tutti insieme, oppure usa copia, incolla e cestino qui accanto.</string>
 	<string name="tour_s13_t">Suono, MIDI e registrazione</string>
 	<string name="tour_s13_b">La tastiera a schermo suona senza altro hardware; il pulsante MIDI cerca controller Bluetooth (quelli USB funzionano appena collegati). Il pallino rosso registra l\'uscita in un file WAV nella cartella Documenti.</string>
+	<string name="tour_s15_t">Zoom e scorrimento</string>
+	<string name="tour_s15_b">Pizzica con due dita per ingrandire e ridurre, e trascina lo sfondo con un dito — o due dita ovunque — per scorrere. Se lasci mentre stai scorrendo, il rack prosegue per inerzia. Guardalo avvicinarsi e poi scorrere di lato.</string>
+	<string name="tour_s16_t">Collegare i moduli</string>
+	<string name="tour_s16_b">Trascina da un\'uscita a un ingresso: il cavo segue il dito e ogni jack che può accoglierlo si illumina, così puoi mirare a occhio e centrarlo lo stesso. Guarda come si traccia.</string>
 	<string name="tour_s14_t">Se ti serve una mano</string>
 	<string name="tour_s14_b">In Aiuto trovi la guida per argomenti e trenta tutorial passo-passo che costruiscono patch vere, dal primo suono alle tecniche avanzate. Questo giro puoi rivederlo da lì quando vuoi.</string>
 	<string name="wizard_s0">Benvenuto! Costruiamo il tuo primo suono in sei brevi passi. Puoi continuare a usare il rack mentre questa scheda è aperta.</string>
