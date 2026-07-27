@@ -146,6 +146,18 @@
 	<string name="tour_s12_b">Turn on multi-select: a tap picks a module, another tap drops it, and chosen modules get a red halo. Then hold one to move them all together, or use copy, paste and the bin right beside it.</string>
 	<string name="tour_s13_t">Sound, MIDI and recording</string>
 	<string name="tour_s13_b">The on-screen keyboard plays without any other hardware; the MIDI button scans for Bluetooth controllers (USB ones work as soon as they are plugged in). The red dot records the output to a WAV file in your Documents folder.</string>
+	<!-- One tour step per menu: the tour opens each one for real while its
+	     card says what is inside it. -->
+	<string name="tour_m0_t">The File menu</string>
+	<string name="tour_m0_b">New patch, open and save, save a copy, overwrite the template you start from, import a selection, and share the patch with another app. The patches you opened recently are in here too.</string>
+	<string name="tour_m1_t">The Edit menu</string>
+	<string name="tour_m1_b">Undo and redo, select all or deselect. With modules chosen: copy, paste, duplicate them — with or without their cables — initialise or randomise them, disconnect their cables, bypass them, or delete them. Clear cables strips every cable in the patch.</string>
+	<string name="tour_m2_t">The View menu</string>
+	<string name="tour_m2_b">Frame rate, interface size, zoom to fit every module on screen, light or dark theme, tooltips, cable colours, how knobs respond, locked module positions — and the two sliders that set how tight and how visible the cables are.</string>
+	<string name="tour_m3_t">The Engine menu</string>
+	<string name="tour_m3_b">Performance meters, sample rate, and how many CPU threads the audio engine uses. Raise the rate for quality, lower it if a big patch starts to crackle.</string>
+	<string name="tour_m4_t">The Help menu</string>
+	<string name="tour_m4_b">Language, tips, the guide by topic, the thirty tutorials — and this tour, which you can replay from here whenever you like.</string>
 	<string name="tour_s15_t">Zoom and scrolling</string>
 	<string name="tour_s15_b">Pinch with two fingers to zoom in and out, and drag the background with one finger — or two fingers anywhere — to scroll. Let go while still moving and the rack glides on. Watch it come closer, then slide across.</string>
 	<string name="tour_s16_t">Patching</string>

@@ -904,12 +904,21 @@ class Tour(
 	private data class Step(
 		val title: Int, val body: Int, val spot: Int,
 		val spot2: Int = 0, val act: Int = ACT_NONE,
+		/** Which menu the step is about: its index in the strip (0..4) for the
+		 * spotlight, and MENU_INDICES[arg] for the menu the tour opens. */
+		val arg: Int = 0,
 	)
 	private val steps = listOf(
 		Step(R.string.tour_s1_t, R.string.tour_s1_b, 0),
 		Step(R.string.tour_s2_t, R.string.tour_s2_b, 1),
-		// the menu strip, opening each menu in turn
-		Step(R.string.tour_s7_t, R.string.tour_s7_b, 4, act = ACT_MENU),
+		// One step per menu: the card says what is inside, then the tour opens
+		// the real thing for a few seconds. Five steps rather than one sweep --
+		// a strip of menus flicking past explains nothing.
+		Step(R.string.tour_m0_t, R.string.tour_m0_b, 11, act = ACT_MENU, arg = 0),
+		Step(R.string.tour_m1_t, R.string.tour_m1_b, 11, act = ACT_MENU, arg = 1),
+		Step(R.string.tour_m2_t, R.string.tour_m2_b, 11, act = ACT_MENU, arg = 2),
+		Step(R.string.tour_m3_t, R.string.tour_m3_b, 11, act = ACT_MENU, arg = 3),
+		Step(R.string.tour_m4_t, R.string.tour_m4_b, 11, act = ACT_MENU, arg = 4),
 		Step(R.string.tour_s8_t, R.string.tour_s8_b, 5),   // tools, first row
 		Step(R.string.tour_s9_t, R.string.tour_s9_b, 6),   // tools, second row
 		Step(R.string.tour_s10_t, R.string.tour_s10_b, 7), // the two padlocks
@@ -1076,12 +1085,12 @@ class Tour(
 		nextBtn.text = activity.getString(
 			if (step == steps.size - 1) R.string.wizard_done else R.string.wizard_next)
 
-		val rect = spotRect(s.spot)
+		val rect = spotRect(s.spot, s.arg)
 		scrim.spot = rect
 		scrim.spot2 = spotRect(s.spot2)
 		scrim.invalidate()
 		positionCard(rect)
-		runAction(s.act)
+		runAction(s.act, s.arg)
 
 		card.alpha = 0f; card.translationY = dp(14).toFloat()
 		card.animate().alpha(1f).translationY(0f).setDuration(240L)
@@ -1093,7 +1102,12 @@ class Tour(
 	private fun undoAction() {
 		handler.removeCallbacksAndMessages(null)
 		val main = activity as? MainActivity ?: return
-		if (openedMenu) { main.tourCloseSheet(); openedMenu = false }
+		if (openedMenu) {
+			main.tourCloseSheet()
+			openedMenu = false
+			card.animate().cancel()
+			card.alpha = 1f
+		}
 		main.tourMenuDemo = false
 		if (openedPalette) { main.tourShowPalette(false); openedPalette = false }
 		if (movedRack) { main.tourDemo(TOUR_RESTORE); movedRack = false }
@@ -1107,26 +1121,28 @@ class Tour(
 	 * that could touch a patch -- and it closes itself; module positions are
 	 * restored to the exact coordinates they had, without going through undo.
 	 * The tour can be replayed from Help at any point over real work. */
-	private fun runAction(act: Int) {
+	private fun runAction(act: Int, arg: Int = 0) {
 		undoAction()
 		val main = activity as? MainActivity ?: return
 		when (act) {
 			ACT_MENU -> {
-				// Each menu in turn, in the order the card names them, so the
-				// step shows what is behind all five rather than one at random.
-				// Closed before the next is asked for: Rack's menu button
-				// toggles, so tapping a second one while the first is open just
-				// shuts it and the cycle stalls on the same sheet.
+				// The card is left to be read first, then the real menu opens
+				// underneath it and stays long enough to look through. Opening
+				// it at once, or flicking through all five in one step, showed
+				// the user a stack of rows with nothing to tie them to.
 				main.tourMenuDemo = true
-				openedMenu = true
-				MENU_INDICES.forEachIndexed { n, menu ->
-					val at = 400L + n * MENU_DWELL
-					if (n > 0) handler.postDelayed({ main.tourCloseSheet() }, at)
-					handler.postDelayed({ main.tourOpenMenu(menu) }, at + 300L)
-				}
+				handler.postDelayed({
+					openedMenu = true
+					main.tourOpenMenu(MENU_INDICES[arg])
+					// The sheet is a window above this one and a tall menu
+					// covers the card; a half-lit card behind it reads as a
+					// glitch. Fade it out for as long as the menu is up.
+					card.animate().alpha(0f).setDuration(180L).start()
+				}, MENU_READ)
 				handler.postDelayed({
 					main.tourCloseSheet(); openedMenu = false; main.tourMenuDemo = false
-				}, 400L + MENU_INDICES.size * MENU_DWELL)
+					card.animate().alpha(1f).setDuration(220L).start()
+				}, MENU_READ + MENU_DWELL)
 			}
 			ACT_PALETTE -> handler.postDelayed({
 				// Already open: spotlight it and change nothing.
@@ -1149,19 +1165,19 @@ class Tour(
 	}
 
 	/** Asks the render thread for a demonstration, a beat after the card has
-	 * landed so the user is reading before anything moves. Every one of them
-	 * moves the camera, so all of them need putting back. */
+	 * landed so the first line has been read before anything moves. Every one
+	 * of them moves the camera, so all of them need putting back. */
 	private fun demo(main: MainActivity, what: Int) {
 		handler.postDelayed({
 			movedRack = true
 			main.tourDemo(what)
-		}, 600L)
+		}, 1200L)
 	}
 
 	/** Re-measures the holes for the step on screen, without replaying it. */
 	private fun reaim() {
 		val s = steps[step]
-		val rect = spotRect(s.spot)
+		val rect = spotRect(s.spot, s.arg)
 		scrim.spot = rect
 		scrim.spot2 = spotRect(s.spot2)
 		scrim.invalidate()
@@ -1233,7 +1249,7 @@ class Tour(
 	/** The region to spotlight, measured from the live views. Falls back to a
 	 * band proportional to the scrim -- never to fixed pixel sizes, which is
 	 * what used to leave the ring next to the palette instead of around it. */
-	private fun spotRect(spot: Int): RectF? {
+	private fun spotRect(spot: Int, arg: Int = 0): RectF? {
 		val w = scrim.width.toFloat(); val h = scrim.height.toFloat()
 		if (w <= 0f || h <= 0f) return null
 		val main = activity as? MainActivity
@@ -1257,6 +1273,10 @@ class Tour(
 			8 -> main?.toolCellsBounds(0, 1, 1)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
 			// MIDI, keyboard and record sit together in the middle of row one.
 			9 -> main?.toolCellsBounds(0, 4, 3)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+			// One menu button of the strip, for the per-menu steps.
+			11 -> main?.toolbarMenuButtonBounds(arg)?.let { toScrimSpace(it) }
+				?.apply { inset(-pad, -pad) }
+				?: main?.toolbarMenuRowBounds()?.let { toScrimSpace(it) }
 			// The rack itself: the band under the toolbar, stopping well above
 			// the bottom so the card still has somewhere to sit. This is what
 			// the moving-module demonstrations are seen through.
@@ -1289,8 +1309,13 @@ class Tour(
 		 * Rack's menu bar has a Library button at index 4 that this port does
 		 * not show (it only manages a VCV account), so Help is 5, not 4. */
 		val MENU_INDICES = listOf(0, 1, 2, 3, 5)
-		/** How long each menu stays up before the next one is opened. */
-		const val MENU_DWELL = 1600L
+		/** Time to read the card before its menu opens, and how long the menu
+		 * then stays on screen. Both deliberately slow: these paragraphs run to
+		 * four or five lines, and a menu that appears while they are still
+		 * being read hides the very text that explains it. Tapping Next at any
+		 * point cuts the wait short, so the cost of erring long is nothing. */
+		const val MENU_READ = 4800L
+		const val MENU_DWELL = 4200L
 		// Matches tourDemoRequest() in native/port/tour_demo.cpp.
 		const val TOUR_SELECT = 1
 		const val TOUR_NUDGE = 2

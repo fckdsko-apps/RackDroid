@@ -262,6 +262,13 @@ class MainActivity : NativeActivity() {
 	/** The File/Edit/View/Engine/Help strip. */
 	fun toolbarMenuRowBounds(): android.graphics.Rect? = viewBounds(menuRowView)
 
+	/** One button of that strip, 0..4, for the tour's per-menu steps. */
+	fun toolbarMenuButtonBounds(index: Int): android.graphics.Rect? {
+		val row = menuRowView as? ViewGroup ?: return null
+		if (index < 0 || index >= row.childCount) return null
+		return viewBounds(row.getChildAt(index))
+	}
+
 	/** One row of the eight-column tool grid: 0 = build/play, 1 = edit/protect.
 	 * The grid lays both rows out at the same height, so halving is exact. */
 	fun toolRowBounds(row: Int): android.graphics.Rect? {

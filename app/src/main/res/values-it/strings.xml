@@ -142,6 +142,18 @@
 	<string name="tour_s12_b">Accendi la selezione multipla: un tocco su un modulo lo sceglie, un altro lo toglie, e i moduli scelti prendono un alone rosso. Poi tienine premuto uno per spostarli tutti insieme, oppure usa copia, incolla e cestino qui accanto.</string>
 	<string name="tour_s13_t">Suono, MIDI e registrazione</string>
 	<string name="tour_s13_b">La tastiera a schermo suona senza altro hardware; il pulsante MIDI cerca controller Bluetooth (quelli USB funzionano appena collegati). Il pallino rosso registra l\'uscita in un file WAV nella cartella Documenti.</string>
+	<!-- Un passo del tour per ogni menu: il tour lo apre davvero mentre la
+	     scheda dice cosa c'è dentro. -->
+	<string name="tour_m0_t">Il menu File</string>
+	<string name="tour_m0_b">Nuova patch, apri e salva, salva una copia, sovrascrivi il modello da cui parti, importa una selezione e condividi la patch con un\'altra app. Qui dentro ci sono anche le patch aperte di recente.</string>
+	<string name="tour_m1_t">Il menu Modifica</string>
+	<string name="tour_m1_b">Annulla e ripeti, seleziona tutto o deseleziona. Con dei moduli scelti: copiali, incollali, duplicali — con o senza i loro cavi — inizializzali o randomizzali, scollega i cavi, mettili in bypass oppure cancellali. «Clear cables» toglie tutti i cavi della patch.</string>
+	<string name="tour_m2_t">Il menu Visualizza</string>
+	<string name="tour_m2_b">Frame rate, dimensione dell\'interfaccia, zoom per inquadrare tutti i moduli, tema chiaro o scuro, tooltip, colori dei cavi, risposta delle manopole, blocco delle posizioni — e i due cursori per tensione e opacità dei cavi.</string>
+	<string name="tour_m3_t">Il menu Motore</string>
+	<string name="tour_m3_b">Misuratori di prestazioni, frequenza di campionamento e quanti thread della CPU usa il motore audio. Alza la frequenza per la qualità, abbassala se una patch grossa inizia a gracchiare.</string>
+	<string name="tour_m4_t">Il menu Aiuto</string>
+	<string name="tour_m4_b">Lingua, suggerimenti, la guida per argomenti, i trenta tutorial — e questo tour, che puoi rivedere da qui quando vuoi.</string>
 	<string name="tour_s15_t">Zoom e scorrimento</string>
 	<string name="tour_s15_b">Pizzica con due dita per ingrandire e ridurre, e trascina lo sfondo con un dito — o due dita ovunque — per scorrere. Se lasci mentre stai scorrendo, il rack prosegue per inerzia. Guardalo avvicinarsi e poi scorrere di lato.</string>
 	<string name="tour_s16_t">Collegare i moduli</string>
