@@ -82,6 +82,7 @@
 	<!-- Voci extra del menu Aiuto -->
 	<string name="menu_guide">Guida</string>
 	<string name="menu_wizard">Tutorial (30 percorsi)</string>
+	<string name="menu_tour">Rivedi il tour</string>
 
 	<!-- Guida in-app -->
 	<string name="guide_title">Guida di RackDroid</string>
@@ -116,7 +117,7 @@
 	<string name="tour_skip">Salta</string>
 	<string name="tour_replay">Tour dell\'interfaccia</string>
 	<string name="tour_s1_t">Benvenuto in RackDroid</string>
-	<string name="tour_s1_b">Un sintetizzatore modulare completo in tasca. Ecco un rapido giro dello schermo — sei passi. Puoi saltare quando vuoi.</string>
+	<string name="tour_s1_b">Un sintetizzatore modulare completo in tasca. Ecco un giro dello schermo, parte per parte: cosa c\'è e a cosa serve. Puoi saltare quando vuoi.</string>
 	<string name="tour_s2_t">La barra degli strumenti</string>
 	<string name="tour_s2_b">In alto: i menu (File, Modifica, Visualizza, Motore, Aiuto) e due righe di tool — palette moduli, gestore moduli, parcheggio cavi, tema, MIDI, tastiera a schermo, registrazione, info; sotto: annulla/ripeti, selezione multipla, copia, incolla, cestino e i due lucchetti. La freccetta ⌄ la richiude.</string>
 	<string name="tour_s3_t">Aggiungere moduli</string>
@@ -127,6 +128,22 @@
 	<string name="tour_s5_b">Trascina da una porta a un\'altra per collegare. Trascina il pannello di un modulo per spostarlo. Pizzica per lo zoom, trascina lo sfondo con un dito per scorrere. Tieni premuta una manopola per digitare un valore; tieni premuto un modulo per il suo menu.</string>
 	<string name="tour_s6_t">Tutto qui</string>
 	<string name="tour_s6_b">Parti da una patch dimostrativa che suona già. Per approfondire, apri Aiuto ▸ Guida e Aiuto ▸ Tutorial (30 percorsi guidati). Buon divertimento!</string>
+	<string name="tour_s7_t">I menu, in alto</string>
+	<string name="tour_s7_b">File apre, salva e condivide le patch. Modifica ha annulla e selezione. Visualizza regola zoom, tema, aspetto dei cavi. Motore riguarda audio e campionamento. Aiuto contiene guida e tutorial.</string>
+	<string name="tour_s8_t">Costruire e ascoltare</string>
+	<string name="tour_s8_b">La prima riga di tool: la palette dei moduli, il gestore dei pacchetti, il parcheggio cavi, il tema, i dispositivi MIDI, la tastiera a schermo, la registrazione e le informazioni.</string>
+	<string name="tour_s9_t">Modificare</string>
+	<string name="tour_s9_b">La seconda riga: annulla e ripeti, la selezione multipla, copia, incolla e il cestino. Sono le cose che userai mentre riordini una patch.</string>
+	<string name="tour_s10_t">I due lucchetti</string>
+	<string name="tour_s10_b">Il primo congela moduli e cavi al loro posto lasciando vive le manopole: suoni dal vivo senza spostare niente per sbaglio. Il secondo blocca anche i parametri. Restano attivi tra le sessioni.</string>
+	<string name="tour_s11_t">Altri moduli</string>
+	<string name="tour_s11_b">Da qui installi i pacchetti .rdmod: decine di moduli in più, senza aggiornare l\'app. Compaiono subito nella palette, e da qui puoi anche rimuoverli.</string>
+	<string name="tour_s12_t">Scegliere più moduli</string>
+	<string name="tour_s12_b">Accendi la selezione multipla: un tocco su un modulo lo sceglie, un altro lo toglie, e i moduli scelti prendono un alone rosso. Poi tienine premuto uno per spostarli tutti insieme, oppure usa copia, incolla e cestino qui accanto.</string>
+	<string name="tour_s13_t">Suono, MIDI e registrazione</string>
+	<string name="tour_s13_b">La tastiera a schermo suona senza altro hardware; il pulsante MIDI cerca controller Bluetooth (quelli USB funzionano appena collegati). Il pallino rosso registra l\'uscita in un file WAV nella cartella Documenti.</string>
+	<string name="tour_s14_t">Se ti serve una mano</string>
+	<string name="tour_s14_b">In Aiuto trovi la guida per argomenti e trenta tutorial passo-passo che costruiscono patch vere, dal primo suono alle tecniche avanzate. Questo giro puoi rivederlo da lì quando vuoi.</string>
 	<string name="wizard_s0">Benvenuto! Costruiamo il tuo primo suono in sei brevi passi. Puoi continuare a usare il rack mentre questa scheda è aperta.</string>
 	<string name="wizard_s1">Apri la palette dei moduli: tocca il pulsante 🧩 in alto a sinistra nella barra dei tool. La striscia compare in fondo allo schermo.</string>
 	<string name="wizard_s2">Scrivi VCO nella ricerca e tocca la prima tile. Hai piazzato un oscillatore: la sorgente del suono.</string>

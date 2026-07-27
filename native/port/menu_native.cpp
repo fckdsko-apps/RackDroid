@@ -82,6 +82,8 @@ enum RowFlag {
 	// settings, not the modules themselves -- Java relabels them to say so.
 	ROW_PRESET_COPY = 2048,
 	ROW_PRESET_PASTE = 4096,
+	// Synthetic Help row: run the first-run interface tour again.
+	ROW_TOUR = 8192,
 };
 
 
@@ -254,6 +256,10 @@ static void present(ui::Menu* menu) {
 		labels.push_back("Tutorials"); // localized in Java (opens the library)
 		rights.push_back("");
 		flags.push_back(ROW_WIZARD);
+		g.rows.push_back(Row(NULL, ROW_TOUR));
+		labels.push_back("Interface tour"); // localized in Java
+		rights.push_back("");
+		flags.push_back(ROW_TOUR);
 	}
 	if (g.viewMenuPending && !menu->parentMenu) {
 		// Cable feel, missing before because Rack keeps these as ui::Slider
@@ -307,8 +313,10 @@ static void handleSelect(int idx) {
 		closeAll();
 		return;
 	}
-	if (row.flags & (ROW_GUIDE | ROW_WIZARD | ROW_WIZARD_PRO)) {
-		int which = (row.flags & ROW_GUIDE) ? 0 : (row.flags & ROW_WIZARD) ? 1 : 2;
+	if (row.flags & (ROW_GUIDE | ROW_WIZARD | ROW_WIZARD_PRO | ROW_TOUR)) {
+		int which = (row.flags & ROW_GUIDE) ? 0
+			: (row.flags & ROW_WIZARD) ? 1
+			: (row.flags & ROW_TOUR) ? 3 : 2;
 		closeAll();
 		nativeShowHelp(which);
 		return;

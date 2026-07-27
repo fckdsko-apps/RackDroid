@@ -218,6 +218,40 @@ class MainActivity : NativeActivity() {
 	/** Screen bounds of the module palette, for the same tour. */
 	fun paletteBounds(): android.graphics.Rect? = modulePalette.bounds()
 
+	// The tour walks the toolbar part by part, so it needs the pieces and not
+	// just the card. Held from addMidiButton(), null until it has run.
+	private var menuRowView: View? = null
+	private var toolGridView: View? = null
+
+	private fun viewBounds(v: View?): android.graphics.Rect? {
+		if (v == null || !v.isAttachedToWindow || v.width == 0 || v.height == 0) return null
+		val loc = IntArray(2)
+		v.getLocationOnScreen(loc)
+		return android.graphics.Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
+	}
+
+	/** The File/Edit/View/Engine/Help strip. */
+	fun toolbarMenuRowBounds(): android.graphics.Rect? = viewBounds(menuRowView)
+
+	/** One row of the eight-column tool grid: 0 = build/play, 1 = edit/protect.
+	 * The grid lays both rows out at the same height, so halving is exact. */
+	fun toolRowBounds(row: Int): android.graphics.Rect? {
+		val r = viewBounds(toolGridView) ?: return null
+		val half = r.height() / 2
+		return if (row == 0) android.graphics.Rect(r.left, r.top, r.right, r.top + half)
+		else android.graphics.Rect(r.left, r.top + half, r.right, r.bottom)
+	}
+
+	/** A span of columns within a tool row, for pointing at single buttons —
+	 * the two padlocks, say, which are columns 6 and 7 of the second row. */
+	fun toolCellsBounds(row: Int, firstColumn: Int, columnCount: Int): android.graphics.Rect? {
+		val r = toolRowBounds(row) ?: return null
+		val cell = r.width() / 8f
+		return android.graphics.Rect(
+			(r.left + cell * firstColumn).toInt(), r.top,
+			(r.left + cell * (firstColumn + columnCount)).toInt(), r.bottom)
+	}
+
 	/** Screen bounds of the cable parking bar, which the render thread draws --
 	 * there is no view to measure, so the geometry comes back through JNI in
 	 * window pixels and is shifted into screen space by the canvas position. */
@@ -444,6 +478,8 @@ class MainActivity : NativeActivity() {
 			collapseButton.animate().rotation(if (collapsed) 180f else 0f).setDuration(240L).start()
 		}
 		collapseToolbar = { c -> applyCollapsed(c) }
+		menuRowView = menuRow
+		toolGridView = toolGrid
 		collapseButton = ImageButton(this).apply {
 			setImageResource(R.drawable.ic_tb_chevron)
 			imageTintList = android.content.res.ColorStateList.valueOf(AppTheme.current.textPrimary)
@@ -1165,12 +1201,15 @@ class MainActivity : NativeActivity() {
 	}
 
 	/** Called from native when a synthetic Help row is selected:
-	 * 0 = guide sheet, 1 = step-by-step wizard. */
+	 * 0 = guide sheet, 1 = tutorial library, 3 = the interface tour again.
+	 * Re-running the tour passes no done-flag: it is an explicit request, and
+	 * must not re-arm or clear the first-run state either way. */
 	fun showHelpFromNative(which: Int) {
 		uiHandler.post {
 			runCatching {
 				when (which) {
 					0 -> GuideSheet(this).show()
+					3 -> Tour(this, doneFlag = null).show()
 					else -> TutorialLibrarySheet(this).show()
 				}
 			}
@@ -1435,6 +1474,7 @@ class MainActivity : NativeActivity() {
 	private val ROW_SLIDER_OPACITY = 1024
 	private val ROW_PRESET_COPY = 2048
 	private val ROW_PRESET_PASTE = 4096
+	private val ROW_TOUR = 8192
 	// Rack's own fixed, non-localized markers (ui/common.hpp) for a
 	// submenu's current-value display and a checkbox's checked state.
 	private val RIGHT_ARROW = "▸"
@@ -1735,6 +1775,7 @@ class MainActivity : NativeActivity() {
 				flags and ROW_SHARE != 0 -> getString(R.string.menu_share_patch)
 				flags and ROW_GUIDE != 0 -> getString(R.string.menu_guide)
 				flags and ROW_WIZARD != 0 -> getString(R.string.menu_wizard)
+					flags and ROW_TOUR != 0 -> getString(R.string.menu_tour)
 				flags and ROW_WIZARD_PRO != 0 -> getString(R.string.menu_wizard_pro)
 					// Upstream labels these just "Copy"/"Paste" -- the same
 					// words the toolbar uses for the modules themselves. They

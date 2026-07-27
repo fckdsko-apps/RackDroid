@@ -901,9 +901,17 @@ class Tour(
 	private val steps = listOf(
 		Step(R.string.tour_s1_t, R.string.tour_s1_b, 0),
 		Step(R.string.tour_s2_t, R.string.tour_s2_b, 1),
-		Step(R.string.tour_s3_t, R.string.tour_s3_b, 2),
-		Step(R.string.tour_s4_t, R.string.tour_s4_b, 3),
-		Step(R.string.tour_s5_t, R.string.tour_s5_b, 0),
+		Step(R.string.tour_s7_t, R.string.tour_s7_b, 4),   // the menu strip
+		Step(R.string.tour_s8_t, R.string.tour_s8_b, 5),   // tools, first row
+		Step(R.string.tour_s9_t, R.string.tour_s9_b, 6),   // tools, second row
+		Step(R.string.tour_s10_t, R.string.tour_s10_b, 7), // the two padlocks
+		Step(R.string.tour_s3_t, R.string.tour_s3_b, 2),   // module palette
+		Step(R.string.tour_s11_t, R.string.tour_s11_b, 8), // module manager
+		Step(R.string.tour_s4_t, R.string.tour_s4_b, 3),   // cable parking
+		Step(R.string.tour_s5_t, R.string.tour_s5_b, 0),   // rack gestures
+		Step(R.string.tour_s12_t, R.string.tour_s12_b, 6), // choosing modules
+		Step(R.string.tour_s13_t, R.string.tour_s13_b, 9), // sound, MIDI, recording
+		Step(R.string.tour_s14_t, R.string.tour_s14_b, 4), // where to learn more
 		Step(R.string.tour_s6_t, R.string.tour_s6_b, 0),
 	)
 
@@ -1122,6 +1130,8 @@ class Tour(
 		if (w <= 0f || h <= 0f) return null
 		val main = activity as? MainActivity
 		val pad = dp(2).toFloat()
+		// Each case measures the real view and falls back to a band proportional
+		// to the scrim, never to fixed pixels.
 		return when (spot) {
 			1 -> main?.toolbarBounds()?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
 				?: RectF(dp(6).toFloat(), dp(4).toFloat(), w - dp(6), h * 0.22f)
@@ -1129,6 +1139,16 @@ class Tour(
 				?: RectF(dp(5).toFloat(), h * 0.88f, w - dp(5), h - dp(4))
 			3 -> main?.cableParkBounds()?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
 				?: RectF(0f, h * 0.30f, w * 0.12f, h * 0.70f)
+			4 -> main?.toolbarMenuRowBounds()?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+				?: RectF(dp(6).toFloat(), dp(4).toFloat(), w - dp(6), h * 0.07f)
+			5 -> main?.toolRowBounds(0)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+			6 -> main?.toolRowBounds(1)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+			// The two padlocks close the second row; the module manager is the
+			// second button of the first one.
+			7 -> main?.toolCellsBounds(1, 6, 2)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+			8 -> main?.toolCellsBounds(0, 1, 1)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+			// MIDI, keyboard and record sit together in the middle of row one.
+			9 -> main?.toolCellsBounds(0, 4, 3)?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
 			else -> null
 		}
 	}

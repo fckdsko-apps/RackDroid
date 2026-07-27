@@ -86,6 +86,7 @@
 	<!-- Help menu extras -->
 	<string name="menu_guide">Guide</string>
 	<string name="menu_wizard">Tutorials (30)</string>
+	<string name="menu_tour">Interface tour</string>
 
 	<!-- In-app guide -->
 	<string name="guide_title">RackDroid Guide</string>
@@ -120,7 +121,7 @@
 	<string name="tour_skip">Skip</string>
 	<string name="tour_replay">Interface tour</string>
 	<string name="tour_s1_t">Welcome to RackDroid</string>
-	<string name="tour_s1_b">A full modular synth in your pocket. Here is a quick tour of the screen — six steps. You can skip anytime.</string>
+	<string name="tour_s1_b">A full modular synth in your pocket. Here is a tour of the screen, piece by piece: what is there and what it does. You can skip it any time.</string>
 	<string name="tour_s2_t">The toolbar</string>
 	<string name="tour_s2_b">Up top: the menus (File, Edit, View, Engine, Help) and two rows of tools — module palette, module manager, cable parking, theme, MIDI, on-screen keyboard, record, info; below: undo/redo, multi-select, copy, paste, bin and the two padlocks. The ⌄ arrow folds it away.</string>
 	<string name="tour_s3_t">Adding modules</string>
@@ -131,6 +132,22 @@
 	<string name="tour_s5_b">Drag from a port to a port to patch. Drag a module\'s panel to move it. Pinch to zoom, drag the background with one finger to scroll. Long-press a knob to type a value; long-press a module for its menu.</string>
 	<string name="tour_s6_t">That\'s it</string>
 	<string name="tour_s6_b">You start on a demo patch that already makes sound. To go deeper, open Help ▸ Guide and Help ▸ Tutorials (30 guided paths). Have fun!</string>
+	<string name="tour_s7_t">The menus, up top</string>
+	<string name="tour_s7_b">File opens, saves and shares patches. Edit holds undo and selection. View covers zoom, theme and how cables look. Engine is audio and sample rate. Help has the guide and the tutorials.</string>
+	<string name="tour_s8_t">Building and playing</string>
+	<string name="tour_s8_b">The first row of tools: the module palette, the pack manager, cable parking, the theme, MIDI devices, the on-screen keyboard, recording and information.</string>
+	<string name="tour_s9_t">Editing</string>
+	<string name="tour_s9_b">The second row: undo and redo, multi-select, copy, paste and the bin. These are what you reach for while tidying a patch.</string>
+	<string name="tour_s10_t">The two padlocks</string>
+	<string name="tour_s10_b">The first freezes modules and cables in place while knobs stay live: play a set without nudging anything by mistake. The second locks the parameters as well. Both survive between sessions.</string>
+	<string name="tour_s11_t">More modules</string>
+	<string name="tour_s11_b">This is where .rdmod packs are installed: dozens more modules, without updating the app. They appear in the palette straight away, and you can remove them from here too.</string>
+	<string name="tour_s12_t">Choosing several modules</string>
+	<string name="tour_s12_b">Turn on multi-select: a tap picks a module, another tap drops it, and chosen modules get a red halo. Then hold one to move them all together, or use copy, paste and the bin right beside it.</string>
+	<string name="tour_s13_t">Sound, MIDI and recording</string>
+	<string name="tour_s13_b">The on-screen keyboard plays without any other hardware; the MIDI button scans for Bluetooth controllers (USB ones work as soon as they are plugged in). The red dot records the output to a WAV file in your Documents folder.</string>
+	<string name="tour_s14_t">If you want a hand</string>
+	<string name="tour_s14_b">Help holds the topic guide and thirty step-by-step tutorials that build real patches, from your first sound to the advanced techniques. You can run this tour again from there whenever you like.</string>
 	<string name="wizard_s0">Welcome! Let\'s build your first sound in six short steps. You can keep using the rack while this card is open.</string>
 	<string name="wizard_s1">Open the module palette: tap the 🧩 button at the left of the tool row. The strip appears along the bottom of the screen.</string>
 	<string name="wizard_s2">Type VCO in the search box and tap the first tile. That places an oscillator — the source of your sound.</string>
