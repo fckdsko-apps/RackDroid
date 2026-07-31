@@ -332,7 +332,7 @@
   }
   .hero-video-wrap video {
     width: 100%; height: 100%; object-fit: cover; display: block;
-    opacity: .55;
+    opacity: 1;
   }
   .hero-video-wrap::after {
     content: ""; position: absolute; inset: 0;
@@ -790,10 +790,12 @@
     <div class="nav-brand"><img src="assets/logo.svg" style="width: 25%;"><span class="dot"></span>RackDroid</div>
     <div class="nav-right">
       <a class="nav-link active" href="index.html">Home</a>
-      <a class="nav-link" href="coming-soon.html">News</a>
+      <a class="nav-link" href="update.html">News</a>
       <a class="nav-link" href="privacy.html">Privacy</a>
-      <a class="nav-lang" href="index.it.html">IT</a>
+      <a class="nav-lang" href="index-video.it.html">IT</a>
       <a class="nav-cta" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">Download on GitHub</a>
+    </div>
+  </div>
 </nav>
 
 <header class="hero">
@@ -828,31 +830,37 @@
   <div class="wrap">
     <div>
       <div id="update">
-        <a href="coming-soon.html" class="news-banner-link">
+        <a href="update.html" class="news-banner-link">
           <div class="news-banner-header">
             <span class="news-pulse-dot"></span>
-            <span class="news-tag">NEWS</span>
+            <span class="news-tag">UPDATE RELEASED</span>
             <span class="news-date">01/08/26</span>
           </div>
           <div class="news-banner-body">
-            <span class="news-title">PARKBAR COMING</span>
+            <span class="news-title">PARKBAR UPDATE IS LIVE</span>
             <svg class="news-arrow" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
         </a>
       </div>
-      <p class="kicker">FESTIVAL IN YOUR POCKET · PERPETUAL RAVE</p>
-      <h1 class="wordmark">Patch cables.<br>Pure rave<span class="rd">.</span><br>No sleep<span class="rd">.</span></h1>
+      <p class=\"kicker\">Modular synthesizer for Android</p>
+
+<h1 class="wordmark">Your modular<br>rack<span class="rd">.</span><br>In your pocket<span class="rd">.</span></h1>
       <p class="hero-lede">
-        <strong>RackDroid</strong> is the raw VCV Rack 2 engine unleashed on your Android phone. Your pocket is now a non-stop techno festival. Drag glowing patch cables with your fingers, slam 140 BPM sub-bass kicks, send Clouds into endless feedback loops. Anywhere. 3 AM included.
+        <strong>RackDroid</strong> brings the VCV Rack 2 audio engine to Android, with touch
+        instead of a mouse. Drag real cables between oscillators, filters and sequencers —
+        no compromises, no clone: it's the same engine, made native for your phone.
       </p>
       <div class="hero-ctas">
-        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">🔥 UNLEASH THE RAVE NOW ↓</a>
-        <a class="btn btn-ghost" href="#showcase">Explore the Wall of Sound</a>
+        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download RackDroid</a>
+        <a class="btn btn-ghost" href="#showcase">See the interface</a>
       </div>
       <div class="hero-meta">
-        <span>⚡ <b>140 BPM</b> Ready</span><span>🎛️ <b>VCV Rack 2</b> Engine</span><span>💻 <b>arm64-v8a &amp; x86_64</b></span><span>🪩 <b>Free</b> Rave</span><span>🔥 <b>Clouds &amp; Plateau</b></span>
+        <span><b>66</b> built-in modules</span>
+        <span><b>Android 10+</b></span>
+        <span><b>GPLv3</b>, open source</span>
+        <span><b>~40 MB</b></span>
       </div>
     </div>
     <div class="device">
@@ -860,6 +868,112 @@
     </div>
   </div>
 </header>
+
+
+<style>
+  .parkbar-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    align-items: center;
+  }
+  @media (min-width: 768px) {
+    .parkbar-layout {
+      grid-template-columns: 320px 1fr;
+      gap: 64px;
+    }
+  }
+</style>
+<section id="parkbar" style="padding: 60px 0; background: rgba(18, 16, 13, 0.75); border-top: 1.5px solid var(--amber); border-bottom: 1.5px solid var(--amber); margin: 40px 0;">
+  <div class="wrap parkbar-layout" style="max-width: 1000px;">
+    <div class="parkbar-demo" style="display: flex; justify-content: center;">
+<div style="text-align: center;">
+        <div style="position: relative; border: 2.5px solid var(--amber); border-radius: 20px; overflow: hidden; box-shadow: 0 12px 40px rgba(235, 160, 0, 0.3); background: #000; display: inline-block; width: 260px; height: 577px; cursor: pointer;" onclick="toggleParkCable()">
+          <img src="assets/s22_parkbar_demo.png" alt="ParkBar on Samsung Galaxy S22" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 17px; pointer-events: none;">
+
+          <svg id="cableOverlay" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;">
+            <defs>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+              <linearGradient id="modGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#28231d" />
+                <stop offset="100%" stop-color="#181410" />
+              </linearGradient>
+            </defs>
+
+            <!-- Mini Modular Synth Module Inside Frame -->
+            <g id="miniModule" transform="translate(75, 270)">
+              <rect x="0" y="0" width="110" height="140" rx="6" fill="url(#modGrad)" stroke="#4a3f33" stroke-width="1.5" />
+              <circle cx="8" cy="8" r="2.5" fill="#776755" />
+              <circle cx="102" cy="8" r="2.5" fill="#776755" />
+              <circle cx="8" cy="132" r="2.5" fill="#776755" />
+              <circle cx="102" cy="132" r="2.5" fill="#776755" />
+              <text x="55" y="22" font-family="sans-serif" font-weight="bold" font-size="11" fill="var(--amber)" text-anchor="middle" letter-spacing="0.05em">VCF-1</text>
+              <circle cx="55" cy="55" r="18" fill="#110e0b" stroke="#55483a" stroke-width="2" />
+              <line id="knobPointer" x1="55" y1="55" x2="67" y2="43" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" />
+              <circle id="modLed" cx="55" cy="85" r="4" fill="#443322" stroke="#221100" stroke-width="1" style="transition: fill 0.4s;" />
+              <circle cx="55" cy="110" r="10" fill="#0c0a08" stroke="#665544" stroke-width="2" />
+              <circle id="portTargetRing" cx="55" cy="110" r="6" fill="none" stroke="#887766" stroke-dasharray="2 2" />
+              <text x="55" y="128" font-family="monospace" font-size="8" fill="#aaa" text-anchor="middle">CUTOFF CV</text>
+            </g>
+
+            <path id="cablePath" d="M 20 250 C 45 280, 75 330, 130 380" fill="none" stroke="#ff4757" stroke-width="4.5" stroke-linecap="round" filter="url(#glow)" style="transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);" />
+            <circle id="cableJack" cx="20" cy="250" r="8" fill="#fff" stroke="#ff4757" stroke-width="3.5" style="transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);" />
+          </svg>
+
+          <div id="jackStatusBadge" style="position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.88); border: 1px solid var(--amber); color: var(--amber); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 12px; z-index: 12; white-space: nowrap; pointer-events: none;">
+            🔌 STATUS: CABLE PARKED ON PARKBAR
+          </div>
+        </div>
+        <p style="margin-top: 14px; font-size: 13px; color: var(--amber-soft); font-weight: 600;">👆 Tap the smartphone screen to connect the cable to the VCF-1 module!</p>
+      </div>
+    </div>
+    <div class="parkbar-text">
+<div class="section-head reveal" style="text-align: left; margin-bottom: 0;">
+      <p class="kicker" style="display: inline-flex; align-items: center; gap: 8px; justify-content: flex-start;">🔌 NEW UPDATE FEATURE</p>
+      <h2 class="section-title" style="font-size: 32px;">Dedicated Section: Cable ParkBar</h2>
+      <p style="max-width: 720px; margin: 12px 0 0; color: rgba(255,255,255,0.88); font-size: 16px; line-height: 1.6;">
+        Connecting distant modules on touch screens was a physical limit: you can't pan the rack while holding a cable.
+        The <strong>ParkBar</strong> gives you 5 parking slots on the edge of the screen to temporarily drop any cable, scroll the rack freely, and then drag the jack straight to its destination.
+      </p>
+    </div>
+    </div>
+  </div>
+</section>
+
+<script>
+var isCableParked = true;
+function toggleParkCable() {
+  isCableParked = !isCableParked;
+  var path = document.getElementById("cablePath");
+  var jack = document.getElementById("cableJack");
+  var badge = document.getElementById("jackStatusBadge");
+  var led = document.getElementById("modLed");
+  var ring = document.getElementById("portTargetRing");
+
+  if (isCableParked) {
+    path.setAttribute("d", "M 20 250 C 45 280, 75 330, 130 380");
+    jack.setAttribute("cx", "20");
+    jack.setAttribute("cy", "250");
+    badge.innerHTML = "🔌 STATUS: CABLE PARKED ON PARKBAR";
+    badge.style.borderColor = "var(--amber)";
+    badge.style.color = "var(--amber)";
+    led.setAttribute("fill", "#443322");
+    ring.setAttribute("stroke", "#887766");
+  } else {
+    path.setAttribute("d", "M 130 380 C 130 380, 130 380, 130 380");
+    jack.setAttribute("cx", "130");
+    jack.setAttribute("cy", "380");
+    badge.innerHTML = "⚡ STATUS: CABLE CONNECTED TO VCF-1";
+    badge.style.borderColor = "#2ed573";
+    badge.style.color = "#2ed573";
+    led.setAttribute("fill", "#2ed573");
+    ring.setAttribute("stroke", "#2ed573");
+  }
+}
+</script>
 
 <div class="rail"></div>
 
@@ -919,7 +1033,7 @@
       <div class="mini-rails-bottom"></div>
       <div class="mini-rack-hint">⚡ Drag or click jacks to route patch cables across the modules</div>
     </div>
-  </div>
+
 </section>
 
 <div class="rail"></div>
@@ -962,74 +1076,22 @@
 <section>
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">MAIN STAGE SETUP</p>
-      <h2 class="section-title">66 Stock modules ready to blow the speakers.</h2>
-      <p>Before you install a single extra package, you already have this full studio weapon set:</p>
+      <p class="kicker">Inside the rack</p>
+      <h2 class="section-title">What it includes</h2>
+      <p>Everything you need to build a sound from scratch, already in the base APK.</p>
     </div>
     <div class="rack-row reveal">
       <div class="feature-grid">
-        <div><span class="f-icon">🎚️</span><h4>DSP VCV Rack 2</h4><p>Native C++ engine. Oboe/AAudio. Full-duplex. Plays in real time.</p></div>
-        <div><span class="f-icon">🧩</span><h4>66 modules, ready</h4><p>Core + Fundamental + RackDroid Drums. The full stock VCV Rack library, touch-optimized.</p></div>
-        <div><span class="f-icon">👆</span><h4>Real touch</h4><p>Grab cables with one finger. Patch with two. Zoom with a pinch. No mouse metaphors.</p></div>
-        <div><span class="f-icon">🪟</span><h4>Instant access panel</h4><p>All menus, module browser, undo, redo — one swipe away.</p></div>
+        <div><span class="f-icon">🎚️</span><h4>Audio engine</h4><p>Native, Oboe/AAudio, full-duplex, low latency.</p></div>
+        <div><span class="f-icon">🧩</span><h4>66 modules</h4><p>Core, Fundamental (39 modules), RackDroid Drums (14 original voices).</p></div>
+        <div><span class="f-icon">👆</span><h4>Real touch</h4><p>Cables and modules with a finger, pinch to zoom, long-press for values.</p></div>
+        <div><span class="f-icon">🪟</span><h4>Glass toolbar</h4><p>Menus, module palette, plugin manager, undo/redo, layout lock.</p></div>
         <div><span class="f-icon">🧲</span><h4>Module palette</h4><p>Chips by category, draggable previews, an info badge for every module.</p></div>
         <div><span class="f-icon">🧵</span><h4>Cable parking</h4><p>Park a cable end on a bar, scroll to the far module, drop it on the port. 3 to 10 holes.</p></div>
-        <div><span class="f-icon">🎹</span><h4>MIDI</h4><p>On-screen keyboard. USB MIDI. Bluetooth LE MIDI. Hook up your controller.</p></div>
-        <div><span class="f-icon">⏺️</span><h4>Recording</h4><p>WAV output, straight to your Documents folder. Capture the patch.</p></div>
-        <div><span class="f-icon">🎓</span><h4>You'll be patching in minutes</h4><p>Spotlight tour on first run. 30 step-by-step tutorials if you need them.</p></div>
+        <div><span class="f-icon">🎹</span><h4>MIDI</h4><p>On-screen keyboard, USB and Bluetooth LE MIDI.</p></div>
+        <div><span class="f-icon">⏺️</span><h4>Recording</h4><p>Output to a WAV file, saved in Documents/RackDroid/.</p></div>
+        <div><span class="f-icon">🎓</span><h4>Guided learning</h4><p>A spotlight interface tour on first run, 30 step-by-step tutorials, plus a topic guide.</p></div>
       </div>
-    </div>
-
-    <!-- Full Eurorack System 3 (Features / Rhythm Generator - 5 Modules) -->
-    <div class="mini-rack reveal" style="margin: 32px auto 0;">
-      <canvas class="mini-rack-canvas"></canvas>
-      <div class="mini-rails-top"></div>
-      <div class="mini-faceplates">
-        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">CLOCK</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(40deg)"></div></div><span class="mini-knob-label">BPM</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="clk-out"></div><span class="mini-jack-label">CLK</span></div></div></div>
-        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">KICK</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(25deg)"></div></div><span class="mini-knob-label">TUNE</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="kick-trig"></div><span class="mini-jack-label">TRIG</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="kick-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
-        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">SNARE</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(-10deg)"></div></div><span class="mini-knob-label">SNAP</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="snare-trig"></div><span class="mini-jack-label">TRIG</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="snare-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
-        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">HI-HAT</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(50deg)"></div></div><span class="mini-knob-label">DECAY</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="hat-trig"></div><span class="mini-jack-label">TRIG</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="hat-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
-        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">DRUM MIX</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(0deg)"></div></div><span class="mini-knob-label">SUM</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="dmix-in"></div><span class="mini-jack-label">CH 1</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="dmix-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
-      </div>
-      <div class="mini-rails-bottom"></div>
-      <div class="mini-rack-hint">⚡ Drag or click jacks to route patch cables across the modules</div>
-    </div>
-  </div>
-</section>
-
-<div class="rail"></div>
-
-<section class="tight">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <p class="kicker">EUPHORIC MODULES</p>
-      <h2 class="section-title">Clouds. Rings. Plateau. Keep the rave going.</h2>
-      <p>Download a <code>.rdmod</code> file, drop it in the Modules folder. Done. No store approval, no subscriptions, pure festival energy.</p>
-    </div>
-    <div class="plugin-pills reveal">
-      <span class="pill">Bogaudio</span>
-      <span class="pill">Valley</span>
-      <span class="pill">Audible Instruments</span>
-      <span class="pill">Impromptu</span>
-      <span class="pill">Befaco</span>
-      <span class="pill">HetrickCV</span>
-      <span class="pill">Aria</span>
-      <span class="pill">Bidoo</span>
-      <span class="pill">…and more</span>
-    </div>
-
-    <!-- Mini Rack 4 (Extra Packages Section - 4 Modules) -->
-    <div class="mini-rack reveal" style="margin: 32px auto 0;">
-      <canvas class="mini-rack-canvas"></canvas>
-      <div class="mini-rails-top"></div>
-      <div class="mini-faceplates">
-        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">CLOUDS</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(10deg)"></div></div><span class="mini-knob-label">TEXTURE</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="clouds-in"></div><span class="mini-jack-label">IN L</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="clouds-out"></div><span class="mini-jack-label">OUT L</span></div></div></div>
-        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">PLATEAU</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(70deg)"></div></div><span class="mini-knob-label">REVERB</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="plat-in"></div><span class="mini-jack-label">IN</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="plat-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
-        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">RINGS</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(-30deg)"></div></div><span class="mini-knob-label">STRUCTURE</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="rings-strum"></div><span class="mini-jack-label">STRUM</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="rings-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
-        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">MARBLES</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(35deg)"></div></div><span class="mini-knob-label">DEJA VU</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="marb-clock"></div><span class="mini-jack-label">CLK</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="marb-out"></div><span class="mini-jack-label">CV X</span></div></div></div>
-      </div>
-      <div class="mini-rails-bottom"></div>
-      <div class="mini-rack-hint">⚡ Click any jack to swap or stretch cables</div>
     </div>
   </div>
 </section>
@@ -1039,9 +1101,9 @@
 <section id="module-explorer">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">Everything in the rack</p>
-      <h2 class="section-title">Search the full module catalog</h2>
-      <p>Every built-in and every loadable extra package — filter by type or search by name.</p>
+      <p class="kicker">Module Explorer</p>
+      <h2 class="section-title">Explore Built-in &amp; Extra Modules</h2>
+      <p>Search through all 66 base modules and downloadable .rdmod packages by category or keyword.</p>
     </div>
     <div class="module-controls reveal">
       <div class="module-search-wrap">
@@ -1069,9 +1131,9 @@
   <div class="wrap">
     <div class="cta-panel reveal">
       <svg class="scope" viewBox="0 0 400 46" preserveAspectRatio="none"><path id="scopePath" d="M0 23 L400 23" stroke="#f9b130" stroke-width="1.5" fill="none"/></svg>
-      <h2>Turn your phone into a 10,000-Watt sound system.</h2>
-      <p>Free. Open source. No account walls. Sideload the APK, plug your cables, and turn any room into a festival mainstage.</p>
-      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">🔥 UNLEASH THE RAVE NOW ↓</a>
+      <h2>Ready to build your first sound?</h2>
+      <p>Free, open source, no account. Download the APK from the repository and you're in within a minute.</p>
+      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download RackDroid on GitHub</a>
       <div class="req-line">Requires Android 10 (API 29) or later · arm64-v8a &amp; x86_64 · OpenGL ES 3.0</div>
     </div>
   </div>
