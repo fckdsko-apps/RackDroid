@@ -1168,6 +1168,7 @@ class Tour(
 		val s = steps[step]
 		titleView.text = activity.getString(s.title)
 		bodyView.text = activity.getString(s.body)
+		bodyScroll.scrollTo(0, 0)
 		stepLabel.text = activity.getString(R.string.wizard_step_of, step + 1, steps.size)
 		nextBtn.text = activity.getString(
 			if (step == steps.size - 1) R.string.wizard_done else R.string.wizard_next)
@@ -1298,12 +1299,40 @@ class Tour(
 	 * of the scrim or a gap in dp, so this holds in portrait, in landscape and
 	 * at any screen size -- the fixed pixel margins it replaces did not. */
 	private fun positionCard(spot: RectF?) {
+		applyCardWidth()
 		val lp = card.layoutParams as FrameLayout.LayoutParams
 		val w = scrim.width.toFloat(); val h = scrim.height.toFloat()
 		lp.leftMargin = 0; lp.rightMargin = 0; lp.topMargin = 0; lp.bottomMargin = 0
 		val gap = dp(16)
+		val main = activity as? MainActivity
+		val tbBounds = main?.toolbarBounds()?.let { toScrimSpace(it) }
+		val isToolbarSpot = spot != null && (
+			tbBounds != null && (
+				spot.top <= tbBounds.bottom + dp(2) && spot.centerY() < h * 0.45f
+			)
+		)
 		when {
 			spot == null || w <= 0f || h <= 0f -> lp.gravity = Gravity.CENTER
+			// If spotlighting any toolbar element, place card below the ENTIRE toolbar card
+			isToolbarSpot && spot.width() >= w * 0.4f -> {
+				lp.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+				val cardTop = (tbBounds?.bottom ?: spot.bottom) + gap
+				lp.topMargin = cardTop.toInt().coerceAtMost((h * 0.7f).toInt())
+			}
+			isToolbarSpot && spot.width() < w * 0.4f -> {
+				if (w > h) {
+					// In landscape, narrow toolbar elements (e.g. padlocks) also sit below toolbar
+					lp.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+					val cardTop = (tbBounds?.bottom ?: spot.bottom) + gap
+					lp.topMargin = cardTop.toInt().coerceAtMost((h * 0.7f).toInt())
+				} else {
+					// In portrait, narrow toolbar elements sit beside
+					val onLeft = spot.centerX() < w * 0.5f
+					lp.gravity = Gravity.CENTER_VERTICAL or
+						(if (onLeft) Gravity.END else Gravity.START)
+					if (onLeft) lp.rightMargin = gap else lp.leftMargin = gap
+				}
+			}
 			// A tall spot with a clear margin on one side: sit in that margin
 			// rather than squeezing above or below it. This is what makes the
 			// rack steps work in landscape, where there is nothing above or
@@ -1327,7 +1356,8 @@ class Tour(
 			// A full-width band near the top: the card goes underneath it.
 			spot.centerY() < h * 0.5f -> {
 				lp.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-				lp.topMargin = (spot.bottom + gap).toInt().coerceAtMost((h * 0.7f).toInt())
+				val cardTop = maxOf(spot.bottom, tbBounds?.bottom ?: spot.bottom) + gap
+				lp.topMargin = cardTop.toInt().coerceAtMost((h * 0.7f).toInt())
 			}
 			// A full-width band near the bottom: the card goes above it.
 			else -> {
@@ -1422,10 +1452,11 @@ class Tour(
 				val paletteTop = main?.paletteBounds()?.let { toScrimSpace(it) }?.top
 				val bottom = (paletteTop ?: h) - dp(8)
 				val band = RectF(dp(6).toFloat(), top, w - dp(6), maxOf(bottom, top + dp(80)))
-				if (band.width() > band.height() * 1.6f)
+				if (w > h) {
 					band.right = w * 0.58f
-				else
+				} else {
 					band.bottom = minOf(band.bottom, h * 0.62f)
+				}
 				band
 			}
 			else -> null

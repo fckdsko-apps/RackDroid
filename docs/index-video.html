@@ -2,6 +2,15 @@
 <title>RackDroid — modular synthesizer for Android</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="RackDroid: the VCV Rack 2 engine, native on Android. Build modular patches with your finger, anywhere.">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="RackDroid — modular synthesizer for Android">
+<meta property="og:description" content="RackDroid: the VCV Rack 2 engine, native on Android. Build modular patches with your finger, anywhere.">
+<meta property="og:image" content="assets/screenshots/patch-rack.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="RackDroid — modular synthesizer for Android">
+<meta name="twitter:description" content="RackDroid: the VCV Rack 2 engine, native on Android. Build modular patches with your finger, anywhere.">
+<meta name="twitter:image" content="assets/screenshots/patch-rack.png">
 <style>
   @font-face {
     font-family: "Geomini";
@@ -314,70 +323,7 @@
     opacity: 0.55;
   }
 
-  /* Floating news badge: what is coming next, visible without scrolling. */
-  #update {
-    position: fixed;
-    top: 25%;
-    right: 10px;
-    padding: 5px;
-    background-color: var(--amber);
-    z-index: 100;
-    border-radius: 5px;
-  }
-  #update h1,
-  #update h2 {
-    color: #17140f;
-    margin: 0;
-    font-size: 12px;
-    text-align: left;
-    padding-left: 5px;
-  }
-  #update h2 { font-size: 10px; width: 90px; text-decoration: none;}
-  #update h1 { text-decoration: #17140f underline; }
-  #update span {
-    margin: 5px 0 3px;
-    padding: 7px;
-    color: #17140f;
-    display: block;
-    width: 90px;
-    line-height: 1;
-    font-size: 12px;
-    border: solid 1px #17140f;
-    border-radius: 5px;
-    text-decoration:none;
-  }
-  #update a { color: #17140f; text-decoration:none;}
-  #update video { display: block; border-radius: 4px; }
-  /* Il badge News è fissato sullo schermo: su un telefono, a un quarto
-     dell'altezza, finisce esattamente sopra il titolo. Sotto i 760px scende
-     nell'angolo in basso a sinistra, dove non copre niente da leggere. */
-  @media (max-width: 760px) {
-    /* In flusso, in cima all'eroe: fissato copriva prima il titolo e poi,
-       spostato in basso, il pulsante secondario. Qui scorre via con la
-       pagina e non si sovrappone mai a niente. */
-    #update {
-      /* In flusso ma sopra il video/le linee dell'eroe, che sono assoluti:
-         senza z-index il badge finisce sotto e sparisce. */
-      position: relative;
-      z-index: 3;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: fit-content;
-      margin: 12px 0 0 16px;
-      padding: 5px 8px;
-    }
-    #update h1 { font-size: 11px; padding-left: 0; }
-    #update span { width: auto; margin: 0; padding: 5px 8px; font-size: 11px; }
-  }
-
-  /* ---- Variante home con il video in testata --------------------------
-     Il filmato prende il posto delle linee disegnate a canvas: stessa
-     pagina, stessa struttura, solo l'apertura è diversa. Muto e in loop,
-     perché un video che parte con l'audio su un telefono è il modo più
-     rapido di far chiudere la pagina; playsinline perché iOS altrimenti lo
-     apre a schermo intero da solo. Sotto c'è sempre il poster, così chi ha
-     "risparmio dati" attivo vede comunque qualcosa. */
+  /* ---- Hero Video Background ---- */
   #patchCanvas { display: none; }
   .hero { padding-top: 0; }
   .hero-video-wrap {
@@ -388,7 +334,6 @@
     width: 100%; height: 100%; object-fit: cover; display: block;
     opacity: .55;
   }
-  /* Il testo deve restare leggibile su qualunque fotogramma. */
   .hero-video-wrap::after {
     content: ""; position: absolute; inset: 0;
     background:
@@ -399,6 +344,312 @@
   @media (prefers-reduced-motion: reduce) {
     .hero-video-wrap video { display: none; }
   }
+
+  /* ---- News Banner (#update) ---- */
+  #update {
+    position: fixed;
+    top: 84px;
+    right: 24px;
+    z-index: 100;
+    animation: news-float 6s ease-in-out infinite;
+  }
+
+  .news-banner-link {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    text-decoration: none;
+    background: linear-gradient(135deg, rgba(37, 31, 23, 0.88), rgba(20, 16, 11, 0.94));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(249, 177, 48, 0.35);
+    border-radius: 14px;
+    padding: 10px 14px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 0 16px rgba(249, 177, 48, 0.15);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.25s ease,
+                box-shadow 0.25s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .news-banner-link::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 218, 159, 0.18), transparent);
+    transform: skewX(-20deg);
+    animation: news-shimmer 4s infinite;
+  }
+
+  .news-banner-link:hover {
+    transform: translateY(-3px) scale(1.02);
+    border-color: var(--amber-soft);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6), 0 0 24px rgba(249, 177, 48, 0.32);
+  }
+
+  .news-banner-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .news-pulse-dot {
+    position: relative;
+    width: 7px;
+    height: 7px;
+    background-color: var(--amber);
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 6px var(--amber);
+  }
+
+  .news-pulse-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid var(--amber);
+    animation: news-pulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  }
+
+  .news-tag {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--amber);
+    text-transform: uppercase;
+  }
+
+  .news-date {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9.5px;
+    color: var(--text-dim);
+    margin-left: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .news-banner-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .news-title {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.02em;
+    transition: color 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .news-banner-link:hover .news-title {
+    color: var(--amber-soft);
+  }
+
+  .news-arrow {
+    width: 14px;
+    height: 14px;
+    color: var(--amber);
+    flex-shrink: 0;
+    transition: transform 0.25s ease;
+  }
+
+  .news-banner-link:hover .news-arrow {
+    transform: translateX(4px);
+  }
+
+  @keyframes news-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  @keyframes news-pulse {
+    0% { transform: scale(0.8); opacity: 0.9; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  @keyframes news-shimmer {
+    0% { left: -100%; }
+    20%, 100% { left: 200%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #update { animation: none; }
+    .news-pulse-dot::after { animation: none; }
+    .news-banner-link::before { animation: none; }
+  }
+
+  @media (max-width: 860px) {
+    #update {
+      position: static;
+      display: inline-block;
+      margin: 0 0 16px;
+    }
+  }
+
+
+  /* ---- Video controls ---- */
+  .vid-ctrl {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 10;
+    display: flex;
+    gap: 8px;
+  }
+  .vid-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(18,15,11,0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-dim);
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+    padding: 0;
+  }
+  .vid-btn:hover {
+    border-color: var(--amber-soft);
+    color: var(--amber-soft);
+    background: rgba(249,177,48,0.12);
+  }
+  .vid-btn svg { width: 16px; height: 16px; }
+
+  /* ---- Autoplay fallback overlay ---- */
+  .vid-fallback {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(249,177,48,0.07), transparent 70%);
+  }
+  .vid-fallback.visible { display: flex; }
+  .vid-play-btn {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #17140f;
+    background: var(--amber);
+    border: none;
+    border-radius: 999px;
+    padding: 13px 26px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 8px 24px rgba(249,177,48,0.4);
+  }
+  .vid-play-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(249,177,48,0.5); }
+
+  /* ---- Module Explorer ---- */
+  .module-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .module-search-wrap {
+    position: relative;
+    max-width: 500px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px; height: 18px;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  #moduleSearchInput {
+    width: 100%;
+    padding: 12px 16px 12px 42px;
+    background: var(--panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  #moduleSearchInput:focus {
+    border-color: var(--amber-soft);
+    box-shadow: 0 0 0 3px var(--amber-glow);
+  }
+  .module-filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mod-chip {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .mod-chip:hover, .mod-chip.active {
+    background: var(--amber);
+    color: #17140f;
+    border-color: var(--amber);
+    font-weight: 600;
+  }
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .mod-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .mod-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--border-strong);
+    box-shadow: 0 12px 24px -10px rgba(0,0,0,0.5);
+  }
+  .mod-card-top { display: flex; align-items: center; justify-content: space-between; }
+  .mod-card-badge {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(249,177,48,0.12);
+    color: var(--amber);
+    border: 1px solid rgba(249,177,48,0.25);
+  }
+  .mod-card h4 {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 14px;
+    color: var(--text);
+    margin: 0;
+  }
+  .mod-card p { font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.45; }
 </style>
 
 <nav class="nav">
@@ -417,19 +668,49 @@
 <header class="hero">
   <!-- What is coming next. The clip lives outside this repository (it is far
        too big for it): keep U/U1.mp4 next to the page when publishing. -->
-  <div id="update">
-    <h1>News:</h1>
-    <a href="coming-soon.html"><span>PARKBAR COMING - 01/08/26</span></a>
-  </div>
   <canvas id="patchCanvas"></canvas>
-  <div class="hero-video-wrap">
-    <video autoplay muted loop playsinline preload="metadata" poster="assets/hero-poster.jpg"
+  <div class="hero-video-wrap" id="heroVideoWrap">
+    <video id="heroVideo" autoplay muted loop playsinline preload="metadata" poster="assets/hero-poster.jpg"
            aria-hidden="true" tabindex="-1">
       <source src="assets/hero.mp4" type="video/mp4">
     </video>
+    <!-- Autoplay fallback overlay -->
+    <div class="vid-fallback" id="vidFallback">
+      <button class="vid-play-btn" id="vidPlayFallback" aria-label="Play demo video">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><polygon points="4,2 16,9 4,16"/></svg>
+        Play Demo
+      </button>
+    </div>
+    <!-- Video controls -->
+    <div class="vid-ctrl">
+      <button class="vid-btn" id="vidPlayBtn" aria-label="Pause video">
+        <!-- pause icon -->
+        <svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg>
+      </button>
+      <button class="vid-btn" id="vidMuteBtn" aria-label="Unmute video">
+        <!-- muted icon (initial state - video is muted) -->
+        <svg id="iconMuted" viewBox="0 0 16 16" fill="currentColor"><path d="M1 5.5h3l4-3.5v11l-4-3.5H1z"/><line x1="11" y1="5.5" x2="15" y2="10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="15" y1="5.5" x2="11" y2="10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg id="iconSound" viewBox="0 0 16 16" fill="currentColor" style="display:none"><path d="M1 5.5h3l4-3.5v11l-4-3.5H1z"/><path d="M11 5.5a4 4 0 0 1 0 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M13 3.5a7 7 0 0 1 0 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
+      </button>
+    </div>
   </div>
   <div class="wrap">
     <div>
+      <div id="update">
+        <a href="coming-soon.html" class="news-banner-link">
+          <div class="news-banner-header">
+            <span class="news-pulse-dot"></span>
+            <span class="news-tag">NEWS</span>
+            <span class="news-date">01/08/26</span>
+          </div>
+          <div class="news-banner-body">
+            <span class="news-title">PARKBAR COMING</span>
+            <svg class="news-arrow" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </a>
+      </div>
       <p class="kicker">Modular synthesizer for Android</p>
       <h1 class="wordmark">Your modular<br>rack<span class="rd">.</span><br>In your pocket<span class="rd">.</span></h1>
       <p class="hero-lede">
@@ -566,6 +847,37 @@
   </div>
 </section>
 
+<div class="rail"></div>
+
+<section id="module-explorer">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Module Explorer</p>
+      <h2 class="section-title">Explore Built-in &amp; Extra Modules</h2>
+      <p>Search through all 66 base modules and downloadable .rdmod packages by category or keyword.</p>
+    </div>
+    <div class="module-controls reveal">
+      <div class="module-search-wrap">
+        <svg class="search-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="moduleSearchInput" placeholder="Search modules (e.g. VCO, Clouds, Plateau, Drums, Bogaudio...)" aria-label="Search modules">
+      </div>
+      <div class="module-filter-chips" id="moduleFilterChips">
+        <button class="mod-chip active" data-cat="all">All</button>
+        <button class="mod-chip" data-cat="vco">VCO / Audio</button>
+        <button class="mod-chip" data-cat="vcf">VCF / Filter</button>
+        <button class="mod-chip" data-cat="seq">Sequencer</button>
+        <button class="mod-chip" data-cat="drum">Drums</button>
+        <button class="mod-chip" data-cat="fx">FX &amp; Utility</button>
+        <button class="mod-chip" data-cat="extra">Extra Packages</button>
+      </div>
+    </div>
+    <div class="module-grid reveal" id="moduleGrid"></div>
+  </div>
+</section>
+
 <section>
   <div class="wrap">
     <div class="cta-panel reveal">
@@ -573,7 +885,7 @@
       <h2>Ready to build your first sound?</h2>
       <p>Free, open source, no account. Download the APK from the repository and you're in within a minute.</p>
       <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download RackDroid on GitHub</a>
-      <div class="req-line">Requires Android 10 (API 29) or later · arm64-v8a · OpenGL ES 3.0</div>
+      <div class="req-line">Requires Android 10 (API 29) or later · arm64-v8a &amp; x86_64 · OpenGL ES 3.0</div>
     </div>
   </div>
 </section>
@@ -615,88 +927,68 @@
     els.forEach(function (el) { el.classList.add('in-view'); });
   }
 
-  // ---- ambient patch-cable canvas ----
-  var canvas = document.getElementById('patchCanvas');
-  var ctx = canvas.getContext('2d');
-  var W, H, DPR;
+  // ---- Hero video controls & autoplay fallback ----
+  var heroVideo   = document.getElementById('heroVideo');
+  var vidFallback = document.getElementById('vidFallback');
+  var playBtn     = document.getElementById('vidPlayBtn');
+  var muteBtn     = document.getElementById('vidMuteBtn');
+  var iconMuted   = document.getElementById('iconMuted');
+  var iconSound   = document.getElementById('iconSound');
+  var fallbackBtn = document.getElementById('vidPlayFallback');
 
-  function resize() {
-    var rect = canvas.getBoundingClientRect();
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = rect.width; H = rect.height;
-    canvas.width = Math.round(W * DPR);
-    canvas.height = Math.round(H * DPR);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  }
-  window.addEventListener('resize', resize);
-  resize();
+  var PAUSE_ICON = '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg>';
+  var PLAY_ICON  = '<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="3,2 14,8 3,14"/></svg>';
 
-  var jacks = [
-    { x: 0.06, y: 0.28 }, { x: 0.26, y: 0.62 }, { x: 0.46, y: 0.18 },
-    { x: 0.64, y: 0.58 }, { x: 0.86, y: 0.30 }, { x: 0.40, y: 0.80 },
-    { x: 0.14, y: 0.78 }, { x: 0.94, y: 0.68 }
-  ];
-  var cables = [
-    { a: 0, b: 1, c: '#d45b52' }, { a: 1, b: 2, c: '#f9b130' },
-    { a: 2, b: 3, c: '#4fb8a6' }, { a: 3, b: 4, c: '#9b7fd4' },
-    { a: 1, b: 6, c: '#5b9bd5' }, { a: 6, b: 5, c: '#f9b130' },
-    { a: 3, b: 7, c: '#d45b52' }
-  ];
+  if (heroVideo) {
+    // Try autoplay
+    var playPromise = heroVideo.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(function () {
+        // Autoplay blocked — show overlay
+        if (vidFallback) vidFallback.classList.add('visible');
+        if (playBtn) playBtn.innerHTML = PLAY_ICON;
+      });
+    }
 
-  function jackPos(i) { return { x: jacks[i].x * W, y: jacks[i].y * H }; }
+    // Fallback overlay button
+    if (fallbackBtn) {
+      fallbackBtn.addEventListener('click', function () {
+        heroVideo.play();
+        if (vidFallback) vidFallback.classList.remove('visible');
+        if (playBtn) playBtn.innerHTML = PAUSE_ICON;
+      });
+    }
 
-  function bez(p0, p1, p2, p3, t) {
-    var mt = 1 - t;
-    return {
-      x: mt * mt * mt * p0.x + 3 * mt * mt * t * p1.x + 3 * mt * t * t * p2.x + t * t * t * p3.x,
-      y: mt * mt * mt * p0.y + 3 * mt * mt * t * p1.y + 3 * mt * t * t * p2.y + t * t * t * p3.y
-    };
-  }
+    // Play / Pause toggle
+    if (playBtn) {
+      playBtn.addEventListener('click', function () {
+        if (heroVideo.paused) {
+          heroVideo.play();
+          playBtn.innerHTML = PAUSE_ICON;
+          playBtn.setAttribute('aria-label', 'Pause video');
+        } else {
+          heroVideo.pause();
+          playBtn.innerHTML = PLAY_ICON;
+          playBtn.setAttribute('aria-label', 'Play video');
+        }
+      });
+    }
 
-  function draw(t) {
-    ctx.clearRect(0, 0, W, H);
-    cables.forEach(function (cab, ci) {
-      var p0 = jackPos(cab.a), p1 = jackPos(cab.b);
-      var sag = 46 + 18 * Math.sin(ci * 1.7);
-      var midY = Math.max(p0.y, p1.y) + sag;
-      var cp1 = { x: p0.x + (p1.x - p0.x) * 0.25, y: midY };
-      var cp2 = { x: p0.x + (p1.x - p0.x) * 0.75, y: midY };
-
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y);
-      ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p1.x, p1.y);
-      ctx.strokeStyle = cab.c;
-      ctx.globalAlpha = 0.5;
-      ctx.lineWidth = 2.4;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-
-      if (!reduced) {
-        var tt = ((t * 0.00045) + ci * 0.15) % 1;
-        var pt = bez(p0, cp1, cp2, p1, tt);
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffda9f';
-        ctx.shadowColor = cab.c;
-        ctx.shadowBlur = 9;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-    });
-
-    jacks.forEach(function (j) {
-      var p = { x: j.x * W, y: j.y * H };
-      ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#241f18'; ctx.fill();
-      ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,218,159,0.4)'; ctx.lineWidth = 1; ctx.stroke();
-    });
-  }
-
-  if (reduced) {
-    draw(0);
-  } else {
-    requestAnimationFrame(function loop(ts) { draw(ts); requestAnimationFrame(loop); });
+    // Mute / Unmute toggle
+    if (muteBtn) {
+      muteBtn.addEventListener('click', function () {
+        heroVideo.muted = !heroVideo.muted;
+        if (heroVideo.muted) {
+          if (iconMuted) iconMuted.style.display = '';
+          if (iconSound) iconSound.style.display = 'none';
+          muteBtn.setAttribute('aria-label', 'Unmute video');
+        } else {
+          if (iconMuted) iconMuted.style.display = 'none';
+          if (iconSound) iconSound.style.display = '';
+          muteBtn.setAttribute('aria-label', 'Mute video');
+        }
+      });
+    }
   }
 
   // ---- scope line idle animation ----
@@ -713,6 +1005,100 @@
       requestAnimationFrame(scopeFrame);
     }
     requestAnimationFrame(scopeFrame);
+  }
+
+  // ---- Module Explorer ----
+  var moduleData = [
+    { name: 'VCO', cat: 'vco', badge: 'Fundamental', desc: 'Voltage-controlled analog modeling oscillator with sine, triangle, saw, and square outputs.' },
+    { name: 'Wavetable VCO', cat: 'vco', badge: 'Fundamental', desc: 'Voltage-controlled wavetable oscillator with morphing control.' },
+    { name: 'VCF', cat: 'vcf', badge: 'Fundamental', desc: 'Voltage-controlled lowpass and highpass filter with CV cutoff & resonance.' },
+    { name: 'VCA', cat: 'fx', badge: 'Fundamental', desc: 'Linear and exponential voltage-controlled amplifier.' },
+    { name: 'LFO', cat: 'vco', badge: 'Fundamental', desc: 'Low-frequency oscillator with reset trigger and FM depth.' },
+    { name: 'Wavetable LFO', cat: 'vco', badge: 'Fundamental', desc: 'Morphing wavetable LFO for complex CV modulation.' },
+    { name: 'Delay', cat: 'fx', badge: 'Fundamental', desc: 'Stereo tape-style delay with feedback loop and CV time modulation.' },
+    { name: 'ADSR EG', cat: 'fx', badge: 'Fundamental', desc: 'Attack/Decay/Sustain/Release envelope generator with retrigger input.' },
+    { name: 'Mix (6-Chan)', cat: 'fx', badge: 'Fundamental', desc: '6-channel audio & CV mixer with pan and master level.' },
+    { name: 'VCA Mix', cat: 'fx', badge: 'Fundamental', desc: '4-channel mixer with built-in per-channel VCAs.' },
+    { name: 'SEQ 3', cat: 'seq', badge: 'Fundamental', desc: '3-channel 8-step sequencer with step gates and CV knobs.' },
+    { name: '8vert', cat: 'fx', badge: 'Fundamental', desc: '8-channel attenuverter and constant DC voltage generator.' },
+    { name: 'Mutes', cat: 'fx', badge: 'Fundamental', desc: '10-channel signal mute/solo switch bank.' },
+    { name: 'Pulses', cat: 'seq', badge: 'Fundamental', desc: 'Generates 10 trigger and gate clock division signals.' },
+    { name: 'Scope', cat: 'fx', badge: 'Fundamental', desc: 'Dual-channel real-time oscilloscope for waveform visualization.' },
+    { name: 'Sequential Switch 1-4', cat: 'seq', badge: 'Fundamental', desc: 'Routes 1 input to one of 4 outputs sequentially.' },
+    { name: 'Sequential Switch 4-1', cat: 'seq', badge: 'Fundamental', desc: 'Routes one of 4 inputs to 1 output sequentially.' },
+    { name: 'Quantizer', cat: 'seq', badge: 'Fundamental', desc: '12-note chromatic and scale pitch quantizer.' },
+    { name: 'Octave', cat: 'seq', badge: 'Fundamental', desc: 'Octave transposer for 1V/oct pitch control signals.' },
+    { name: 'Noise', cat: 'vco', badge: 'Fundamental', desc: 'White, pink, and red multicolored noise generator.' },
+    { name: 'Random', cat: 'fx', badge: 'Fundamental', desc: 'Sample & Hold random voltage generator with clock input.' },
+    { name: 'Split / Merge', cat: 'fx', badge: 'Fundamental', desc: 'Polyphonic cable splitter and monophonic merger.' },
+    { name: 'RackDroid Kick', cat: 'drum', badge: 'Drums', desc: 'Punchy analog kick drum voice with sub pitch decay and click.' },
+    { name: 'RackDroid Snare', cat: 'drum', badge: 'Drums', desc: 'Analog snare drum with snappy noise blend and tone control.' },
+    { name: 'RackDroid Hi-Hat', cat: 'drum', badge: 'Drums', desc: 'Metallic closed and open hi-hat voice generator with sizzle.' },
+    { name: 'RackDroid Tom', cat: 'drum', badge: 'Drums', desc: 'Tunable low/mid/high analog tom drum voice.' },
+    { name: 'RackDroid Clap', cat: 'drum', badge: 'Drums', desc: 'Multi-pulse analog handclap with reverb-like noise tail.' },
+    { name: 'RackDroid Cowbell', cat: 'drum', badge: 'Drums', desc: 'Dual-tuned metallic 808-style cowbell module.' },
+    { name: 'RackDroid Rimshot', cat: 'drum', badge: 'Drums', desc: 'Short wood-block style analog rimshot percussion.' },
+    { name: 'RackDroid Cymbal', cat: 'drum', badge: 'Drums', desc: '6-oscillator metallic crash/ride cymbal voice.' },
+    { name: 'Bogaudio Package', cat: 'extra', badge: '.rdmod', desc: 'Comprehensive DSP suite: VCO, VCF, Matrix Sequencer, LFO, Mult, Dynamics.' },
+    { name: 'Valley Package', cat: 'extra', badge: '.rdmod', desc: 'Features Plateau Reverb, Topograph generative sequencer, and Interop.' },
+    { name: 'Audible Instruments', cat: 'extra', badge: '.rdmod', desc: 'Mutable Instruments ports: Braids, Clouds, Rings, Elements, Plaits.' },
+    { name: 'Befaco Package', cat: 'extra', badge: '.rdmod', desc: 'EvenVCO, Rampage dual function generator, Spring Reverb, Chopper.' },
+    { name: 'Impromptu Modular', cat: 'extra', badge: '.rdmod', desc: 'Phrase Sequencer 16, Clocked master clock, Tact, Chord, Gate-Seq.' },
+    { name: 'Stoermelder PackOne', cat: 'extra', badge: '.rdmod', desc: 'Strip preset manager, Move, Sail, Transit parameter morpher.' },
+    { name: 'CountModula Package', cat: 'extra', badge: '.rdmod', desc: 'Clock dividers, binary counters, logic gates, and CV utility routing.' },
+    { name: 'FrozenWasteland', cat: 'extra', badge: '.rdmod', desc: 'Portland Weather multi-tap delay, BPF, Q&A, and advanced clocking.' },
+    { name: 'Bidoo Package', cat: 'extra', badge: '.rdmod', desc: 'Canard, Limbo, ZouMai, vector mixers and granular samplers.' },
+    { name: 'HetrickCV Package', cat: 'extra', badge: '.rdmod', desc: 'Crackles, Chaos, Phase shift, and Euro-style CV processors.' },
+    { name: 'JW-Modules', cat: 'extra', badge: '.rdmod', desc: 'GridSeq, BouncyBalls, NoteSeq, and visualizer modules.' },
+    { name: 'ML_modules', cat: 'extra', badge: '.rdmod', desc: 'Quantizer, Counter, Sequential Switch, Triggers to CV.' },
+    { name: 'RJModules', cat: 'extra', badge: '.rdmod', desc: 'Buttons, Glitch, Supersaw VCO, Filters, and Panner.' },
+    { name: 'NonlinearCircuits', cat: 'extra', badge: '.rdmod', desc: 'Chaos generators, Let\'s Splosh, Sloth LFO, and Squid Axon.' },
+    { name: 'Venom Modules', cat: 'extra', badge: '.rdmod', desc: 'Recurse, Polyphonic Bernoulli Gate, Rhythm, Control.' },
+    { name: 'Aria Salvatrice', cat: 'extra', badge: '.rdmod', desc: 'Splork, Arcane, Darvaza, Splittter, and utility modules.' },
+    { name: 'Sonus Modular', cat: 'extra', badge: '.rdmod', desc: 'Loom, Campana, Scie, and OS-X style utility DSP.' },
+    { name: 'computerscare', cat: 'extra', badge: '.rdmod', desc: 'Roly Poly, Knifty, Custom Display, Laundry Soup.' },
+    { name: 'LittleUtils', cat: 'extra', badge: '.rdmod', desc: 'Teleport, Button, Value display, and cable neatness utilities.' },
+    { name: 'Grande Modular', cat: 'extra', badge: '.rdmod', desc: 'Quantovox, VCA, Polyphonic VCO, Attenuators.' },
+    { name: 'Autinn Package', cat: 'extra', badge: '.rdmod', desc: 'Specialized DSP and modulation utilities.' }
+  ];
+
+  var grid = document.getElementById('moduleGrid');
+  var searchInput = document.getElementById('moduleSearchInput');
+  var chips = document.querySelectorAll('#moduleFilterChips .mod-chip');
+
+  if (grid) {
+    var activeCat = 'all';
+
+    function renderModules() {
+      var q = (searchInput ? searchInput.value : '').toLowerCase().trim();
+      grid.innerHTML = '';
+      var filtered = moduleData.filter(function (m) {
+        var matchCat = (activeCat === 'all' || m.cat === activeCat);
+        var matchSearch = !q || m.name.toLowerCase().indexOf(q) !== -1 || m.desc.toLowerCase().indexOf(q) !== -1 || m.badge.toLowerCase().indexOf(q) !== -1;
+        return matchCat && matchSearch;
+      });
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-dim);padding:24px">No modules matching your search.</div>';
+        return;
+      }
+      filtered.forEach(function (m) {
+        var card = document.createElement('div');
+        card.className = 'mod-card';
+        card.innerHTML = '<div class="mod-card-top"><h4>' + m.name + '</h4><span class="mod-card-badge">' + m.badge + '</span></div><p>' + m.desc + '</p>';
+        grid.appendChild(card);
+      });
+    }
+
+    if (searchInput) searchInput.addEventListener('input', renderModules);
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        chips.forEach(function (c) { c.classList.remove('active'); });
+        chip.classList.add('active');
+        activeCat = chip.getAttribute('data-cat');
+        renderModules();
+      });
+    });
+    renderModules();
   }
 })();
 </script>

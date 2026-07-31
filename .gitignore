@@ -20,6 +20,7 @@ CLAUDE.md
 CLAUDE_HANDOFF*.md
 .github/copilot-instructions.md
 docs/AI_ROUTING.md
+AGENTS.md
 scripts/ollama_task.mjs
 
 # Credentials and private signing material. The already-tracked development

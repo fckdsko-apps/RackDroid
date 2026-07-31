@@ -2,6 +2,15 @@
 <title>RackDroid — modular synthesizer for Android</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="RackDroid: the VCV Rack 2 engine, native on Android. Build modular patches with your finger, anywhere.">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="RackDroid — modular synthesizer for Android">
+<meta property="og:description" content="RackDroid: the VCV Rack 2 engine, native on Android. Build modular patches with your finger, anywhere.">
+<meta property="og:image" content="assets/screenshots/patch-rack.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="RackDroid — modular synthesizer for Android">
+<meta name="twitter:description" content="RackDroid: the VCV Rack 2 engine, native on Android. Build modular patches with your finger, anywhere.">
+<meta name="twitter:image" content="assets/screenshots/patch-rack.png">
 <style>
   @font-face {
     font-family: "Geomini";
@@ -314,61 +323,465 @@
     opacity: 0.55;
   }
 
-  /* Floating news badge: what is coming next, visible without scrolling. */
+  /* ---- Hero Video Background ---- */
+  #patchCanvas { display: none; }
+  .hero { padding-top: 0; }
+  .hero-video-wrap {
+    position: absolute; inset: 0; overflow: hidden; z-index: 0;
+    background: #0b0906 center/cover no-repeat url(assets/hero-poster.jpg);
+  }
+  .hero-video-wrap video {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    opacity: .55;
+  }
+  .hero-video-wrap::after {
+    content: ""; position: absolute; inset: 0;
+    background:
+      linear-gradient(to bottom, rgba(11,9,6,.55) 0%, rgba(11,9,6,.25) 35%, rgba(11,9,6,.92) 92%),
+      radial-gradient(120% 80% at 20% 40%, rgba(11,9,6,.10), rgba(11,9,6,.75));
+  }
+  .hero .wrap { padding-top: 88px; }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-video-wrap video { display: none; }
+  }
+
+  /* ---- News Banner (#update) ---- */
   #update {
     position: fixed;
-    top: 25%;
-    right: 10px;
-    padding: 5px;
-    background-color: var(--amber);
+    top: 84px;
+    right: 24px;
     z-index: 100;
-    border-radius: 5px;
+    animation: news-float 6s ease-in-out infinite;
   }
-  #update h1,
-  #update h2 {
-    color: #17140f;
-    margin: 0;
+
+  .news-banner-link {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    text-decoration: none;
+    background: linear-gradient(135deg, rgba(37, 31, 23, 0.88), rgba(20, 16, 11, 0.94));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(249, 177, 48, 0.35);
+    border-radius: 14px;
+    padding: 10px 14px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 0 16px rgba(249, 177, 48, 0.15);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.25s ease,
+                box-shadow 0.25s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .news-banner-link::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 218, 159, 0.18), transparent);
+    transform: skewX(-20deg);
+    animation: news-shimmer 4s infinite;
+  }
+
+  .news-banner-link:hover {
+    transform: translateY(-3px) scale(1.02);
+    border-color: var(--amber-soft);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6), 0 0 24px rgba(249, 177, 48, 0.32);
+  }
+
+  .news-banner-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .news-pulse-dot {
+    position: relative;
+    width: 7px;
+    height: 7px;
+    background-color: var(--amber);
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 6px var(--amber);
+  }
+
+  .news-pulse-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid var(--amber);
+    animation: news-pulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  }
+
+  .news-tag {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--amber);
+    text-transform: uppercase;
+  }
+
+  .news-date {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9.5px;
+    color: var(--text-dim);
+    margin-left: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .news-banner-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .news-title {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 12px;
-    text-align: left;
-    padding-left: 5px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.02em;
+    transition: color 0.2s ease;
+    white-space: nowrap;
   }
-  #update h2 { font-size: 10px; width: 90px; text-decoration: none;}
-  #update h1 { text-decoration: #17140f underline; }
-  #update span {
-    margin: 5px 0 3px;
-    padding: 7px;
-    color: #17140f;
-    display: block;
-    width: 90px;
-    line-height: 1;
-    font-size: 12px;
-    border: solid 1px #17140f;
-    border-radius: 5px;
-    text-decoration:none;
+
+  .news-banner-link:hover .news-title {
+    color: var(--amber-soft);
   }
-  #update a { color: #17140f; text-decoration:none;}
-  #update video { display: block; border-radius: 4px; }
-  /* Il badge News è fissato sullo schermo: su un telefono, a un quarto
-     dell'altezza, finisce esattamente sopra il titolo. Sotto i 760px scende
-     nell'angolo in basso a sinistra, dove non copre niente da leggere. */
-  @media (max-width: 760px) {
-    /* In flusso, in cima all'eroe: fissato copriva prima il titolo e poi,
-       spostato in basso, il pulsante secondario. Qui scorre via con la
-       pagina e non si sovrappone mai a niente. */
+
+  .news-arrow {
+    width: 14px;
+    height: 14px;
+    color: var(--amber);
+    flex-shrink: 0;
+    transition: transform 0.25s ease;
+  }
+
+  .news-banner-link:hover .news-arrow {
+    transform: translateX(4px);
+  }
+
+  @keyframes news-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  @keyframes news-pulse {
+    0% { transform: scale(0.8); opacity: 0.9; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  @keyframes news-shimmer {
+    0% { left: -100%; }
+    20%, 100% { left: 200%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #update { animation: none; }
+    .news-pulse-dot::after { animation: none; }
+    .news-banner-link::before { animation: none; }
+  }
+
+  @media (max-width: 860px) {
     #update {
-      /* In flusso ma sopra il video/le linee dell'eroe, che sono assoluti:
-         senza z-index il badge finisce sotto e sparisce. */
-      position: relative;
-      z-index: 3;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: fit-content;
-      margin: 12px 0 0 16px;
-      padding: 5px 8px;
+      position: static;
+      display: inline-block;
+      margin: 0 0 16px;
     }
-    #update h1 { font-size: 11px; padding-left: 0; }
-    #update span { width: auto; margin: 0; padding: 5px 8px; font-size: 11px; }
+  }
+
+
+  /* ---- Video controls ---- */
+  .vid-ctrl {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 10;
+    display: flex;
+    gap: 8px;
+  }
+  .vid-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(18,15,11,0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-dim);
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+    padding: 0;
+  }
+  .vid-btn:hover {
+    border-color: var(--amber-soft);
+    color: var(--amber-soft);
+    background: rgba(249,177,48,0.12);
+  }
+  .vid-btn svg { width: 16px; height: 16px; }
+
+  /* ---- Autoplay fallback overlay ---- */
+  .vid-fallback {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(249,177,48,0.07), transparent 70%);
+  }
+  .vid-fallback.visible { display: flex; }
+  .vid-play-btn {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #17140f;
+    background: var(--amber);
+    border: none;
+    border-radius: 999px;
+    padding: 13px 26px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 8px 24px rgba(249,177,48,0.4);
+  }
+  .vid-play-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(249,177,48,0.5); }
+
+  /* ---- Module Explorer ---- */
+  .module-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .module-search-wrap {
+    position: relative;
+    max-width: 500px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px; height: 18px;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  #moduleSearchInput {
+    width: 100%;
+    padding: 12px 16px 12px 42px;
+    background: var(--panel);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  #moduleSearchInput:focus {
+    border-color: var(--amber-soft);
+    box-shadow: 0 0 0 3px var(--amber-glow);
+  }
+  .module-filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mod-chip {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .mod-chip:hover, .mod-chip.active {
+    background: var(--amber);
+    color: #17140f;
+    border-color: var(--amber);
+    font-weight: 600;
+  }
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .mod-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .mod-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--border-strong);
+    box-shadow: 0 12px 24px -10px rgba(0,0,0,0.5);
+  }
+  .mod-card-top { display: flex; align-items: center; justify-content: space-between; }
+  .mod-card-badge {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(249,177,48,0.12);
+    color: var(--amber);
+    border: 1px solid rgba(249,177,48,0.25);
+  }
+  .mod-card h4 {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 14px;
+    color: var(--text);
+    margin: 0;
+  }
+  /* ---- Full Inter-Connected Eurorack System ---- */
+  .mini-rack {
+    background: #15120d;
+    border: 1.5px solid #2d261a;
+    border-radius: 14px;
+    padding: 14px 18px;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.9), 0 16px 40px -10px rgba(0,0,0,0.7);
+    position: relative;
+    overflow: hidden;
+    margin-top: 32px;
+    max-width: 960px;
+    width: 100%;
+    user-select: none;
+  }
+  .mini-rails-top, .mini-rails-bottom {
+    height: 9px;
+    background: repeating-linear-gradient(90deg, #2a2216, #2a2216 10px, #120e09 10px, #120e09 20px);
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .mini-faceplates {
+    display: flex;
+    gap: 10px;
+    padding: 12px 0;
+    justify-content: center;
+    overflow-x: auto;
+    position: relative;
+    z-index: 2;
+    scrollbar-width: thin;
+  }
+  .mini-faceplate {
+    background: linear-gradient(180deg, #221c15 0%, #1a1510 100%);
+    border: 1px solid #3d3122;
+    border-radius: 6px;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+    position: relative;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+    min-width: 90px;
+    flex-shrink: 0;
+  }
+  .mini-header {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--amber);
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(249,177,48,0.2);
+    padding-bottom: 3px;
+    width: 100%;
+    text-align: center;
+  }
+  .mini-screw {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: radial-gradient(circle, #888 30%, #333 80%);
+    position: absolute;
+  }
+  .screw-tl { top: 4px; left: 4px; }
+  .screw-tr { top: 4px; right: 4px; }
+  .screw-bl { bottom: 4px; left: 4px; }
+  .screw-br { bottom: 4px; right: 4px; }
+
+  /* Compact Controls */
+  .mini-knob-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .mini-knob-label { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 8px; color: var(--text-dim); text-transform: uppercase; }
+  .mini-knob {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #3e3427, #18130d);
+    border: 1.5px solid #5a4935;
+    position: relative;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.6);
+    transition: transform 0.1s ease, border-color 0.2s ease;
+  }
+  .mini-knob:hover { border-color: var(--amber); transform: scale(1.06); }
+  .mini-knob-indicator {
+    width: 2px; height: 10px;
+    background: var(--amber);
+    border-radius: 1px;
+    position: absolute;
+    top: 3px; left: 50%;
+    transform-origin: 50% 12px;
+  }
+
+  .mini-jack-group { display: flex; gap: 8px; justify-content: center; width: 100%; }
+  .mini-jack-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .mini-jack-label { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 7.5px; color: var(--text-dim); }
+  .mini-jack {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #120e09 40%, #3a2e1e 85%);
+    border: 1.5px solid #6b553b;
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  }
+  .mini-jack:hover, .mini-jack.active-jack {
+    border-color: var(--amber);
+    box-shadow: 0 0 10px var(--amber-glow);
+    transform: scale(1.12);
+  }
+  .mini-jack.plugged {
+    border-color: #ffda9f;
+  }
+  .mini-jack::after {
+    content: ""; position: absolute; inset: 3.5px; border-radius: 50%; background: #000;
+  }
+
+  .mini-scope {
+    width: 100%; height: 50px;
+    background: #060e0a;
+    border: 1px solid #1a3829;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .mini-scope canvas { width: 100%; height: 100%; display: block; }
+
+  .mini-rack-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;
+  }
+  .mini-rack-hint {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9px;
+    color: var(--amber-soft);
+    text-align: center;
+    margin-top: 4px;
+    letter-spacing: 0.05em;
+    opacity: 0.8;
   }
 </style>
 
@@ -381,36 +794,65 @@
       <a class="nav-link" href="privacy.html">Privacy</a>
       <a class="nav-lang" href="index.it.html">IT</a>
       <a class="nav-cta" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">Download on GitHub</a>
-    </div>
-  </div>
 </nav>
 
 <header class="hero">
   <!-- What is coming next. The clip lives outside this repository (it is far
        too big for it): keep U/U1.mp4 next to the page when publishing. -->
-  <div id="update">
-    <h1>News:</h1>
-    <a href="coming-soon.html"><span>PARKBAR COMING - 01/08/26</span></a>
-  </div>
   <canvas id="patchCanvas"></canvas>
+  <div class="hero-video-wrap" id="heroVideoWrap">
+    <video id="heroVideo" autoplay muted loop playsinline preload="metadata" poster="assets/hero-poster.jpg"
+           aria-hidden="true" tabindex="-1">
+      <source src="assets/hero.mp4" type="video/mp4">
+    </video>
+    <!-- Autoplay fallback overlay -->
+    <div class="vid-fallback" id="vidFallback">
+      <button class="vid-play-btn" id="vidPlayFallback" aria-label="Play demo video">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><polygon points="4,2 16,9 4,16"/></svg>
+        Play Demo
+      </button>
+    </div>
+    <!-- Video controls -->
+    <div class="vid-ctrl">
+      <button class="vid-btn" id="vidPlayBtn" aria-label="Pause video">
+        <!-- pause icon -->
+        <svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg>
+      </button>
+      <button class="vid-btn" id="vidMuteBtn" aria-label="Unmute video">
+        <!-- muted icon (initial state - video is muted) -->
+        <svg id="iconMuted" viewBox="0 0 16 16" fill="currentColor"><path d="M1 5.5h3l4-3.5v11l-4-3.5H1z"/><line x1="11" y1="5.5" x2="15" y2="10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="15" y1="5.5" x2="11" y2="10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg id="iconSound" viewBox="0 0 16 16" fill="currentColor" style="display:none"><path d="M1 5.5h3l4-3.5v11l-4-3.5H1z"/><path d="M11 5.5a4 4 0 0 1 0 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M13 3.5a7 7 0 0 1 0 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
+      </button>
+    </div>
+  </div>
   <div class="wrap">
     <div>
-      <p class="kicker">Modular synthesizer for Android</p>
-      <h1 class="wordmark">Your modular<br>rack<span class="rd">.</span><br>In your pocket<span class="rd">.</span></h1>
+      <div id="update">
+        <a href="coming-soon.html" class="news-banner-link">
+          <div class="news-banner-header">
+            <span class="news-pulse-dot"></span>
+            <span class="news-tag">NEWS</span>
+            <span class="news-date">01/08/26</span>
+          </div>
+          <div class="news-banner-body">
+            <span class="news-title">PARKBAR COMING</span>
+            <svg class="news-arrow" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </a>
+      </div>
+      <p class="kicker">FESTIVAL IN YOUR POCKET · PERPETUAL RAVE</p>
+      <h1 class="wordmark">Patch cables.<br>Pure rave<span class="rd">.</span><br>No sleep<span class="rd">.</span></h1>
       <p class="hero-lede">
-        <strong>RackDroid</strong> brings the VCV Rack 2 audio engine to Android, with touch
-        instead of a mouse. Drag real cables between oscillators, filters and sequencers —
-        no compromises, no clone: it's the same engine, made native for your phone.
+        <strong>RackDroid</strong> is the raw VCV Rack 2 engine unleashed on your Android phone. Your pocket is now a non-stop techno festival. Drag glowing patch cables with your fingers, slam 140 BPM sub-bass kicks, send Clouds into endless feedback loops. Anywhere. 3 AM included.
       </p>
       <div class="hero-ctas">
-        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download RackDroid</a>
-        <a class="btn btn-ghost" href="#showcase">See the interface</a>
+        <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">🔥 UNLEASH THE RAVE NOW ↓</a>
+        <a class="btn btn-ghost" href="#showcase">Explore the Wall of Sound</a>
       </div>
       <div class="hero-meta">
-        <span><b>66</b> built-in modules</span>
-        <span><b>Android 10+</b></span>
-        <span><b>GPLv3</b>, open source</span>
-        <span><b>~40 MB</b></span>
+        <span>⚡ <b>140 BPM</b> Ready</span><span>🎛️ <b>VCV Rack 2</b> Engine</span><span>💻 <b>arm64-v8a &amp; x86_64</b></span><span>🪩 <b>Free</b> Rave</span><span>🔥 <b>Clouds &amp; Plateau</b></span>
       </div>
     </div>
     <div class="device">
@@ -424,41 +866,58 @@
 <section>
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">Why RackDroid</p>
-      <h2 class="section-title">Not a toy. A real rack.</h2>
-      <p>Every design choice starts with one question: would this work with a finger on a 6-inch screen? If the answer was no, we redesigned it — not just shrank it.</p>
+      <p class="kicker">TECHNO MANIFESTO</p>
+      <h2 class="section-title">Not a cute synth app. A raw 48kHz mobile sound system.</h2>
+      <p>Forget toy preset apps. This is the real festival modular engine compiled to set your phone screen on fire.</p>
     </div>
     <div class="why-grid reveal-stagger">
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="13" stroke="#f9b130" stroke-width="2.4"/><path d="M20 20 L13 13" stroke="#ffda9f" stroke-width="2.4" stroke-linecap="round"/></svg>
-        <h3>It's VCV Rack, not a clone</h3>
-        <p>Same DSP engine, same 66 modules, same <code>.vcv</code> format — built on unmodified upstream v2.6.4 sources.</p>
+        <h3>Heavy metal DSP</h3>
+        <p>Raw upstream VCV Rack 2 C++ code untouched. No simplified mobile synth algorithms, just pure DSP horsepower.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M8 30 C14 14, 26 14, 32 30" stroke="#d45b52" stroke-width="2.4" fill="none"/><circle cx="8" cy="30" r="3" fill="#d45b52"/><circle cx="32" cy="30" r="3" fill="#d45b52"/></svg>
-        <h3>Built for touch</h3>
-        <p>Not a shrunk-down desktop UI: drag cables with a finger, long-press a knob to type a value, pinch to zoom.</p>
+        <h3>Dancefloor touch patching</h3>
+        <p>Grab jacks, rip cables, perform live drops and build instant sub-bass build-ups straight on your touchscreen.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M6 24 L14 24 L18 10 L24 32 L28 20 L34 20" stroke="#4fb8a6" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
-        <h3>Low native latency</h3>
-        <p>Oboe/AAudio, full-duplex — it plays in real time, not a toy that stutters.</p>
+        <h3>Zero-delay live performance</h3>
+        <p>Oboe + AAudio tuned to the absolute lowest buffer. Drop kicks in perfect sync with the club PA system.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><rect x="8" y="8" width="10" height="10" rx="2" stroke="#9b7fd4" stroke-width="2.2"/><rect x="22" y="22" width="10" height="10" rx="2" stroke="#ffda9f" stroke-width="2.2"/><path d="M18 13 L26 13 L26 22" stroke="#9b7fd4" stroke-width="2.2" fill="none"/></svg>
-        <h3>Grows with you</h3>
-        <p>Start with the 66 built-in modules, then add whole packages (Bogaudio, Valley, Befaco…) on the fly, without updating the app.</p>
+        <h3>Clouds. Rings. Plateau. Bogaudio.</h3>
+        <p>Drop a <code>.rdmod</code> file and Audible Instruments, Valley, Befaco or Bogaudio load instantly. No app update. No store approval. Just drop and patch.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><rect x="9" y="6" width="22" height="30" rx="3" stroke="#5b9bd5" stroke-width="2.2"/><path d="M15 30 L25 30" stroke="#5b9bd5" stroke-width="2.2" stroke-linecap="round"/></svg>
-        <h3>Even on older hardware</h3>
-        <p>Supported from Android 10 up: it runs on phones and tablets that aren't brand new anymore.</p>
+        <h3>arm64-v8a &amp; x86_64 Support</h3>
+        <p>Phones, tablets, Chromebooks, or Android-x86 PCs. If it runs Android 10 or later on arm64-v8a or x86_64, RackDroid is ready to rock.</p>
       </div>
       <div class="why-card reveal">
         <svg class="why-icon" viewBox="0 0 40 40" fill="none"><path d="M8 20 L14 20 L17 10 L22 30 L25 20 L32 20" stroke="#f9b130" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
-        <h3>Open source, for good</h3>
-        <p>GPLv3, complete sources in the repository. No account, no paid license, no tracking.</p>
+        <h3>No subscription. No account. No joke.</h3>
+        <p>GPLv3. Every line of source on GitHub. You own it. Run it forever.</p>
       </div>
+      </div>
+    </div>
+
+    <!-- Full Eurorack System 1 (Why Section - 6 Interconnected Modules) -->
+    <div class="mini-rack reveal" style="margin: 36px auto 0;">
+      <canvas class="mini-rack-canvas"></canvas>
+      <div class="mini-rails-top"></div>
+      <div class="mini-faceplates">
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">SEQ 3</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(-30deg)"></div></div><span class="mini-knob-label">BPM</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="seq-gate"></div><span class="mini-jack-label">GATE</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="seq-cv"></div><span class="mini-jack-label">CV</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">VCO</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(20deg)"></div></div><span class="mini-knob-label">PITCH</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="vco-fm"></div><span class="mini-jack-label">1V/OCT</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="vco-out"></div><span class="mini-jack-label">SAW</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">VCF</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(-40deg)"></div></div><span class="mini-knob-label">CUTOFF</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="vcf-in"></div><span class="mini-jack-label">AUDIO</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="vcf-cv"></div><span class="mini-jack-label">MOD</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="vcf-out"></div><span class="mini-jack-label">LP</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">LFO</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(60deg)"></div></div><span class="mini-knob-label">RATE</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="lfo-out"></div><span class="mini-jack-label">TRI</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">ADSR</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(-10deg)"></div></div><span class="mini-knob-label">DECAY</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="adsr-gate"></div><span class="mini-jack-label">TRIG</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="adsr-out"></div><span class="mini-jack-label">ENV</span></div></div></div>
+        <div class="mini-faceplate" style="min-width: 135px;"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">SCOPE</div><div class="mini-scope"><canvas class="mini-scope-canvas"></canvas></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="scope-in"></div><span class="mini-jack-label">IN</span></div></div></div>
+      </div>
+      <div class="mini-rails-bottom"></div>
+      <div class="mini-rack-hint">⚡ Drag or click jacks to route patch cables across the modules</div>
     </div>
   </div>
 </section>
@@ -468,9 +927,9 @@
 <section id="showcase">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">Interface</p>
-      <h2 class="section-title">A real screenshot. Not a mockup.</h2>
-      <p>Sequencer, VCO, VCF, ADSR envelope and mixer — taken from a real device running the app, with the glass toolbar open above the rack.</p>
+      <p class="kicker">WALL OF SOUND</p>
+      <h2 class="section-title">A full Eurorack wall of sound in your hands.</h2>
+      <p>Acid sequencers, screaming filters, and green phosphor CRT scopes reacting live to your patch.</p>
     </div>
     <div class="showcase-wrap reveal">
       <div class="showcase-frame">
@@ -480,6 +939,21 @@
         <img src="assets/screenshots/toolbar-menus.png" alt="RackDroid's toolbar and menus">
       </div>
     </div>
+
+    <!-- Full Eurorack System 2 (Showcase Section - 5 Interconnected Modules) -->
+    <div class="mini-rack reveal">
+      <canvas class="mini-rack-canvas"></canvas>
+      <div class="mini-rails-top"></div>
+      <div class="mini-faceplates">
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">MARBLES</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(25deg)"></div></div><span class="mini-knob-label">DEJA VU</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="marb-t1"></div><span class="mini-jack-label">T1</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="marb-x1"></div><span class="mini-jack-label">X1</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">RINGS</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(-30deg)"></div></div><span class="mini-knob-label">BRIGHT</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="rings-strum"></div><span class="mini-jack-label">STRUM</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="rings-vct"></div><span class="mini-jack-label">V/OCT</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="rings-out"></div><span class="mini-jack-label">EVEN</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">CLOUDS</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(10deg)"></div></div><span class="mini-knob-label">PITCH</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="clouds-in"></div><span class="mini-jack-label">IN L</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="clouds-out"></div><span class="mini-jack-label">OUT L</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">PLATEAU</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(55deg)"></div></div><span class="mini-knob-label">DECAY</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="plat-in"></div><span class="mini-jack-label">IN L</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="plat-out"></div><span class="mini-jack-label">OUT L</span></div></div></div>
+        <div class="mini-faceplate" style="min-width: 135px;"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">SCOPE</div><div class="mini-scope"><canvas class="mini-scope-canvas"></canvas></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="scope2-in"></div><span class="mini-jack-label">IN</span></div></div></div>
+      </div>
+      <div class="mini-rails-bottom"></div>
+      <div class="mini-rack-hint">⚡ Drag or click jacks to route patch cables across the modules</div>
+    </div>
   </div>
 </section>
 
@@ -488,22 +962,37 @@
 <section>
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">Inside the rack</p>
-      <h2 class="section-title">What it includes</h2>
-      <p>Everything you need to build a sound from scratch, already in the base APK.</p>
+      <p class="kicker">MAIN STAGE SETUP</p>
+      <h2 class="section-title">66 Stock modules ready to blow the speakers.</h2>
+      <p>Before you install a single extra package, you already have this full studio weapon set:</p>
     </div>
     <div class="rack-row reveal">
       <div class="feature-grid">
-        <div><span class="f-icon">🎚️</span><h4>Audio engine</h4><p>Native, Oboe/AAudio, full-duplex, low latency.</p></div>
-        <div><span class="f-icon">🧩</span><h4>66 modules</h4><p>Core, Fundamental (39 modules), RackDroid Drums (14 original voices).</p></div>
-        <div><span class="f-icon">👆</span><h4>Real touch</h4><p>Cables and modules with a finger, pinch to zoom, long-press for values.</p></div>
-        <div><span class="f-icon">🪟</span><h4>Glass toolbar</h4><p>Menus, module palette, plugin manager, undo/redo, layout lock.</p></div>
+        <div><span class="f-icon">🎚️</span><h4>DSP VCV Rack 2</h4><p>Native C++ engine. Oboe/AAudio. Full-duplex. Plays in real time.</p></div>
+        <div><span class="f-icon">🧩</span><h4>66 modules, ready</h4><p>Core + Fundamental + RackDroid Drums. The full stock VCV Rack library, touch-optimized.</p></div>
+        <div><span class="f-icon">👆</span><h4>Real touch</h4><p>Grab cables with one finger. Patch with two. Zoom with a pinch. No mouse metaphors.</p></div>
+        <div><span class="f-icon">🪟</span><h4>Instant access panel</h4><p>All menus, module browser, undo, redo — one swipe away.</p></div>
         <div><span class="f-icon">🧲</span><h4>Module palette</h4><p>Chips by category, draggable previews, an info badge for every module.</p></div>
         <div><span class="f-icon">🧵</span><h4>Cable parking</h4><p>Park a cable end on a bar, scroll to the far module, drop it on the port. 3 to 10 holes.</p></div>
-        <div><span class="f-icon">🎹</span><h4>MIDI</h4><p>On-screen keyboard, USB and Bluetooth LE MIDI.</p></div>
-        <div><span class="f-icon">⏺️</span><h4>Recording</h4><p>Output to a WAV file, saved in Documents/RackDroid/.</p></div>
-        <div><span class="f-icon">🎓</span><h4>Guided learning</h4><p>A spotlight interface tour on first run, 30 step-by-step tutorials, plus a topic guide.</p></div>
+        <div><span class="f-icon">🎹</span><h4>MIDI</h4><p>On-screen keyboard. USB MIDI. Bluetooth LE MIDI. Hook up your controller.</p></div>
+        <div><span class="f-icon">⏺️</span><h4>Recording</h4><p>WAV output, straight to your Documents folder. Capture the patch.</p></div>
+        <div><span class="f-icon">🎓</span><h4>You'll be patching in minutes</h4><p>Spotlight tour on first run. 30 step-by-step tutorials if you need them.</p></div>
       </div>
+    </div>
+
+    <!-- Full Eurorack System 3 (Features / Rhythm Generator - 5 Modules) -->
+    <div class="mini-rack reveal" style="margin: 32px auto 0;">
+      <canvas class="mini-rack-canvas"></canvas>
+      <div class="mini-rails-top"></div>
+      <div class="mini-faceplates">
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">CLOCK</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(40deg)"></div></div><span class="mini-knob-label">BPM</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="clk-out"></div><span class="mini-jack-label">CLK</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">KICK</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(25deg)"></div></div><span class="mini-knob-label">TUNE</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="kick-trig"></div><span class="mini-jack-label">TRIG</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="kick-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">SNARE</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(-10deg)"></div></div><span class="mini-knob-label">SNAP</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="snare-trig"></div><span class="mini-jack-label">TRIG</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="snare-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">HI-HAT</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(50deg)"></div></div><span class="mini-knob-label">DECAY</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="hat-trig"></div><span class="mini-jack-label">TRIG</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="hat-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">DRUM MIX</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(0deg)"></div></div><span class="mini-knob-label">SUM</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="dmix-in"></div><span class="mini-jack-label">CH 1</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="dmix-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
+      </div>
+      <div class="mini-rails-bottom"></div>
+      <div class="mini-rack-hint">⚡ Drag or click jacks to route patch cables across the modules</div>
     </div>
   </div>
 </section>
@@ -513,9 +1002,9 @@
 <section class="tight">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="kicker">Additional modules</p>
-      <h2 class="section-title">Extra packages, no app update needed</h2>
-      <p>Install <code>.rdmod</code> files from the built-in module manager, or copy them into the <code>Modules/</code> folder — they load right away.</p>
+      <p class="kicker">EUPHORIC MODULES</p>
+      <h2 class="section-title">Clouds. Rings. Plateau. Keep the rave going.</h2>
+      <p>Download a <code>.rdmod</code> file, drop it in the Modules folder. Done. No store approval, no subscriptions, pure festival energy.</p>
     </div>
     <div class="plugin-pills reveal">
       <span class="pill">Bogaudio</span>
@@ -528,6 +1017,51 @@
       <span class="pill">Bidoo</span>
       <span class="pill">…and more</span>
     </div>
+
+    <!-- Mini Rack 4 (Extra Packages Section - 4 Modules) -->
+    <div class="mini-rack reveal" style="margin: 32px auto 0;">
+      <canvas class="mini-rack-canvas"></canvas>
+      <div class="mini-rails-top"></div>
+      <div class="mini-faceplates">
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">CLOUDS</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(10deg)"></div></div><span class="mini-knob-label">TEXTURE</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="clouds-in"></div><span class="mini-jack-label">IN L</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="clouds-out"></div><span class="mini-jack-label">OUT L</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">PLATEAU</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(70deg)"></div></div><span class="mini-knob-label">REVERB</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="plat-in"></div><span class="mini-jack-label">IN</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="plat-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tl"></span><span class="mini-screw screw-br"></span><div class="mini-header">RINGS</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(-30deg)"></div></div><span class="mini-knob-label">STRUCTURE</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="rings-strum"></div><span class="mini-jack-label">STRUM</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="rings-out"></div><span class="mini-jack-label">OUT</span></div></div></div>
+        <div class="mini-faceplate"><span class="mini-screw screw-tr"></span><span class="mini-screw screw-bl"></span><div class="mini-header">MARBLES</div><div class="mini-knob-wrap"><div class="mini-knob"><div class="mini-knob-indicator" style="transform: translateX(-50%) rotate(35deg)"></div></div><span class="mini-knob-label">DEJA VU</span></div><div class="mini-jack-group"><div class="mini-jack-wrap"><div class="mini-jack" data-jname="marb-clock"></div><span class="mini-jack-label">CLK</span></div><div class="mini-jack-wrap"><div class="mini-jack" data-jname="marb-out"></div><span class="mini-jack-label">CV X</span></div></div></div>
+      </div>
+      <div class="mini-rails-bottom"></div>
+      <div class="mini-rack-hint">⚡ Click any jack to swap or stretch cables</div>
+    </div>
+  </div>
+</section>
+
+<div class="rail"></div>
+
+<section id="module-explorer">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <p class="kicker">Everything in the rack</p>
+      <h2 class="section-title">Search the full module catalog</h2>
+      <p>Every built-in and every loadable extra package — filter by type or search by name.</p>
+    </div>
+    <div class="module-controls reveal">
+      <div class="module-search-wrap">
+        <svg class="search-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="moduleSearchInput" placeholder="Search modules (e.g. VCO, Clouds, Plateau, Drums, Bogaudio...)" aria-label="Search modules">
+      </div>
+      <div class="module-filter-chips" id="moduleFilterChips">
+        <button class="mod-chip active" data-cat="all">All</button>
+        <button class="mod-chip" data-cat="vco">VCO / Audio</button>
+        <button class="mod-chip" data-cat="vcf">VCF / Filter</button>
+        <button class="mod-chip" data-cat="seq">Sequencer</button>
+        <button class="mod-chip" data-cat="drum">Drums</button>
+        <button class="mod-chip" data-cat="fx">FX &amp; Utility</button>
+        <button class="mod-chip" data-cat="extra">Extra Packages</button>
+      </div>
+    </div>
+    <div class="module-grid reveal" id="moduleGrid"></div>
   </div>
 </section>
 
@@ -535,10 +1069,10 @@
   <div class="wrap">
     <div class="cta-panel reveal">
       <svg class="scope" viewBox="0 0 400 46" preserveAspectRatio="none"><path id="scopePath" d="M0 23 L400 23" stroke="#f9b130" stroke-width="1.5" fill="none"/></svg>
-      <h2>Ready to build your first sound?</h2>
-      <p>Free, open source, no account. Download the APK from the repository and you're in within a minute.</p>
-      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">↓ Download RackDroid on GitHub</a>
-      <div class="req-line">Requires Android 10 (API 29) or later · arm64-v8a · OpenGL ES 3.0</div>
+      <h2>Turn your phone into a 10,000-Watt sound system.</h2>
+      <p>Free. Open source. No account walls. Sideload the APK, plug your cables, and turn any room into a festival mainstage.</p>
+      <a class="btn btn-primary" href="https://github.com/nowheel/RackDroid" target="_blank" rel="noopener">🔥 UNLEASH THE RAVE NOW ↓</a>
+      <div class="req-line">Requires Android 10 (API 29) or later · arm64-v8a &amp; x86_64 · OpenGL ES 3.0</div>
     </div>
   </div>
 </section>
@@ -580,88 +1114,68 @@
     els.forEach(function (el) { el.classList.add('in-view'); });
   }
 
-  // ---- ambient patch-cable canvas ----
-  var canvas = document.getElementById('patchCanvas');
-  var ctx = canvas.getContext('2d');
-  var W, H, DPR;
+  // ---- Hero video controls & autoplay fallback ----
+  var heroVideo   = document.getElementById('heroVideo');
+  var vidFallback = document.getElementById('vidFallback');
+  var playBtn     = document.getElementById('vidPlayBtn');
+  var muteBtn     = document.getElementById('vidMuteBtn');
+  var iconMuted   = document.getElementById('iconMuted');
+  var iconSound   = document.getElementById('iconSound');
+  var fallbackBtn = document.getElementById('vidPlayFallback');
 
-  function resize() {
-    var rect = canvas.getBoundingClientRect();
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = rect.width; H = rect.height;
-    canvas.width = Math.round(W * DPR);
-    canvas.height = Math.round(H * DPR);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  }
-  window.addEventListener('resize', resize);
-  resize();
+  var PAUSE_ICON = '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg>';
+  var PLAY_ICON  = '<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="3,2 14,8 3,14"/></svg>';
 
-  var jacks = [
-    { x: 0.06, y: 0.28 }, { x: 0.26, y: 0.62 }, { x: 0.46, y: 0.18 },
-    { x: 0.64, y: 0.58 }, { x: 0.86, y: 0.30 }, { x: 0.40, y: 0.80 },
-    { x: 0.14, y: 0.78 }, { x: 0.94, y: 0.68 }
-  ];
-  var cables = [
-    { a: 0, b: 1, c: '#d45b52' }, { a: 1, b: 2, c: '#f9b130' },
-    { a: 2, b: 3, c: '#4fb8a6' }, { a: 3, b: 4, c: '#9b7fd4' },
-    { a: 1, b: 6, c: '#5b9bd5' }, { a: 6, b: 5, c: '#f9b130' },
-    { a: 3, b: 7, c: '#d45b52' }
-  ];
+  if (heroVideo) {
+    // Try autoplay
+    var playPromise = heroVideo.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(function () {
+        // Autoplay blocked — show overlay
+        if (vidFallback) vidFallback.classList.add('visible');
+        if (playBtn) playBtn.innerHTML = PLAY_ICON;
+      });
+    }
 
-  function jackPos(i) { return { x: jacks[i].x * W, y: jacks[i].y * H }; }
+    // Fallback overlay button
+    if (fallbackBtn) {
+      fallbackBtn.addEventListener('click', function () {
+        heroVideo.play();
+        if (vidFallback) vidFallback.classList.remove('visible');
+        if (playBtn) playBtn.innerHTML = PAUSE_ICON;
+      });
+    }
 
-  function bez(p0, p1, p2, p3, t) {
-    var mt = 1 - t;
-    return {
-      x: mt * mt * mt * p0.x + 3 * mt * mt * t * p1.x + 3 * mt * t * t * p2.x + t * t * t * p3.x,
-      y: mt * mt * mt * p0.y + 3 * mt * mt * t * p1.y + 3 * mt * t * t * p2.y + t * t * t * p3.y
-    };
-  }
+    // Play / Pause toggle
+    if (playBtn) {
+      playBtn.addEventListener('click', function () {
+        if (heroVideo.paused) {
+          heroVideo.play();
+          playBtn.innerHTML = PAUSE_ICON;
+          playBtn.setAttribute('aria-label', 'Pause video');
+        } else {
+          heroVideo.pause();
+          playBtn.innerHTML = PLAY_ICON;
+          playBtn.setAttribute('aria-label', 'Play video');
+        }
+      });
+    }
 
-  function draw(t) {
-    ctx.clearRect(0, 0, W, H);
-    cables.forEach(function (cab, ci) {
-      var p0 = jackPos(cab.a), p1 = jackPos(cab.b);
-      var sag = 46 + 18 * Math.sin(ci * 1.7);
-      var midY = Math.max(p0.y, p1.y) + sag;
-      var cp1 = { x: p0.x + (p1.x - p0.x) * 0.25, y: midY };
-      var cp2 = { x: p0.x + (p1.x - p0.x) * 0.75, y: midY };
-
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y);
-      ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p1.x, p1.y);
-      ctx.strokeStyle = cab.c;
-      ctx.globalAlpha = 0.5;
-      ctx.lineWidth = 2.4;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-
-      if (!reduced) {
-        var tt = ((t * 0.00045) + ci * 0.15) % 1;
-        var pt = bez(p0, cp1, cp2, p1, tt);
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffda9f';
-        ctx.shadowColor = cab.c;
-        ctx.shadowBlur = 9;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-    });
-
-    jacks.forEach(function (j) {
-      var p = { x: j.x * W, y: j.y * H };
-      ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#241f18'; ctx.fill();
-      ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,218,159,0.4)'; ctx.lineWidth = 1; ctx.stroke();
-    });
-  }
-
-  if (reduced) {
-    draw(0);
-  } else {
-    requestAnimationFrame(function loop(ts) { draw(ts); requestAnimationFrame(loop); });
+    // Mute / Unmute toggle
+    if (muteBtn) {
+      muteBtn.addEventListener('click', function () {
+        heroVideo.muted = !heroVideo.muted;
+        if (heroVideo.muted) {
+          if (iconMuted) iconMuted.style.display = '';
+          if (iconSound) iconSound.style.display = 'none';
+          muteBtn.setAttribute('aria-label', 'Unmute video');
+        } else {
+          if (iconMuted) iconMuted.style.display = 'none';
+          if (iconSound) iconSound.style.display = '';
+          muteBtn.setAttribute('aria-label', 'Mute video');
+        }
+      });
+    }
   }
 
   // ---- scope line idle animation ----
@@ -678,6 +1192,458 @@
       requestAnimationFrame(scopeFrame);
     }
     requestAnimationFrame(scopeFrame);
+  }
+
+  // ---- Module Explorer ----
+  var moduleData = [
+    { name: 'VCO', cat: 'vco', badge: 'Fundamental', desc: 'Voltage-controlled analog modeling oscillator with sine, triangle, saw, and square outputs.' },
+    { name: 'Wavetable VCO', cat: 'vco', badge: 'Fundamental', desc: 'Voltage-controlled wavetable oscillator with morphing control.' },
+    { name: 'VCF', cat: 'vcf', badge: 'Fundamental', desc: 'Voltage-controlled lowpass and highpass filter with CV cutoff & resonance.' },
+    { name: 'VCA', cat: 'fx', badge: 'Fundamental', desc: 'Linear and exponential voltage-controlled amplifier.' },
+    { name: 'LFO', cat: 'vco', badge: 'Fundamental', desc: 'Low-frequency oscillator with reset trigger and FM depth.' },
+    { name: 'Wavetable LFO', cat: 'vco', badge: 'Fundamental', desc: 'Morphing wavetable LFO for complex CV modulation.' },
+    { name: 'Delay', cat: 'fx', badge: 'Fundamental', desc: 'Stereo tape-style delay with feedback loop and CV time modulation.' },
+    { name: 'ADSR EG', cat: 'fx', badge: 'Fundamental', desc: 'Attack/Decay/Sustain/Release envelope generator with retrigger input.' },
+    { name: 'Mix (6-Chan)', cat: 'fx', badge: 'Fundamental', desc: '6-channel audio & CV mixer with pan and master level.' },
+    { name: 'VCA Mix', cat: 'fx', badge: 'Fundamental', desc: '4-channel mixer with built-in per-channel VCAs.' },
+    { name: 'SEQ 3', cat: 'seq', badge: 'Fundamental', desc: '3-channel 8-step sequencer with step gates and CV knobs.' },
+    { name: '8vert', cat: 'fx', badge: 'Fundamental', desc: '8-channel attenuverter and constant DC voltage generator.' },
+    { name: 'Mutes', cat: 'fx', badge: 'Fundamental', desc: '10-channel signal mute/solo switch bank.' },
+    { name: 'Pulses', cat: 'seq', badge: 'Fundamental', desc: 'Generates 10 trigger and gate clock division signals.' },
+    { name: 'Scope', cat: 'fx', badge: 'Fundamental', desc: 'Dual-channel real-time oscilloscope for waveform visualization.' },
+    { name: 'Sequential Switch 1-4', cat: 'seq', badge: 'Fundamental', desc: 'Routes 1 input to one of 4 outputs sequentially.' },
+    { name: 'Sequential Switch 4-1', cat: 'seq', badge: 'Fundamental', desc: 'Routes one of 4 inputs to 1 output sequentially.' },
+    { name: 'Quantizer', cat: 'seq', badge: 'Fundamental', desc: '12-note chromatic and scale pitch quantizer.' },
+    { name: 'Octave', cat: 'seq', badge: 'Fundamental', desc: 'Octave transposer for 1V/oct pitch control signals.' },
+    { name: 'Noise', cat: 'vco', badge: 'Fundamental', desc: 'White, pink, and red multicolored noise generator.' },
+    { name: 'Random', cat: 'fx', badge: 'Fundamental', desc: 'Sample & Hold random voltage generator with clock input.' },
+    { name: 'Split / Merge', cat: 'fx', badge: 'Fundamental', desc: 'Polyphonic cable splitter and monophonic merger.' },
+    { name: 'RackDroid Kick', cat: 'drum', badge: 'Drums', desc: 'Punchy analog kick drum voice with sub pitch decay and click.' },
+    { name: 'RackDroid Snare', cat: 'drum', badge: 'Drums', desc: 'Analog snare drum with snappy noise blend and tone control.' },
+    { name: 'RackDroid Hi-Hat', cat: 'drum', badge: 'Drums', desc: 'Metallic closed and open hi-hat voice generator with sizzle.' },
+    { name: 'RackDroid Tom', cat: 'drum', badge: 'Drums', desc: 'Tunable low/mid/high analog tom drum voice.' },
+    { name: 'RackDroid Clap', cat: 'drum', badge: 'Drums', desc: 'Multi-pulse analog handclap with reverb-like noise tail.' },
+    { name: 'RackDroid Cowbell', cat: 'drum', badge: 'Drums', desc: 'Dual-tuned metallic 808-style cowbell module.' },
+    { name: 'RackDroid Rimshot', cat: 'drum', badge: 'Drums', desc: 'Short wood-block style analog rimshot percussion.' },
+    { name: 'RackDroid Cymbal', cat: 'drum', badge: 'Drums', desc: '6-oscillator metallic crash/ride cymbal voice.' },
+    { name: 'Bogaudio Package', cat: 'extra', badge: '.rdmod', desc: 'Comprehensive DSP suite: VCO, VCF, Matrix Sequencer, LFO, Mult, Dynamics.' },
+    { name: 'Valley Package', cat: 'extra', badge: '.rdmod', desc: 'Features Plateau Reverb, Topograph generative sequencer, and Interop.' },
+    { name: 'Audible Instruments', cat: 'extra', badge: '.rdmod', desc: 'Mutable Instruments ports: Braids, Clouds, Rings, Elements, Plaits.' },
+    { name: 'Befaco Package', cat: 'extra', badge: '.rdmod', desc: 'EvenVCO, Rampage dual function generator, Spring Reverb, Chopper.' },
+    { name: 'Impromptu Modular', cat: 'extra', badge: '.rdmod', desc: 'Phrase Sequencer 16, Clocked master clock, Tact, Chord, Gate-Seq.' },
+    { name: 'Stoermelder PackOne', cat: 'extra', badge: '.rdmod', desc: 'Strip preset manager, Move, Sail, Transit parameter morpher.' },
+    { name: 'CountModula Package', cat: 'extra', badge: '.rdmod', desc: 'Clock dividers, binary counters, logic gates, and CV utility routing.' },
+    { name: 'FrozenWasteland', cat: 'extra', badge: '.rdmod', desc: 'Portland Weather multi-tap delay, BPF, Q&A, and advanced clocking.' },
+    { name: 'Bidoo Package', cat: 'extra', badge: '.rdmod', desc: 'Canard, Limbo, ZouMai, vector mixers and granular samplers.' },
+    { name: 'HetrickCV Package', cat: 'extra', badge: '.rdmod', desc: 'Crackles, Chaos, Phase shift, and Euro-style CV processors.' },
+    { name: 'JW-Modules', cat: 'extra', badge: '.rdmod', desc: 'GridSeq, BouncyBalls, NoteSeq, and visualizer modules.' },
+    { name: 'ML_modules', cat: 'extra', badge: '.rdmod', desc: 'Quantizer, Counter, Sequential Switch, Triggers to CV.' },
+    { name: 'RJModules', cat: 'extra', badge: '.rdmod', desc: 'Buttons, Glitch, Supersaw VCO, Filters, and Panner.' },
+    { name: 'NonlinearCircuits', cat: 'extra', badge: '.rdmod', desc: 'Chaos generators, Let\'s Splosh, Sloth LFO, and Squid Axon.' },
+    { name: 'Venom Modules', cat: 'extra', badge: '.rdmod', desc: 'Recurse, Polyphonic Bernoulli Gate, Rhythm, Control.' },
+    { name: 'Aria Salvatrice', cat: 'extra', badge: '.rdmod', desc: 'Splork, Arcane, Darvaza, Splittter, and utility modules.' },
+    { name: 'Sonus Modular', cat: 'extra', badge: '.rdmod', desc: 'Loom, Campana, Scie, and OS-X style utility DSP.' },
+    { name: 'computerscare', cat: 'extra', badge: '.rdmod', desc: 'Roly Poly, Knifty, Custom Display, Laundry Soup.' },
+    { name: 'LittleUtils', cat: 'extra', badge: '.rdmod', desc: 'Teleport, Button, Value display, and cable neatness utilities.' },
+    { name: 'Grande Modular', cat: 'extra', badge: '.rdmod', desc: 'Quantovox, VCA, Polyphonic VCO, Attenuators.' },
+    { name: 'Autinn Package', cat: 'extra', badge: '.rdmod', desc: 'Specialized DSP and modulation utilities.' }
+  ];
+
+  var grid = document.getElementById('moduleGrid');
+  var searchInput = document.getElementById('moduleSearchInput');
+  var chips = document.querySelectorAll('#moduleFilterChips .mod-chip');
+
+  if (grid) {
+    var activeCat = 'all';
+
+    function renderModules() {
+      var q = (searchInput ? searchInput.value : '').toLowerCase().trim();
+      grid.innerHTML = '';
+      var filtered = moduleData.filter(function (m) {
+        var matchCat = (activeCat === 'all' || m.cat === activeCat);
+        var matchSearch = !q || m.name.toLowerCase().indexOf(q) !== -1 || m.desc.toLowerCase().indexOf(q) !== -1 || m.badge.toLowerCase().indexOf(q) !== -1;
+        return matchCat && matchSearch;
+      });
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-dim);padding:24px">No modules matching your search.</div>';
+        return;
+      }
+      filtered.forEach(function (m) {
+        var card = document.createElement('div');
+        card.className = 'mod-card';
+        card.innerHTML = '<div class="mod-card-top"><h4>' + m.name + '</h4><span class="mod-card-badge">' + m.badge + '</span></div><p>' + m.desc + '</p>';
+        grid.appendChild(card);
+      });
+    }
+
+    if (searchInput) searchInput.addEventListener('input', renderModules);
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        chips.forEach(function (c) { c.classList.remove('active'); });
+        chip.classList.add('active');
+        activeCat = chip.getAttribute('data-cat');
+        renderModules();
+      });
+    });
+    renderModules();
+  }
+
+  // ---- Interactive Synth Rack Logic & Animated Patch Cables ----
+  var rContainer = document.getElementById('interactiveRack');
+  var rCanvas = document.getElementById('rackCableCanvas');
+  var sCanvas = document.getElementById('scopeCanvas');
+
+  if (rContainer && rCanvas && !reduced) {
+    var rCtx = rCanvas.getContext('2d');
+    var sCtx = sCanvas ? sCanvas.getContext('2d') : null;
+    var rW, rH, rDPR;
+
+    // Interactive Synth States
+    var synthState = { freq: 3.5, cutoff: 0.8, decay: 0.5 };
+
+    function resizeRackCanvas() {
+      var rect = rContainer.getBoundingClientRect();
+      rDPR = Math.min(window.devicePixelRatio || 1, 2);
+      rW = rect.width; rH = rect.height;
+      rCanvas.width = Math.round(rW * rDPR);
+      rCanvas.height = Math.round(rH * rDPR);
+      rCtx.setTransform(rDPR, 0, 0, rDPR, 0, 0);
+
+      if (sCanvas) {
+        var sRect = sCanvas.parentNode.getBoundingClientRect();
+        sCanvas.width = Math.round(sRect.width * rDPR);
+        sCanvas.height = Math.round(sRect.height * rDPR);
+        if (sCtx) sCtx.setTransform(rDPR, 0, 0, rDPR, 0, 0);
+      }
+    }
+    window.addEventListener('resize', resizeRackCanvas);
+    setTimeout(resizeRackCanvas, 300);
+    resizeRackCanvas();
+
+    // Default Patch Cables in Rack
+    var rackCables = [
+      { from: 'jVcoOut', to: 'jVcfIn', color: '#d45b52' },
+      { from: 'jVcfOut', to: 'jScopeIn1', color: '#f9b130' },
+      { from: 'jAdsrOut', to: 'jVcoFm', color: '#9b7fd4' },
+      { from: 'jKickOut', to: 'jScopeIn2', color: '#4fb8a6' }
+    ];
+
+    function getJackCenter(jackId) {
+      var jack = document.getElementById(jackId);
+      if (!jack) return null;
+      var cRect = rContainer.getBoundingClientRect();
+      var jRect = jack.getBoundingClientRect();
+      return {
+        x: (jRect.left + jRect.width / 2) - cRect.left,
+        y: (jRect.top + jRect.height / 2) - cRect.top
+      };
+    }
+
+    function drawRackPatch(t) {
+      rCtx.clearRect(0, 0, rW, rH);
+
+      rackCables.forEach(function (cab, ci) {
+        var p0 = getJackCenter(cab.from);
+        var p1 = getJackCenter(cab.to);
+        if (!p0 || !p1) return;
+
+        var sag = 50 + 15 * Math.sin(ci * 2.1 + t * 0.002);
+        var midY = Math.max(p0.y, p1.y) + sag;
+        var cp1 = { x: p0.x + (p1.x - p0.x) * 0.25, y: midY };
+        var cp2 = { x: p0.x + (p1.x - p0.x) * 0.75, y: midY };
+
+        // Cable shadow
+        rCtx.beginPath();
+        rCtx.moveTo(p0.x, p0.y + 4);
+        rCtx.bezierCurveTo(cp1.x, cp1.y + 4, cp2.x, cp2.y + 4, p1.x, p1.y + 4);
+        rCtx.strokeStyle = 'rgba(0,0,0,0.5)';
+        rCtx.lineWidth = 4;
+        rCtx.stroke();
+
+        // Cable body
+        rCtx.beginPath();
+        rCtx.moveTo(p0.x, p0.y);
+        rCtx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p1.x, p1.y);
+        rCtx.strokeStyle = cab.color;
+        rCtx.lineWidth = 3.5;
+        rCtx.stroke();
+
+        // Pulse signal
+        var tt = ((t * 0.0004) + ci * 0.25) % 1;
+        var mt = 1 - tt;
+        var pt = {
+          x: mt * mt * mt * p0.x + 3 * mt * mt * tt * cp1.x + 3 * mt * tt * tt * cp2.x + tt * tt * tt * p1.x,
+          y: mt * mt * mt * p0.y + 3 * mt * mt * tt * cp1.y + 3 * mt * tt * tt * cp2.y + tt * tt * tt * p1.y
+        };
+        rCtx.beginPath();
+        rCtx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+        rCtx.fillStyle = '#ffda9f';
+        rCtx.shadowColor = cab.color;
+        rCtx.shadowBlur = 10;
+        rCtx.fill();
+        rCtx.shadowBlur = 0;
+      });
+    }
+
+    // CRT Oscilloscope Animation
+    function drawScope(t) {
+      if (!sCtx || !sCanvas) return;
+      var sW = sCanvas.parentNode.getBoundingClientRect().width;
+      var sH = sCanvas.parentNode.getBoundingClientRect().height;
+
+      sCtx.fillStyle = 'rgba(6, 14, 10, 0.25)';
+      sCtx.fillRect(0, 0, sW, sH);
+
+      // Draw Scope Waveform
+      sCtx.beginPath();
+      var midY = sH / 2;
+      for (var x = 0; x < sW; x += 2) {
+        var freq = synthState.freq;
+        var cutoff = synthState.cutoff;
+        var wave = Math.sin((x * 0.05 * freq) + t * 0.008) * 18 * cutoff;
+        wave += Math.sin((x * 0.15 * freq) + t * 0.016) * 6 * cutoff;
+        var y = midY + wave;
+        if (x === 0) sCtx.moveTo(x, y);
+        else sCtx.lineTo(x, y);
+      }
+      sCtx.strokeStyle = '#00ff9d';
+      sCtx.lineWidth = 2;
+      sCtx.shadowColor = '#00ff9d';
+      sCtx.shadowBlur = 8;
+      sCtx.stroke();
+      sCtx.shadowBlur = 0;
+    }
+
+    function rackLoop(ts) {
+      drawRackPatch(ts);
+      drawScope(ts);
+      requestAnimationFrame(rackLoop);
+    }
+    requestAnimationFrame(rackLoop);
+
+    // Interactive Knobs
+    var knobFreq = document.getElementById('knobFreq');
+    var indFreq = document.getElementById('indFreq');
+    if (knobFreq) {
+      knobFreq.addEventListener('click', function () {
+        synthState.freq = (synthState.freq % 8) + 1.5;
+        var rot = (synthState.freq - 1.5) * 45 - 90;
+        if (indFreq) indFreq.style.transform = 'translateX(-50%) rotate(' + rot + 'deg)';
+      });
+    }
+
+    var knobCutoff = document.getElementById('knobCutoff');
+    var indCutoff = document.getElementById('indCutoff');
+    if (knobCutoff) {
+      knobCutoff.addEventListener('click', function () {
+        synthState.cutoff = synthState.cutoff >= 1 ? 0.2 : synthState.cutoff + 0.25;
+        var rot = synthState.cutoff * 180 - 90;
+        if (indCutoff) indCutoff.style.transform = 'translateX(-50%) rotate(' + rot + 'deg)';
+      });
+    }
+  }
+
+  // ---- Interactive Swappable Patch Cables for Mini-Racks ----
+  var miniRacks = document.querySelectorAll('.mini-rack');
+  if (miniRacks.length > 0) {
+    var cableColors = ['#d45b52', '#f9b130', '#4fb8a6', '#9b7fd4', '#5b9bd5', '#ffda9f'];
+    var dragState = null; // { rack, fromJack, mouseX, mouseY, color }
+
+    // Track mouse / touch position globally for cable dragging
+    window.addEventListener('pointermove', function (e) {
+      if (dragState) {
+        var rRect = dragState.rack.getBoundingClientRect();
+        dragState.mouseX = e.clientX - rRect.left;
+        dragState.mouseY = e.clientY - rRect.top;
+      }
+    });
+
+    miniRacks.forEach(function (rack, index) {
+      var canvas = rack.querySelector('.mini-rack-canvas');
+      if (!canvas) return;
+
+      var jacks = Array.from(rack.querySelectorAll('.mini-jack'));
+      rack._cables = [];
+
+      // Rich Initial inter-module patch cable connections
+      if (jacks.length >= 6) {
+        rack._cables.push({ from: jacks[0], to: jacks[Math.min(7, jacks.length - 2)], color: '#d45b52' });
+        rack._cables.push({ from: jacks[1], to: jacks[2], color: '#f9b130' });
+        rack._cables.push({ from: jacks[3], to: jacks[4], color: '#4fb8a6' });
+        if (jacks.length >= 8) {
+          rack._cables.push({ from: jacks[6], to: jacks[5], color: '#9b7fd4' });
+          rack._cables.push({ from: jacks[Math.min(8, jacks.length - 3)], to: jacks[jacks.length - 1], color: '#ffda9f' });
+        }
+      } else if (jacks.length >= 2) {
+        rack._cables.push({ from: jacks[0], to: jacks[jacks.length - 1], color: cableColors[index % cableColors.length] });
+      }
+
+      // Add click listener to each jack
+      jacks.forEach(function (jack) {
+        jack.addEventListener('pointerdown', function (e) {
+          e.stopPropagation();
+          var rRect = rack.getBoundingClientRect();
+          var jRect = jack.getBoundingClientRect();
+          var jX = jRect.left + jRect.width / 2 - rRect.left;
+          var jY = jRect.top + jRect.height / 2 - rRect.top;
+
+          if (!dragState) {
+            // Unplug any existing cable connected to this jack
+            var existingIndex = rack._cables.findIndex(function (c) { return c.from === jack || c.to === jack; });
+            var colorToUse = cableColors[Math.floor(Math.random() * cableColors.length)];
+            if (existingIndex !== -1) {
+              colorToUse = rack._cables[existingIndex].color;
+              var existingCable = rack._cables.splice(existingIndex, 1)[0];
+              var otherJack = (existingCable.from === jack) ? existingCable.to : existingCable.from;
+              // Start dragging from the OTHER end of the unplugged cable
+              dragState = { rack: rack, fromJack: otherJack, mouseX: jX, mouseY: jY, color: colorToUse };
+            } else {
+              // Start new cable drag from this jack
+              dragState = { rack: rack, fromJack: jack, mouseX: jX, mouseY: jY, color: colorToUse };
+            }
+            jack.classList.add('active-jack');
+          } else if (dragState.rack === rack) {
+            if (dragState.fromJack !== jack) {
+              // Plug into this jack!
+              rack._cables.push({ from: dragState.fromJack, to: jack, color: dragState.color });
+            }
+            if (dragState.fromJack) dragState.fromJack.classList.remove('active-jack');
+            dragState = null;
+          }
+          updatePluggedStates(rack);
+        });
+      });
+
+      // Click outside jacks to drop/cancel cable
+      rack.addEventListener('pointerdown', function () {
+        if (dragState && dragState.rack === rack) {
+          if (dragState.fromJack) dragState.fromJack.classList.remove('active-jack');
+          dragState = null;
+        }
+      });
+    });
+
+    function updatePluggedStates(rack) {
+      var jacks = rack.querySelectorAll('.mini-jack');
+      jacks.forEach(function (j) {
+        var isPlugged = rack._cables.some(function (c) { return c.from === j || c.to === j; });
+        if (isPlugged) j.classList.add('plugged');
+        else j.classList.remove('plugged');
+      });
+    }
+
+    // Render animation loop for all mini-racks
+    function animateMiniRacks(t) {
+      miniRacks.forEach(function (rack, index) {
+        var canvas = rack.querySelector('.mini-rack-canvas');
+        if (!canvas) return;
+
+        var ctx = canvas.getContext('2d');
+        var rRect = rack.getBoundingClientRect();
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        var w = rRect.width, h = rRect.height;
+
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        ctx.clearRect(0, 0, w, h);
+
+        // Function to draw a saged cable
+        function drawBezierCable(p0, p1, color, timeOffset) {
+          var sag = 28 + 10 * Math.sin(t * 0.003 + timeOffset);
+          var midY = Math.max(p0.y, p1.y) + sag;
+          var cp1 = { x: p0.x + (p1.x - p0.x) * 0.25, y: midY };
+          var cp2 = { x: p0.x + (p1.x - p0.x) * 0.75, y: midY };
+
+          // Cable shadow
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y + 4);
+          ctx.bezierCurveTo(cp1.x, cp1.y + 4, cp2.x, cp2.y + 4, p1.x, p1.y + 4);
+          ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+          ctx.lineWidth = 3.5;
+          ctx.stroke();
+
+          // Cable body
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p1.x, p1.y);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2.8;
+          ctx.stroke();
+
+          // Moving signal particle
+          var tt = ((t * 0.0005) + timeOffset) % 1;
+          var mt = 1 - tt;
+          var pt = {
+            x: mt * mt * mt * p0.x + 3 * mt * mt * tt * cp1.x + 3 * mt * tt * tt * cp2.x + tt * tt * tt * p1.x,
+            y: mt * mt * mt * p0.y + 3 * mt * mt * tt * cp1.y + 3 * mt * tt * tt * cp2.y + tt * tt * tt * p1.y
+          };
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffda9f';
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 8;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+
+        // Draw persistent plugged cables
+        if (rack._cables) {
+          rack._cables.forEach(function (cab, ci) {
+            var j0 = cab.from.getBoundingClientRect();
+            var j1 = cab.to.getBoundingClientRect();
+            var p0 = { x: j0.left + j0.width/2 - rRect.left, y: j0.top + j0.height/2 - rRect.top };
+            var p1 = { x: j1.left + j1.width/2 - rRect.left, y: j1.top + j1.height/2 - rRect.top };
+            drawBezierCable(p0, p1, cab.color, index + ci * 0.4);
+          });
+        }
+
+        // Draw actively dragged loose cable
+        if (dragState && dragState.rack === rack && dragState.fromJack) {
+          var fj = dragState.fromJack.getBoundingClientRect();
+          var p0 = { x: fj.left + fj.width/2 - rRect.left, y: fj.top + fj.height/2 - rRect.top };
+          var p1 = { x: dragState.mouseX, y: dragState.mouseY };
+          drawBezierCable(p0, p1, dragState.color, 0.5);
+        }
+
+        // CRT Scope waveform animation
+        var miniScopeCanvas = rack.querySelector('.mini-scope-canvas');
+        if (miniScopeCanvas) {
+          var msCtx = miniScopeCanvas.getContext('2d');
+          var msRect = miniScopeCanvas.parentNode.getBoundingClientRect();
+          var msW = msRect.width, msH = msRect.height;
+
+          if (miniScopeCanvas.width !== Math.round(msW * dpr) || miniScopeCanvas.height !== Math.round(msH * dpr)) {
+            miniScopeCanvas.width = Math.round(msW * dpr);
+            miniScopeCanvas.height = Math.round(msH * dpr);
+            msCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          }
+
+          var isScopeConnected = rack._cables && rack._cables.length > 0;
+          msCtx.fillStyle = 'rgba(6, 14, 10, 0.3)';
+          msCtx.fillRect(0, 0, msW, msH);
+
+          msCtx.beginPath();
+          var mMidY = msH / 2;
+          for (var mx = 0; mx < msW; mx += 2) {
+            var amp = isScopeConnected ? 14 : 3;
+            var my = mMidY + Math.sin((mx * 0.08) + t * 0.007 + index) * amp;
+            if (isScopeConnected) {
+              my += Math.sin((mx * 0.2) + t * 0.014) * 4;
+            }
+            if (mx === 0) msCtx.moveTo(mx, my);
+            else msCtx.lineTo(mx, my);
+          }
+          msCtx.strokeStyle = isScopeConnected ? '#00ff9d' : '#1a5c3d';
+          msCtx.lineWidth = 1.5;
+          msCtx.stroke();
+        }
+      });
+      requestAnimationFrame(animateMiniRacks);
+    }
+    requestAnimationFrame(animateMiniRacks);
   }
 })();
 </script>

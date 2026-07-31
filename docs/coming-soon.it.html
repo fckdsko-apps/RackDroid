@@ -2,6 +2,15 @@
 <title>RackDroid — il cavo arriva dall'altra parte del rack</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Dal 1 agosto 2026: parcheggi un cavo e colleghi tutto il rack, prendi i moduli col dito, fai spazio in un gesto.">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="RackDroid — Anteprima ParkBar">
+<meta property="og:description" content="Dal 1 agosto 2026: parcheggi un cavo e colleghi tutto il rack, prendi i moduli col dito, fai spazio in un gesto.">
+<meta property="og:image" content="assets/shots/parked.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="RackDroid — Anteprima ParkBar">
+<meta name="twitter:description" content="Dal 1 agosto 2026: parcheggi un cavo e colleghi tutto il rack, prendi i moduli col dito, fai spazio in un gesto.">
+<meta name="twitter:image" content="assets/shots/parked.png">
 <style>
   @font-face {
     font-family: "Geomini";
@@ -393,9 +402,16 @@
   .count div {
     min-width: 84px; padding: 12px 10px;
     border: 1px solid var(--border-strong); border-radius: 14px;
-    background: rgba(255,255,255,0.02);
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(8px);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   }
-  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 28px; color: var(--amber-soft); }
+  .count div:hover {
+    transform: translateY(-2px);
+    border-color: var(--amber);
+    box-shadow: 0 0 16px rgba(249,177,48,0.2);
+  }
+  .count b { display: block; font-family: "Geomini", sans-serif; font-size: 28px; color: var(--amber-soft); text-shadow: 0 0 10px var(--amber-glow); }
   .count span { font-size: 10.5px; letter-spacing: 0.11em; color: var(--text-faint); text-transform: uppercase; }
 
   /* The clip: a real screen recording, so it gets room to be seen. */
@@ -495,6 +511,9 @@
         <div><b>00</b><span>ore</span></div>
         <div><b>00</b><span>minuti</span></div>
         <div><b>00</b><span>secondi</span></div>
+      </div>
+      <div style="margin-top: 22px;">
+        <a class="btn btn-ghost" href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=RackDroid+Rilascio+ParkBar&dates=20260801T000000Z/20260801T020000Z&details=Rilascio+aggiornamento+RackDroid+ParkBar:+parcheggio+cavi+e+selezione+multipla." target="_blank" rel="noopener">📅 Salva nel calendario Google</a>
       </div>
       <p id="landed" style="display:none" class="ann-lede"><strong>È uscito.</strong>
         <a href="update.it.html">Guarda cosa puoi fare</a>.</p>

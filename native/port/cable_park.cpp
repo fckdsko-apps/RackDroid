@@ -29,18 +29,17 @@
 #include <memory>
 #include <string>
 
-#include <android/log.h>
 #include <logger.hpp>
 #include <system.hpp>
-#include <jni.h>
-
 #include "cable_park.hpp"
 
-// Both sinks, like the other port files: logcat needs adb, while INFO() lands
-// in user/log.txt, which the in-app viewer and the Documents export can reach.
-// Diagnostics only a developer with a cable can read are diagnostics nobody
-// reads.
+#if __ANDROID__
+#include <android/log.h>
+#include <jni.h>
 #define LOGI(...) do { __android_log_print(ANDROID_LOG_INFO, "rackdroid.cablepark", __VA_ARGS__); INFO(__VA_ARGS__); } while (0)
+#else
+#define LOGI(...) INFO(__VA_ARGS__)
+#endif
 
 using namespace rack;
 
@@ -724,6 +723,7 @@ bool cableParkBoundsPx(int* out4) {
 } // namespace rackdroid
 
 
+#if __ANDROID__
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeSetCableParkVisible(JNIEnv*, jobject, jboolean visible) {
 	rackdroid::cableParkSetVisible(visible);
@@ -746,4 +746,5 @@ Java_org_rackdroid_MainActivity_nativeCableParkBounds(JNIEnv* env, jobject) {
 	env->SetIntArrayRegion(out, 0, 4, values);
 	return out;
 }
+#endif
 

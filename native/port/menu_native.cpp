@@ -158,6 +158,7 @@ static bool hiddenOnAndroid(const std::string& text) {
 		string::translate("MenuBar.view.lockCursor"),
 		string::translate("MenuBar.view.knobScroll"),
 		string::translate("MenuBar.help.manual"),
+		string::translate("MenuBar.help.tips"),
 		string::translate("MenuBar.help.support"),
 		"VCVRack.com",
 		string::translate("MenuBar.help.userFolder"),

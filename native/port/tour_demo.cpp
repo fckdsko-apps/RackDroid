@@ -35,7 +35,9 @@
 #include <context.hpp>
 #include <math.hpp>
 
+#if __ANDROID__
 #include <jni.h>
+#endif
 
 #include "tour_demo.hpp"
 #include "cable_park.hpp"
@@ -573,6 +575,7 @@ void processTourDemo() {
 } // namespace rackdroid
 
 
+#if __ANDROID__
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeTourDemo(JNIEnv*, jobject, jint what) {
 	rackdroid::tourDemoRequest(what);
@@ -583,3 +586,4 @@ extern "C" JNIEXPORT jint JNICALL
 Java_org_rackdroid_MainActivity_nativeRackModuleCount(JNIEnv*, jobject) {
 	return rackdroid::rackModuleCount();
 }
+#endif

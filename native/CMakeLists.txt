@@ -301,11 +301,11 @@ if(RACKDROID_UI)
 		${CMAKE_CURRENT_SOURCE_DIR}/port/menu_touch.cpp
 		${CMAKE_CURRENT_SOURCE_DIR}/port/selection_glow.cpp
 		${CMAKE_CURRENT_SOURCE_DIR}/port/tour_demo.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/port/cable_park.cpp
 	)
 	if(ANDROID)
 		list(APPEND PORT_SOURCES
 			${CMAKE_CURRENT_SOURCE_DIR}/port/touch_input.cpp
-			${CMAKE_CURRENT_SOURCE_DIR}/port/cable_park.cpp
 			# rack_engine is a shared lib: the JNI bridge used by its
 			# osdialog backend, clipboard and native menus must live inside it.
 			${CMAKE_CURRENT_SOURCE_DIR}/port/jni_bridge.cpp

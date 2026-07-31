@@ -158,7 +158,7 @@
 	<string name="tour_m3_t">The Engine menu</string>
 	<string name="tour_m3_b">Performance meters, sample rate, and how many CPU threads the audio engine uses. Raise the rate for quality, lower it if a big patch starts to crackle.</string>
 	<string name="tour_m4_t">The Help menu</string>
-	<string name="tour_m4_b">Language, tips, the guide by topic, the thirty tutorials — and this tour, which you can replay from here whenever you like.</string>
+	<string name="tour_m4_b">Language, the guide by topic, the thirty tutorials — and this tour, which you can replay from here whenever you like.</string>
 	<string name="tour_s15_t">Zoom and scrolling</string>
 	<string name="tour_s15_b">Pinch with two fingers to zoom in and out, and drag the background with one finger — or two fingers anywhere — to scroll. Let go while still moving and the rack glides on. Watch it come closer, then slide across.</string>
 	<string name="tour_s16_t">Patching</string>

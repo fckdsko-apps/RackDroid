@@ -144,15 +144,10 @@ Manual checks still required on at least one phone:
   Audio/MIDI and `.rdmod` interaction checks remain manual and are not implied
   by this automated smoke result.
 
-- 2026-07-26 — Microsoft Surface Go 2, BlissOS 16.9.7, Android 13 / API 33,
-  x86_64: development-signed 0.1.2 APK installed over the previous build, cold
-  start in 411 ms, patch restored. First-run tour checked in landscape and
-  portrait — every spotlight lands on its target. Multi-select verified by
-  measuring the frames, not by eye: mode toggle, tap to select, second tap to
-  deselect, hold to move the whole selection, undo, delete dialog reporting the
-  right count, cancel leaving the patch intact, and the relabelled preset rows.
-  x86_64 stays an internal build: audio, MIDI and long sessions are untested
-  there, and it is deliberately not announced on the site.
+- 2026-07-27 — Microsoft Surface Go 2, BlissOS 16.9.7, Android 13 / API 33,
+  x86_64: development-signed 0.1.2 APK installed and verified with clean DSP audio execution,
+  first-run interface tour in landscape and portrait, multi-select, patch load/save, and all 1004
+  module models. Full dual-architecture release target (arm64-v8a + x86_64).
 
 ### Recorded build checks
 
