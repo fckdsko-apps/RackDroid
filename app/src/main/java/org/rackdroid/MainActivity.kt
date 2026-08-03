@@ -406,6 +406,17 @@ class MainActivity : NativeActivity() {
 		// it goes, together with the card's own top inset and the labels' top
 		// margin: the gap the eye sees is all three of them stacked.
 		toolbarCard?.setPadding(dp(4), if (land) 0 else dp(2), dp(4), 0)
+		// And move the window itself. It is placed once, when the app starts,
+		// at the status-bar inset of whatever orientation that was -- so an app
+		// launched in portrait and then turned kept a portrait inset above the
+		// card, which is the gap that survived every padding change. Landscape
+		// has nothing up there to clear.
+		buttonPopup?.let { p ->
+			val top = if (land) 0 else (ViewCompat.getRootWindowInsets(window.decorView)
+				?.getInsets(WindowInsetsCompat.Type.systemBars()
+					or WindowInsetsCompat.Type.displayCutout())?.top ?: 0)
+			runCatching { p.update(0, top, -1, -1) }
+		}
 		toolbarMenuRow?.let { row ->
 			for (i in 0 until row.childCount) {
 				val v = row.getChildAt(i)
