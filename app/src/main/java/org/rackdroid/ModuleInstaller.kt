@@ -37,6 +37,10 @@ object ModuleInstaller {
 	private const val MAX_UNPACKED_BYTES = 512L * 1024 * 1024
 	private const val MAX_ENTRIES = 10_000
 	private const val MAX_ENTRY_NAME_CHARS = 512
+	/** Packs one bundle may hold. The published all_rdmods.zip carries
+	 * twenty-one; the cap only stops a hostile archive from making the import
+	 * loop run for a very long time. */
+	private const val MAX_BUNDLE_PACKS = 128
 	private val VALID_SLUG = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 	private val VALID_SONAME = Regex("libplugin_[A-Za-z0-9._-]+\\.so")
 
@@ -109,7 +113,88 @@ object ModuleInstaller {
 	private fun dirSize(dir: File): Long =
 		dir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
 
+	/** Unpack an archive that holds packs instead of being one.
+	 *
+	 * The release publishes all_rdmods.zip beside the individual files, and
+	 * handing it to the app did nothing whatsoever: it has no plugin.json of
+	 * its own, so peekSlug returned null and the import below skipped it
+	 * without a word -- the file just sat in the drop folder. Expanding it here
+	 * means the user installs the one file they downloaded instead of
+	 * extracting twenty-one by hand and multi-selecting them in the picker.
+	 *
+	 * Only top-level .rdmod entries are taken, so a bundle cannot smuggle in a
+	 * path; each is written under a temporary name so a half-copied pack never
+	 * sits there looking importable; and the whole expansion is capped, because
+	 * a zip that claims to hold module packs is exactly where a decompression
+	 * bomb would arrive. The packs it produces are then imported by the normal
+	 * path, with the same validation as any other pack -- this only unwraps.
+	 *
+	 * The bundle is deleted once it has given up its contents: it is a
+	 * seventy-megabyte duplicate of files now sitting next to it, and keeping
+	 * it means reading all of it again at every launch. */
+	private fun expandBundles(activity: Activity) {
+		val dir = modulesDir(activity)
+		val root = dir.canonicalFile
+		val bundles = dir.listFiles { f -> f.isFile && f.name.endsWith(".zip") } ?: return
+		for (bundle in bundles) {
+			try {
+				var written = 0
+				var packs = 0
+				var totalBytes = 0L
+				var isPack = false
+				// ZipFile, not the ZipInputStream the rest of this file uses:
+				// classifying a bundle by streaming means inflating all of it
+				// just to learn there is no plugin.json, and then reading it a
+				// second time to extract. The central directory answers both
+				// questions without touching the compressed data.
+				java.util.zip.ZipFile(bundle).use { zf ->
+					// A .zip that is itself a pack belongs to the normal import.
+					if (zf.getEntry("plugin.json") != null) {
+						isPack = true
+						return@use
+					}
+					for (e in zf.entries()) {
+						val name = e.name
+						if (e.isDirectory || !name.endsWith(".rdmod", ignoreCase = true) ||
+							name.contains('/') || name.contains('\\'))
+							continue
+						validateEntryName(name)
+						if (++packs > MAX_BUNDLE_PACKS)
+							throw IllegalArgumentException("too many packs in bundle")
+						val dest = File(root, name).canonicalFile
+						if (dest.parentFile != root)
+							throw IllegalArgumentException("bundle entry escapes the drop folder")
+						// Never overwrite: a pack already sitting there is
+						// either installed or something the user put there.
+						if (dest.exists()) continue
+						val remaining = MAX_UNPACKED_BYTES - totalBytes
+						if (remaining <= 0) throw IllegalArgumentException("bundle is too large")
+						val tmp = File(root, "$name.part")
+						tmp.delete()
+						zf.getInputStream(e).use { input ->
+							tmp.outputStream().use {
+								totalBytes += copyLimited(input, it, minOf(MAX_PACK_BYTES, remaining))
+							}
+						}
+						if (tmp.renameTo(dest)) written++ else tmp.delete()
+					}
+				}
+				if (written > 0) {
+					jlog("expanded ${bundle.name} into $written module pack(s)")
+					if (!bundle.delete())
+						jlog("could not remove ${bundle.name} after expanding it")
+				} else if (!isPack && packs == 0) {
+					jlog("${bundle.name} is neither a pack nor a bundle of packs")
+				}
+			} catch (t: Throwable) {
+				jlog("bundle ${bundle.name} could not be expanded: ${t.message}")
+			}
+		}
+	}
+
 	private fun importNewPacks(activity: Activity) {
+		// Turn any bundle into loose packs first, so the scan below sees them.
+		expandBundles(activity)
 		val dir = modulesDir(activity)
 		// listFiles() returns null when the folder is missing or unreadable
 		// (again: possible when another uid created it). Silently treating
@@ -307,7 +392,10 @@ object ModuleInstaller {
 			"RackDroid — module packs\n\n" +
 			"Drop .rdmod pack files here to add extra modules, then restart the app.\n" +
 			"A .rdmod is a zip built for this RackDroid version containing plugin.json, " +
-			"res/ and its libplugin_*.so.\n")
+			"res/ and its libplugin_*.so.\n\n" +
+			"A zip holding several .rdmod files -- all_rdmods.zip from the releases " +
+			"page, for one -- can be dropped here as it is: the app unpacks it and " +
+			"installs each pack, then removes the zip.\n")
 	}
 
 	private fun jlog(msg: String) = android.util.Log.i("rackdroid.modules", msg)
