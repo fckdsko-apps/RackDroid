@@ -18,7 +18,7 @@ come su un rack hardware. Nessun compromesso: è il motore audio di
 
 </div>
 
-> **Versione 0.1.2** · 🌐 [rackdroid.org](https://rackdroid.org) · repo: [`nowheel/RackDroid`](https://github.com/nowheel/RackDroid) · non ufficiale, non affiliato a VCV
+> **Versione 0.1.2.1** · 🌐 [rackdroid.org](https://rackdroid.org) · repo: [`nowheel/RackDroid`](https://github.com/nowheel/RackDroid) · non ufficiale, non affiliato a VCV
 
 ---
 

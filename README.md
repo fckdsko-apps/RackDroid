@@ -18,7 +18,7 @@ audio engine, made native for your phone.
 
 </div>
 
-> **Version 0.1.2** · 🌐 [rackdroid.org](https://rackdroid.org) · repo: [`nowheel/RackDroid`](https://github.com/nowheel/RackDroid) · unofficial, not affiliated with VCV
+> **Version 0.1.2.1** · 🌐 [rackdroid.org](https://rackdroid.org) · repo: [`nowheel/RackDroid`](https://github.com/nowheel/RackDroid) · unofficial, not affiliated with VCV
 
 ---
 

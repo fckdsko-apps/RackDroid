@@ -1,6 +1,6 @@
 # Roadmap tecnica del porting
 
-Stato: **release candidate 0.1.2**. Motore, rendering, input touch, MIDI,
+Stato: **release candidate 0.1.2.1**. Motore, rendering, input touch, MIDI,
 dialoghi, registrazione e plugin installabili sono operativi; il lavoro residuo
 è soprattutto collaudo su più dispositivi e rifinitura UX.
 

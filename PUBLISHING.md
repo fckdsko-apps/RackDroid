@@ -20,7 +20,7 @@ scripts/make_rdmods.sh /tmp/rdmods-x86_64 x86_64 # requires 21 valid archives
 ```
 
 Play Store accepts only the **AAB**. Sideloading/other stores use the APK.
-The current application is version **0.1.2** (`versionCode 3`), targets API 35,
+The current application is version **0.1.2.1** (`versionCode 4`), targets API 35,
 supports Android 10+ (`minSdk 29`), and builds arm64-v8a libraries with 16 KB
 page-size support. The optional x86_64 target is intended for emulators and
 compatible ChromeOS devices. The 32-bit x86 ABI is not supported.

@@ -129,8 +129,11 @@ android {
 		// native MIDI API (native/port/amidi_driver.cpp), also API 29.
 		minSdk = 29
 		targetSdk = 35
-		versionCode = 3
-		versionName = "0.1.2"
+		// A fourth component marks a fix release over 0.1.2 rather than new
+		// work. The updater compares versionName numerically component by
+		// component, padding the shorter side, so 0.1.2.1 beats 0.1.2.
+		versionCode = 4
+		versionName = "0.1.2.1"
 
 		ndk {
 			// Default remains the physical-device release. Build emulator /
