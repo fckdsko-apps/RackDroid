@@ -386,9 +386,17 @@ class ModulePalette(
 				// button, say. Showing it anyway would leave a window nobody
 				// holds a reference to any more, so it could never be dismissed.
 				if (popup !== p) return@runCatching
-				val bottom = ViewCompat.getRootWindowInsets(decor)?.getInsets(
-					WindowInsetsCompat.Type.systemBars())?.bottom ?: 0
-				p.showAtLocation(decor, Gravity.BOTTOM or Gravity.START, 0, bottom + dp(6))
+				// Landscape sits the bar on the bottom edge. The gesture inset
+				// plus six points left a strip of rack showing underneath it,
+				// which reads as the bar not reaching the bottom of the screen
+				// -- and in landscape the gesture bar runs along that edge
+				// anyway, so the room it asks for is room the bar already
+				// leaves by being a bar.
+				val land = activity.resources.configuration.orientation ==
+					android.content.res.Configuration.ORIENTATION_LANDSCAPE
+				val bottom = if (land) 0 else (ViewCompat.getRootWindowInsets(decor)
+					?.getInsets(WindowInsetsCompat.Type.systemBars())?.bottom ?: 0) + dp(6)
+				p.showAtLocation(decor, Gravity.BOTTOM or Gravity.START, 0, bottom)
 				card.alpha = 0f
 				card.translationY = dp(32).toFloat()
 				card.animate().alpha(1f).translationY(0f).setDuration(260L)
