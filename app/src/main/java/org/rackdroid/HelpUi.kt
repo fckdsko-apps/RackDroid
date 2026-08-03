@@ -1010,6 +1010,7 @@ class Tour(
 	private var openedMenu = false
 	private var openedPalette = false
 	private var closedPalette = false
+	private var collapsedToolbar = false
 	private var movedRack = false
 	private var turnedOnMultiSelect = false
 	private var popup: PopupWindow? = null
@@ -1174,6 +1175,7 @@ class Tour(
 		nextBtn.text = activity.getString(
 			if (step == steps.size - 1) R.string.wizard_done else R.string.wizard_next)
 
+		applyChrome(s)
 		val rect = spotRect(s.spot, s.arg)
 		scrim.spot = rect
 		scrim.spot2 = spotRect(s.spot2)
@@ -1184,6 +1186,48 @@ class Tour(
 		card.alpha = 0f; card.translationY = dp(14).toFloat()
 		card.animate().alpha(1f).translationY(0f).setDuration(240L)
 			.setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+	}
+
+	/** Shows what the step is about and puts away what it is not.
+	 *
+	 * The toolbar card and the palette between them can take three quarters of
+	 * a landscape screen, and a step about the rack has no use for either. What
+	 * they give back is not a nicety: it is the difference between a
+	 * demonstration in a slot and one you can watch. So a step that points at
+	 * the toolbar keeps the toolbar, a step that points at the palette keeps
+	 * the palette, and anything else folds them away.
+	 *
+	 * Which is why this reads both spots. The multi-select step lights the rack
+	 * AND the edit row; collapsing the toolbar under it would hide the very
+	 * button the card tells the user to watch light up.
+	 *
+	 * A step that points at nothing in particular is left alone rather than
+	 * folding things for the sake of it -- the welcome and the closing card
+	 * would otherwise make the toolbar flap on the way past. */
+	private fun applyChrome(s: Step) {
+		val main = activity as? MainActivity ?: return
+		val aboutToolbar = s.spot in TOOLBAR_SPOTS || s.spot2 in TOOLBAR_SPOTS
+		val aboutPalette = s.spot == 2 || s.act == ACT_PALETTE
+		val aboutTheRack = s.spot == 10 || s.spot == 3
+		if (!aboutToolbar && !aboutPalette && !aboutTheRack) return
+		var changed = false
+		if (!aboutToolbar && !collapsedToolbar) {
+			collapsedToolbar = true
+			main.setToolbarCollapsedForTutorial(true)
+			changed = true
+		} else if (aboutToolbar && collapsedToolbar) {
+			collapsedToolbar = false
+			main.setToolbarCollapsedForTutorial(false)
+			changed = true
+		}
+		if (!aboutPalette && !closedPalette && main.tourPaletteIsOpen()) {
+			closedPalette = true
+			main.tourFoldPalette(true)
+			changed = true
+		}
+		// Both are windows of their own: re-measure the hole once they have
+		// finished moving, or the spotlight lands where they used to be.
+		if (changed) handler.postDelayed({ if (popup != null) reaim() }, 420L)
 	}
 
 	/** Everything the tour opened or moved, put back. Called before each step
@@ -1198,6 +1242,12 @@ class Tour(
 		// run got stuck on the cable-park step.
 		if (ending && closedPalette) {
 			main.tourFoldPalette(false); closedPalette = false
+		}
+		// false, not "expand": the same call the tutorials use hands back the
+		// state the user chose, so someone who keeps the toolbar collapsed
+		// does not find it opened for them.
+		if (ending && collapsedToolbar) {
+			main.setToolbarCollapsedForTutorial(false); collapsedToolbar = false
 		}
 		if (openedMenu) {
 			main.tourCloseSheet()
@@ -1222,21 +1272,6 @@ class Tour(
 	private fun runAction(act: Int, arg: Int = 0) {
 		undoAction()
 		val main = activity as? MainActivity ?: return
-		// The four demonstrations below all happen in the rack.
-		val needsRack = act == ACT_MOVE || act == ACT_ZOOM ||
-			act == ACT_CABLE || act == ACT_SELECT
-		// In landscape the toolbar and an open palette can leave no rack
-		// between them at all. The band then collapses to its minimum height
-		// and lands on the palette itself, and the demonstration runs behind
-		// it where there is nothing to see -- a phone in landscape put the
-		// spotlight squarely on the module tiles and moved a module out of
-		// sight. Fold the palette away and put it back afterwards.
-		if (needsRack && !closedPalette && main.tourPaletteIsOpen() && !rackBandFits()) {
-			closedPalette = true
-			main.tourFoldPalette(true)
-			// The palette is a window of its own: re-aim once it has gone.
-			handler.postDelayed({ if (popup != null) reaim() }, 420L)
-		}
 		when (act) {
 			ACT_MENU -> {
 				// The card is left to be read first, then the real menu opens
@@ -1294,17 +1329,6 @@ class Tour(
 			movedRack = true
 			main.tourDemo(what)
 		}, 1200L)
-	}
-
-	/** Is there enough rack left between the toolbar and the palette to show a
-	 * demonstration in? Measured from the live views, never assumed: the same
-	 * two of them leave a comfortable band in portrait and nothing whatsoever
-	 * in landscape, where the toolbar alone takes close to half the height. */
-	private fun rackBandFits(): Boolean {
-		val main = activity as? MainActivity ?: return true
-		val top = main.toolbarBounds()?.let { toScrimSpace(it) }?.bottom ?: return true
-		val bottom = main.paletteBounds()?.let { toScrimSpace(it) }?.top ?: return true
-		return bottom - top >= dp(140)
 	}
 
 	/** Re-measures the holes for the step on screen, without replaying it. */
@@ -1526,6 +1550,10 @@ class Tour(
 		 * Rack's menu bar has a Library button at index 4 that this port does
 		 * not show (it only manages a VCV account), so Help is 5, not 4. */
 		val MENU_INDICES = listOf(0, 1, 2, 3, 5)
+		/** Spotlight ids that live on the toolbar card: the whole card, the
+		 * menu strip, one menu button, either tool row, and the groups within
+		 * them. A step pointing at any of these needs the card open. */
+		val TOOLBAR_SPOTS = setOf(1, 4, 5, 6, 7, 8, 9, 11, 12)
 		/** Time to read the card before its menu opens, and how long the menu
 		 * then stays on screen. Both deliberately slow: these paragraphs run to
 		 * four or five lines, and a menu that appears while they are still
