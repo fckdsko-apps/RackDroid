@@ -393,12 +393,12 @@ class MainActivity : NativeActivity() {
 	private fun applyToolbarDensity() {
 		val land = resources.configuration.orientation ==
 			android.content.res.Configuration.ORIENTATION_LANDSCAPE
-		// Flush with the top edge in landscape. The inset that floats the card
-		// off the screen edge is worth its eight points in portrait, where
-		// height is what there is most of; in landscape every one of them comes
-		// straight out of the rack.
-		toolbarHolder?.setPadding(
-			if (land) 0 else dp(8), if (land) 0 else dp(4), if (land) 0 else dp(8), 0)
+		// Flush with the top edge in landscape: the four points above the card
+		// are worth having in portrait, where height is what there is most of,
+		// and in landscape they come straight out of the rack. Only the top --
+		// the side inset costs nothing there and keeps the card off the rounded
+		// corners of the screen.
+		toolbarHolder?.setPadding(dp(8), if (land) 0 else dp(4), dp(8), 0)
 		toolbarMenuRow?.let { row ->
 			for (i in 0 until row.childCount)
 				row.getChildAt(i).setPadding(0, tbDp(12), 0, tbDp(12))
@@ -660,7 +660,14 @@ class MainActivity : NativeActivity() {
 				val top = ViewCompat.getRootWindowInsets(decor)?.getInsets(
 					WindowInsetsCompat.Type.systemBars()
 						or WindowInsetsCompat.Type.displayCutout())?.top ?: 0
-				topPopup.showAtLocation(decor, Gravity.TOP or Gravity.START, 0, top)
+				// The status-bar inset is what was still holding the card away
+				// from the top edge in landscape, and it is not the padding:
+				// the popup itself was being placed below it. There is nothing
+				// up there to avoid when the screen is on its side.
+				val land = resources.configuration.orientation ==
+					android.content.res.Configuration.ORIENTATION_LANDSCAPE
+				topPopup.showAtLocation(decor, Gravity.TOP or Gravity.START, 0,
+					if (land) 0 else top)
 				// Entrance: the card drops in from above.
 				card.alpha = 0f
 				card.translationY = -dp(40).toFloat()

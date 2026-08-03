@@ -97,6 +97,17 @@ class ModulePalette(
 	private var dragOriginY = 0f
 	private var entries: List<Entry> = emptyList()
 	private lateinit var strip: RecyclerView
+	/** A palette dimension, cut by a third in landscape -- the same reduction
+	 * the toolbar takes there, and for the same reason: the bar and the card
+	 * between them were leaving the rack a slot. The thumbnails are rendered to
+	 * the height asked for, so a smaller tile is a smaller render, not a
+	 * scaled-down one. */
+	private fun pDp(v: Int): Int {
+		val land = activity.resources.configuration.orientation ==
+			android.content.res.Configuration.ORIENTATION_LANDSCAPE
+		return if (land) dp((v * 0.7f).toInt().coerceAtLeast(2)) else dp(v)
+	}
+
 	private lateinit var chipRow: LinearLayout
 	private var activeChip: TextView? = null
 	/** The chip the interface tour folded away, so it can be put back on. */
@@ -910,7 +921,7 @@ class ModulePalette(
 					setColor(AppTheme.withAlpha(AppTheme.current.accent, 90))
 					setStroke(dp(1), AppTheme.withAlpha(Color.BLACK, 40))
 				}
-				layoutParams = FrameLayout.LayoutParams(dp(22), dp(22)).apply {
+				layoutParams = FrameLayout.LayoutParams(pDp(22), pDp(22)).apply {
 					gravity = Gravity.TOP or Gravity.END
 					topMargin = dp(3); rightMargin = dp(3)
 				}
@@ -918,9 +929,9 @@ class ModulePalette(
 			val imageWrap = FrameLayout(activity).apply {
 				// Fixed height + a minimum width keep tiles uniform even when a
 				// module has no thumbnail (its image collapses to zero width).
-				minimumWidth = dp(56)
+				minimumWidth = pDp(56)
 				layoutParams = LinearLayout.LayoutParams(
-					ViewGroup.LayoutParams.WRAP_CONTENT, dp(110))
+					ViewGroup.LayoutParams.WRAP_CONTENT, pDp(110))
 				addView(image)
 				addView(info)
 			}
@@ -955,7 +966,7 @@ class ModulePalette(
 
 		override fun onBindViewHolder(holder: Holder, position: Int) {
 			val e = items[position]
-			holder.image.setImageBitmap(ThumbnailCache.get(activity.filesDir, e.key, dp(110)))
+			holder.image.setImageBitmap(ThumbnailCache.get(activity.filesDir, e.key, pDp(110)))
 			holder.name.text = e.name
 			holder.root.contentDescription = activity.getString(
 				R.string.palette_module_description, e.name, e.brand)
