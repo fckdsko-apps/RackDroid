@@ -1368,11 +1368,15 @@ class Tour(
 					if (onLeft) lp.rightMargin = gap else lp.leftMargin = gap
 				}
 			}
-			// A tall spot with a clear margin on one side: sit in that margin
-			// rather than squeezing above or below it. This is what makes the
-			// rack steps work in landscape, where there is nothing above or
-			// below to sit in.
-			spot.height() > h * 0.35f && maxOf(spot.left, w - spot.right) > w * 0.3f -> {
+			// A spot with a clear margin on one side: sit in that margin rather
+			// than squeezing above or below it. In landscape this is the whole
+			// point -- the screen splits down the middle, the rack demonstrates
+			// itself on one half and the card explains it on the other, because
+			// there is no room above or below to explain from. The height test
+			// only guards the portrait case, where a short band does leave room
+			// underneath; landscape takes this branch whatever its height.
+			(w > h || spot.height() > h * 0.35f) &&
+				maxOf(spot.left, w - spot.right) > w * 0.3f -> {
 				val onLeft = spot.centerX() < w * 0.5f
 				val room = (if (onLeft) w - spot.right else spot.left) - gap * 2
 				lp.width = room.toInt().coerceAtMost(dp(560))
@@ -1488,7 +1492,10 @@ class Tour(
 				val bottom = (paletteTop ?: h) - dp(8)
 				val band = RectF(dp(6).toFloat(), top, w - dp(6), maxOf(bottom, top + dp(80)))
 				if (w > h) {
-					band.right = w * 0.58f
+					// Half and half: the rack shows itself on the left, the card
+					// explains it on the right. Anything wider left the card a
+					// column too narrow to read in.
+					band.right = w * 0.5f
 				} else {
 					band.bottom = minOf(band.bottom, h * 0.62f)
 				}
