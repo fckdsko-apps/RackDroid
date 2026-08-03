@@ -389,6 +389,7 @@ class MainActivity : NativeActivity() {
 	private var toolbarMenuRow: LinearLayout? = null
 	private var toolbarGrid: android.widget.GridLayout? = null
 	private var toolbarHolder: android.widget.FrameLayout? = null
+	private var toolbarCard: LinearLayout? = null
 
 	private fun applyToolbarDensity() {
 		val land = resources.configuration.orientation ==
@@ -399,9 +400,21 @@ class MainActivity : NativeActivity() {
 		// the side inset costs nothing there and keeps the card off the rounded
 		// corners of the screen.
 		toolbarHolder?.setPadding(dp(8), if (land) 0 else dp(4), dp(8), 0)
+		// The menu labels sit in a box taller than they are, and that empty band
+		// above FILE is what reads as a margin at the top of the screen even
+		// once the card itself starts at the first row of pixels. In landscape
+		// it goes, together with the card's own top inset and the labels' top
+		// margin: the gap the eye sees is all three of them stacked.
+		toolbarCard?.setPadding(dp(4), if (land) 0 else dp(2), dp(4), 0)
 		toolbarMenuRow?.let { row ->
-			for (i in 0 until row.childCount)
-				row.getChildAt(i).setPadding(0, tbDp(12), 0, tbDp(12))
+			for (i in 0 until row.childCount) {
+				val v = row.getChildAt(i)
+				v.setPadding(0, if (land) tbDp(6) else dp(12), 0, if (land) tbDp(8) else dp(12))
+				(v.layoutParams as? LinearLayout.LayoutParams)?.let {
+					it.setMargins(dp(2), if (land) 0 else dp(2), dp(2), dp(2))
+					v.layoutParams = it
+				}
+			}
 		}
 		toolbarGrid?.let { grid ->
 			for (i in 0 until grid.childCount) {
@@ -630,6 +643,7 @@ class MainActivity : NativeActivity() {
 			gravity = Gravity.CENTER_HORIZONTAL
 			addView(collapseButton, LinearLayout.LayoutParams(dp(64), dp(26)))
 		}
+		toolbarCard = null
 		card = LinearLayout(this).apply {
 			orientation = LinearLayout.VERTICAL
 			background = cardBg
@@ -641,6 +655,7 @@ class MainActivity : NativeActivity() {
 			addView(toolGrid)
 			addView(handleRow)
 		}
+		toolbarCard = card
 		collapseButton.background = amberRippleRounded()
 		applyCollapsed(toolbarUserCollapsed)
 		val holder = android.widget.FrameLayout(this).apply {
