@@ -10,9 +10,12 @@
  * The rule that shapes all of it: the tour is a demonstration, not an edit. It
  * can be started at any moment from Help ▸ Interface tour, on top of whatever
  * the user is building. So nothing here touches history, nothing is left
- * selected, no cable is ever handed to the engine (the one it draws is an
- * incomplete cable, the same half-made thing Rack holds while you drag one),
- * and a moved module is put back at exactly the coordinates it had -- restore()
+ * selected, no cable is ever handed to the engine (the one it draws seats
+ * itself in the jack so the step has something connected to show, but it is a
+ * picture of a connection: the Cable behind it is built by hand, owned by
+ * nobody, and taken apart before the widget goes -- see completeDemoCable and
+ * dropCable), and a moved module is put back at exactly the coordinates it had
+ * -- restore()
  * runs when the tour ends, when it is dismissed halfway, and before any
  * autosave.
  *
@@ -99,10 +102,12 @@ struct TourDemo {
 	bool panBased = false;
 	math::Vec panBase;
 
-	// Cable demonstration. Incomplete: it is drawn, it lights up the compatible
-	// jacks, and it is never given to the engine. The pair is chosen before the
-	// camera moves, so the framing can take both modules in.
+	// Cable demonstration. Drawn, lighting up the compatible jacks, and never
+	// given to the engine -- it seats itself on the input jack for the last
+	// moments (see completeDemoCable) but nothing plays through it. The pair is
+	// chosen before the camera moves, so the framing can take both modules in.
 	app::CableWidget* cable = NULL;
+	app::PortWidget* cableToPort = NULL;
 	int64_t cableOutModule = -1, cableInModule = -1;
 	math::Vec cableFrom, cableTo;
 };
@@ -267,6 +272,18 @@ void beginCentring(const std::vector<app::ModuleWidget*>& mws) {
 void dropCable() {
 	if (!g.cable)
 		return;
+	// Undo the hand-made completion FIRST, and in this order. ~CableWidget ends
+	// with setCable(NULL), which hands any Cable it still holds to
+	// Engine::removeCable -- and that asserts the cable is one the engine knows
+	// about, which ours deliberately is not. Clearing the pointer here is what
+	// keeps the destructor on the empty path it was written for.
+	if (g.cable->cable) {
+		engine::Cable* c = g.cable->cable;
+		g.cable->cable = NULL;
+		g.cable->inputPort = NULL;
+		delete c;
+	}
+	g.cableToPort = NULL;
 	if (APP->scene && APP->scene->rack)
 		APP->scene->rack->removeCable(g.cable);
 	delete g.cable;
@@ -349,9 +366,36 @@ bool buildDemoCable() {
 	cw->outputPort = from;
 	APP->scene->rack->addCable(cw);
 	g.cable = cw;
+	g.cableToPort = to;
 	g.cableFrom = from->getAbsoluteOffset(from->box.size.div(2.f));
 	g.cableTo = to->getAbsoluteOffset(to->box.size.div(2.f));
 	return true;
+}
+
+/** Seats the drawn cable in the input jack for the end of the demonstration.
+Without this the last thing on screen is a cable held NEAR a jack: the loose end
+tracks the cursor, so it stops a plug's width short and the step called
+"connecting modules" never shows anything connected.
+
+The engine is still not told, and no history entry exists -- this is a picture
+of a connection, not one. It does need a Cable object, though:
+CableWidget::drawLayer dereferences cable->outputModule the instant
+isComplete() (outputPort && inputPort) turns true, so a widget with two ports
+and a NULL cable faults on the next frame. It gets one built by hand from the
+real jacks and owned by nobody, which dropCable() takes apart. */
+void completeDemoCable() {
+	if (!g.cable || g.cable->inputPort || !g.cableToPort)
+		return;
+	app::PortWidget* from = g.cable->outputPort;
+	if (!from || !from->module || !g.cableToPort->module)
+		return;
+	engine::Cable* c = new engine::Cable;
+	c->outputModule = from->module;
+	c->outputId = from->portId;
+	c->inputModule = g.cableToPort->module;
+	c->inputId = g.cableToPort->portId;
+	g.cable->cable = c;
+	g.cable->inputPort = g.cableToPort;
 }
 
 /** Moves the virtual cursor: an in-flight cable end follows it, and the jacks
@@ -578,7 +622,9 @@ void processTourDemo() {
 		}
 
 		case D_CABLE: {
-			const double DRAW = 1.20, SNAP = 0.60;
+			// Longer on the jack than it used to be: the connected state is now
+			// the point of the step, and it needs long enough to be read.
+			const double DRAW = 1.20, SNAP = 0.95;
 			if (!g.cable && !buildDemoCable()) {
 				endDemo();
 				break;
@@ -593,8 +639,11 @@ void processTourDemo() {
 				hoverAt(g.cableFrom.plus(g.cableTo.minus(g.cableFrom).mult(k)));
 			}
 			else {
-				// Arrived: held on the jack, where a real drop would snap it,
-				// so the connection reads as made.
+				// Arrived: seat it in the jack and hold there, so the step ends
+				// on a cable that is plugged in rather than one hovering beside
+				// the hole. Hovering the jack as well keeps Rack drawing the
+				// wire opaque, the same as a finger resting on a connection.
+				completeDemoCable();
 				hoverAt(g.cableTo);
 			}
 			break;

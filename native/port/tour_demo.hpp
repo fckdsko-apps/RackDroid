@@ -14,7 +14,7 @@ view:
     4  slide a single module aside and back
     5  just centre the view on the modules
     6  zoom in and out, then scroll sideways and back
-    7  draw a cable from an output to an input, jacks lighting up
+    7  draw a cable from an output to an input, jacks lighting up, and seat it
 Safe from the UI thread -- it only sets an atomic, and the work happens on the
 render thread. */
 void tourDemoRequest(int what);
