@@ -54,6 +54,16 @@ static const int MIN_HOLES = 3;
 // Screen units (Rack's own, i.e. pre-pixelRatio) -- the Scene is laid out in
 // them, so the bar keeps its size on every density.
 static const float BAR_W = CABLE_PARK_BAR_W;
+// Set from Java in pixels; read here in screen units. See cable_park.hpp.
+static std::atomic<float> g_leftInsetPx{0.f};
+static float barLeft() {
+	float px = g_leftInsetPx.load(std::memory_order_relaxed);
+	if (px <= 0.f)
+		return 0.f;
+	float ratio = APP && APP->window && APP->window->pixelRatio > 0.f
+		? APP->window->pixelRatio : 1.f;
+	return px / ratio;
+}
 static const float HOLE_R = 13.f;
 static const float HOLE_GAP = 46.f;
 
@@ -106,7 +116,7 @@ static bool parkableCableInFlight() {
 spare hole is an invitation to drop right here, so it should only appear once the
 user brings the cable onto the bar -- not every time any cable moves anywhere. */
 static bool parkableOverBar() {
-	return parkableCableInFlight() && g_inflightX <= BAR_W;
+	return parkableCableInFlight() && g_inflightX <= barLeft() + BAR_W;
 }
 
 /** Number of parked ends. Slots are kept packed (see cableParkClear), so the
@@ -148,7 +158,7 @@ static float holeY(int i) {
 	return first + i * HOLE_GAP;
 }
 
-static float holeX() { return BAR_W * 0.5f; }
+static float holeX() { return barLeft() + BAR_W * 0.5f; }
 
 // The collapse/expand handle. Expanded, its chevron sits INSIDE the bar at the
 // top (a cap above hole 0). Collapsed, only a glass pill with the chevron
@@ -312,7 +322,7 @@ struct CableParkBar : widget::Widget {
 		float top = holeY(0) - HOLE_GAP * 0.5f - 8.f - HANDLE_CAP;
 		float height = holeY(holes - 1) + HOLE_GAP * 0.5f + 10.f - top;
 		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 4.f, top, BAR_W - 8.f, height, 16.f);
+		nvgRoundedRect(args.vg, barLeft() + 4.f, top, BAR_W - 8.f, height, 16.f);
 		nvgFillColor(args.vg, nvgRGBA(0x1B, 0x18, 0x13, 0xE0));
 		nvgFill(args.vg);
 		nvgStrokeColor(args.vg, nvgRGBA(0xFF, 0xFF, 0xFF, 0x18));
@@ -324,8 +334,8 @@ struct CableParkBar : widget::Widget {
 		// in the touch layer.
 		drawChevron(args.vg, holeX(), handleY(), true);
 		nvgBeginPath(args.vg);
-		nvgMoveTo(args.vg, 12.f, handleY() + HANDLE_CAP * 0.5f - 1.f);
-		nvgLineTo(args.vg, BAR_W - 12.f, handleY() + HANDLE_CAP * 0.5f - 1.f);
+		nvgMoveTo(args.vg, barLeft() + 12.f, handleY() + HANDLE_CAP * 0.5f - 1.f);
+		nvgLineTo(args.vg, barLeft() + BAR_W - 12.f, handleY() + HANDLE_CAP * 0.5f - 1.f);
 		nvgStrokeColor(args.vg, nvgRGBA(0xFF, 0xFF, 0xFF, 0x12));
 		nvgStrokeWidth(args.vg, 1.f);
 		nvgStroke(args.vg);
@@ -390,7 +400,7 @@ struct CableParkBar : widget::Widget {
 				nvgStroke(args.vg);
 			}
 			// Which module and which jack is waiting here.
-			float tx = BAR_W + 8.f;
+			float tx = barLeft() + BAR_W + 8.f;
 			nvgFontFaceId(args.vg, labelFont(args));
 			nvgFillColor(args.vg, nvgRGBA(0, 0, 0, 190));
 			nvgText(args.vg, tx + 0.4f, cy - 5.f + 0.4f, g_slots[i].moduleName.c_str(), NULL);
@@ -487,7 +497,7 @@ void cableParkToggleCollapsed() {
 
 
 int cableParkSlotAt(float x, float y) {
-	if (!g_visible || g_collapsed || x > BAR_W)
+	if (!g_visible || g_collapsed || x > barLeft() + BAR_W)
 		return -1;
 	// Only the holes currently on screen are droppable; the spare that appears
 	// while parking is included by visibleHoles() so it can be dropped onto.
@@ -673,6 +683,14 @@ void cableParkSetInflightPos(float x, float y) {
 }
 
 
+void cableParkSetLeftInsetPx(float px) {
+	g_leftInsetPx.store(px > 0.f ? px : 0.f, std::memory_order_relaxed);
+}
+
+
+float cableParkLeftInset() { return barLeft(); }
+
+
 void cableParkPublishBounds() {
 	// Render thread only: holeY() and pixelRatio both read the Rack context,
 	// which is thread-local. Java asks for this from the UI thread, so the
@@ -697,7 +715,7 @@ void cableParkPublishBounds() {
 		// Same geometry the draw pass uses, so a spotlight over the bar lands
 		// on exactly what is on screen.
 		float top = holeY(0) - HOLE_GAP * 0.5f - 8.f - HANDLE_CAP;
-		x = 4.f;
+		x = barLeft() + 4.f;
 		y = top;
 		w = BAR_W - 8.f;
 		h = holeY(holes - 1) + HOLE_GAP * 0.5f + 10.f - top;
@@ -727,6 +745,14 @@ bool cableParkBoundsPx(int* out4) {
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeSetCableParkVisible(JNIEnv*, jobject, jboolean visible) {
 	rackdroid::cableParkSetVisible(visible);
+}
+
+/** The window draws under the display cutout so the rack reaches every edge;
+ * this is how far in from the left the camera reaches, so the bar can start
+ * past it. Java is the only side that can ask -- the NDK exposes no cutout. */
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeCableParkLeftInset(JNIEnv*, jobject, jint px) {
+	rackdroid::cableParkSetLeftInsetPx((float) px);
 }
 
 /** The bar's on-screen rectangle as {left, top, right, bottom} window pixels,

@@ -32,6 +32,18 @@ static const float CABLE_PARK_SNAP_MIN = 10.f;
 the bar" (a cancel / a drop target) from "in the rack void" (a discard). */
 static const float CABLE_PARK_BAR_W = 46.f;
 
+/** How far in from the left edge of the window the bar has to start, in screen
+units. Zero everywhere except under a display cutout: the window draws under
+the camera so the rack fills the whole screen, and the bar -- the one piece of
+chrome that lives on that edge -- is pushed past it, or a punch-hole eats the
+middle jack. Set it in PIXELS from Java (the only side that knows the inset);
+the conversion happens on the render thread, where pixelRatio is readable. */
+void cableParkSetLeftInsetPx(float px);
+
+/** The same inset in screen units, for the touch layer's "over the bar" test.
+Render thread only -- it reads pixelRatio. */
+float cableParkLeftInset();
+
 /** Adds the bar widget to the scene. Call once, after the Scene exists. */
 void installCableParkBar();
 

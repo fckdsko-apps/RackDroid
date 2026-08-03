@@ -93,6 +93,22 @@ class MainActivity : NativeActivity() {
 
 		AppTheme.init(this) // before any themed view gets built below
 		ThumbnailCache.configure(this)
+		// Draw under the camera. Hiding the system bars already gave us the
+		// whole screen in portrait, but a cutout is a separate permission: with
+		// the default mode a landscape window stops at the camera's edge, and
+		// what is left over is a black strip down one side that no amount of
+		// padding work inside the window can fill. SHORT_EDGES covers it in
+		// both orientations, because the edge the camera sits on is the same
+		// physical edge whichever way the phone is held. Only this window: the
+		// toolbar and the palette are PopupWindows of their own, they keep the
+		// default mode, and the window manager already lays them out clear of
+		// the cutout -- their frames start at its inner edge. Padding them by
+		// hand as well counted it twice and pushed the card visibly off centre.
+		window.attributes = window.attributes.apply {
+			layoutInDisplayCutoutMode =
+				android.view.WindowManager.LayoutParams
+					.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+		}
 		hideSystemBars()
 		jlog("RackDroid ${packageManager.getPackageInfo(packageName, 0).versionName} starting")
 
@@ -384,6 +400,11 @@ class MainActivity : NativeActivity() {
 	override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
 		super.onConfigurationChanged(newConfig)
 		uiHandler.post { runCatching { applyToolbarDensity() } }
+		// The insets are not always right on the first pass after a rotation --
+		// the window is resized before the cutout follows it round -- and a
+		// stale one leaves the park bar under the camera until something else
+		// happens to ask. Cheap enough to simply ask again.
+		uiHandler.postDelayed({ runCatching { publishCutoutToNative() } }, 400L)
 	}
 
 	private var toolbarMenuRow: LinearLayout? = null
@@ -391,7 +412,19 @@ class MainActivity : NativeActivity() {
 	private var toolbarHolder: android.widget.FrameLayout? = null
 	private var toolbarCard: LinearLayout? = null
 
+	/** Tell the render thread how far in from the left the camera reaches. The
+	 * window draws under it now, so the rack fills the screen -- but the cable
+	 * park bar sits on that same edge, and a punch-hole straight through the
+	 * middle jack is worse than the black strip it replaced. The NDK exposes no
+	 * cutout, so this is the only side that can answer. */
+	private fun publishCutoutToNative() {
+		val left = ViewCompat.getRootWindowInsets(window.decorView)
+			?.getInsets(WindowInsetsCompat.Type.displayCutout())?.left ?: 0
+		runCatching { nativeCableParkLeftInset(left) }
+	}
+
 	private fun applyToolbarDensity() {
+		publishCutoutToNative()
 		val land = resources.configuration.orientation ==
 			android.content.res.Configuration.ORIENTATION_LANDSCAPE
 		// Flush with the top edge in landscape: the four points above the card
@@ -1494,8 +1527,15 @@ class MainActivity : NativeActivity() {
 	override fun onWindowFocusChanged(hasFocus: Boolean) {
 		super.onWindowFocusChanged(hasFocus)
 		// Bars sticky-reappear after dialogs/app switches: re-hide.
-		if (hasFocus)
+		if (hasFocus) {
 			hideSystemBars()
+			// And the first moment the cutout is knowable. Asking during the
+			// toolbar's decor.post is too early when the app STARTS in
+			// landscape -- the insets come back zero, and nothing else asks
+			// again, so the park bar stayed under the camera until the first
+			// rotation. Focus arrives after the window is really laid out.
+			publishCutoutToNative()
+		}
 	}
 
 	// ---- Clipboard (called from native, any thread) ----
@@ -2096,6 +2136,7 @@ class MainActivity : NativeActivity() {
 	private external fun nativeDeleteSelection()
 	private external fun nativeSelectionCount(): Int
 	private external fun nativeCableParkBounds(): IntArray?
+	private external fun nativeCableParkLeftInset(px: Int)
 	private external fun nativeTourDemo(what: Int)
 	private external fun nativeTourStage(x: Int, y: Int, w: Int, h: Int)
 	private external fun nativeRackModuleCount(): Int

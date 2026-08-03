@@ -503,7 +503,8 @@ int touchHandleEvent(AInputEvent* event) {
 				}
 				if (target)
 					rackdroid::cableParkConnect(g_parkDrag, target);
-				else if (pos.x <= rackdroid::CABLE_PARK_BAR_W) {
+				else if (pos.x <= rackdroid::cableParkLeftInset()
+					+ rackdroid::CABLE_PARK_BAR_W) {
 					// Let go again over the bar: a cancel. Keep it parked.
 					LOGI("cablepark: pull-out cancelled, slot %d stays", g_parkDrag);
 				}
