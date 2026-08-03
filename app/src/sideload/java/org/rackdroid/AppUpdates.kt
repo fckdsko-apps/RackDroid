@@ -56,6 +56,10 @@ object AppUpdates {
 	private const val MAX_APK_BYTES = 250L * 1024 * 1024
 	private const val CONNECT_TIMEOUT_MS = 15_000
 	private const val READ_TIMEOUT_MS = 30_000
+	/** Architecture words the release assets put in their filenames. Used to
+	 * recognise an APK built for a machine this one is not, so it is never
+	 * downloaded: the install would fail after the whole transfer. */
+	private val ABI_TOKENS = listOf("arm64-v8a", "x86_64", "armeabi-v7a", "x86")
 
 	private val ui = Handler(Looper.getMainLooper())
 
@@ -208,8 +212,8 @@ object AppUpdates {
 	private fun fetchLatest(currentVersion: String): Release? {
 		val body = httpGet(RELEASES_API, currentVersion)
 		val releases = JSONArray(body)
-		val abis = android.os.Build.SUPPORTED_ABIS
 		var best: Release? = null
+		var bestRank = 0
 		for (r in 0 until releases.length()) {
 			val rel = releases.optJSONObject(r) ?: continue
 			// Drafts are invisible without a token anyway; pre-releases are
@@ -224,22 +228,53 @@ object AppUpdates {
 				val url = a.optString("browser_download_url")
 				if (!name.endsWith(".apk", ignoreCase = true) || url.isEmpty())
 					continue
+				// A release carries one APK per distribution as well as per
+				// architecture, and this must never take the Play one: same
+				// package and same key, so it installs without a word of
+				// warning, and from there the updater is a stub and the app
+				// holds no INTERNET permission. The user would simply stop
+				// receiving updates, with nothing on screen to say why.
+				if (name.contains("play", ignoreCase = true))
+					continue
 				val version = versionInName(name)
 					?: rel.optString("tag_name").trim().removePrefix("v")
 				if (!isNewer(version, currentVersion))
 					continue
-				// A release may carry one APK per architecture: an asset naming
-				// this device's ABI wins over one that names none, and a plain
-				// APK is only kept if nothing better turns up.
+				val rank = abiRank(name)
+				if (rank < 0)
+					continue
+				// A release may carry one APK per architecture, so among the
+				// assets of one version the best-fitting build wins. Ranking
+				// them, rather than letting the last ABI match overwrite the
+				// others, is deliberate: the old rule picked the right file
+				// only because GitHub happens to return assets sorted by name.
 				val better = best == null ||
 					isNewer(version, best!!.versionName) ||
-					(version == best!!.versionName &&
-						abis.any { name.contains(it, ignoreCase = true) })
-				if (better)
+					(version == best!!.versionName && rank > bestRank)
+				if (better) {
 					best = Release(version, notes, url)
+					bestRank = rank
+				}
 			}
 		}
 		return best ?: Release(currentVersion, "", "")
+	}
+
+	/** How well an asset's filename fits this machine: higher is better, and
+	 * below zero means it cannot run here at all. SUPPORTED_ABIS is ordered by
+	 * preference, so a native build outranks one that would only work through a
+	 * translation layer -- which is the case on the x86_64 tablets that also
+	 * carry an arm64 bridge and would otherwise take the slower APK. A build
+	 * that names no architecture is the single APK the early releases had, and
+	 * stays usable; one that names somebody else's is refused outright. */
+	private fun abiRank(name: String): Int {
+		val abis = android.os.Build.SUPPORTED_ABIS
+		val i = abis.indexOfFirst { name.contains(it, ignoreCase = true) }
+		if (i >= 0)
+			return abis.size - i + 1
+		if (name.contains("universal", ignoreCase = true))
+			return 1
+		return if (ABI_TOKENS.any { name.contains(it, ignoreCase = true) }) -1 else 0
 	}
 
 	/** First dotted version inside a filename, e.g. rackdroid-0.1.1-release.apk. */
