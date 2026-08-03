@@ -145,9 +145,15 @@ Manual checks still required on at least one phone:
   by this automated smoke result.
 
 - 2026-07-27 — Microsoft Surface Go 2, BlissOS 16.9.7, Android 13 / API 33,
-  x86_64: development-signed 0.1.2 APK installed and verified with clean DSP audio execution,
-  first-run interface tour in landscape and portrait, multi-select, patch load/save, and all 1004
-  module models. Full dual-architecture release target (arm64-v8a + x86_64).
+  x86_64: development-signed 0.1.2 APK installed over the previous build.
+  Audio checked the only way audio can be checked, by listening: the patch
+  played clean, with no crackle and no dropouts. Also exercised: the first-run
+  interface tour in landscape and portrait, multi-select, and patch load/save.
+  MIDI and long sessions remain untested on this machine.
+
+- The 0.1.2 release publishes six APKs — sideload and Play, each for arm64-v8a,
+  x86_64 and universal. A plain `assembleSideloadRelease` builds arm64 only;
+  the other two come from `-PtargetAbis` (see the build section).
 
 ### Recorded build checks
 

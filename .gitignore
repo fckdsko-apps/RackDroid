@@ -46,3 +46,10 @@ keystore.properties
 *.log
 .DS_Store
 docs-parkbar-update/
+
+# Device captures and the throwaway adb scripts that produce them. Screenshots
+# pulled off a phone show whatever patch and notifications were on it, so they
+# stay out of a public repository by rule, not by remembering each time.
+tour_landscape_surface*/
+device_shots*/
+test_*_tour.py
