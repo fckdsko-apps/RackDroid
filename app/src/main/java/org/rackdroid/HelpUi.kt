@@ -1180,7 +1180,7 @@ class Tour(
 		scrim.spot = rect
 		scrim.spot2 = spotRect(s.spot2)
 		scrim.invalidate()
-		positionCard(rect)
+		positionCard(rect, scrim.spot2)
 		publishStage(s, rect)
 		runAction(s.act, s.arg)
 		// After runAction, never before: it starts by cancelling every pending
@@ -1350,7 +1350,7 @@ class Tour(
 		scrim.spot = rect
 		scrim.spot2 = spotRect(s.spot2)
 		scrim.invalidate()
-		positionCard(rect)
+		positionCard(rect, scrim.spot2)
 		publishStage(s, rect)
 	}
 
@@ -1379,7 +1379,7 @@ class Tour(
 	 * the free band above/below a full-width one. Every distance is a fraction
 	 * of the scrim or a gap in dp, so this holds in portrait, in landscape and
 	 * at any screen size -- the fixed pixel margins it replaces did not. */
-	private fun positionCard(spot: RectF?) {
+	private fun positionCard(spot: RectF?, spot2: RectF? = null) {
 		applyCardWidth()
 		val lp = card.layoutParams as FrameLayout.LayoutParams
 		val w = scrim.width.toFloat(); val h = scrim.height.toFloat()
@@ -1424,7 +1424,13 @@ class Tour(
 			(w > h || spot.height() > h * 0.35f) &&
 				maxOf(spot.left, w - spot.right) > w * 0.3f -> {
 				val onLeft = spot.centerX() < w * 0.5f
-				val room = (if (onLeft) w - spot.right else spot.left) - gap * 2
+				// A step can light two things -- the rack AND the edit row it
+				// is telling the user to watch. Clearing only the first put the
+				// card over the second, and half the buttons the text names
+				// were behind it.
+				val right = maxOf(spot.right, spot2?.right ?: spot.right)
+				val left = minOf(spot.left, spot2?.left ?: spot.left)
+				val room = (if (onLeft) w - right else left) - gap * 2
 				lp.width = room.toInt().coerceAtMost(dp(560))
 				lp.gravity = Gravity.CENTER_VERTICAL or
 					(if (onLeft) Gravity.END else Gravity.START)
@@ -1524,7 +1530,10 @@ class Tour(
 				?: RectF(dp(6).toFloat(), dp(4).toFloat(), w - dp(6), h * 0.22f)
 			2 -> main?.paletteBounds()?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
 				?: RectF(dp(5).toFloat(), h * 0.88f, w - dp(5), h - dp(4))
-			3 -> main?.cableParkBounds()?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
+			// A wider ring than the rest: the bar is a narrow dark rail against a
+			// dark rack, and a two-point outline round it read as nothing at all.
+			3 -> main?.cableParkBounds()?.let { toScrimSpace(it) }
+				?.apply { inset(-dp(10).toFloat(), -dp(6).toFloat()) }
 				?: RectF(0f, h * 0.30f, w * 0.12f, h * 0.70f)
 			4 -> main?.toolbarMenuRowBounds()?.let { toScrimSpace(it) }?.apply { inset(-pad, -pad) }
 				?: RectF(dp(6).toFloat(), dp(4).toFloat(), w - dp(6), h * 0.07f)
