@@ -135,7 +135,14 @@ object ModuleInstaller {
 	private fun expandBundles(activity: Activity) {
 		val dir = modulesDir(activity)
 		val root = dir.canonicalFile
-		val bundles = dir.listFiles { f -> f.isFile && f.name.endsWith(".zip") } ?: return
+		// Same file set as the import below, not just *.zip: the picker appends
+		// .rdmod to anything whose name does not already end in one of the two
+		// (safeIncomingName), so a bundle can perfectly well arrive called
+		// .rdmod. What decides is what is inside, and a real pack is ruled out
+		// by its manifest in one central-directory lookup.
+		val bundles = dir.listFiles { f ->
+			f.isFile && (f.name.endsWith(".rdmod") || f.name.endsWith(".zip"))
+		} ?: return
 		for (bundle in bundles) {
 			try {
 				var written = 0
