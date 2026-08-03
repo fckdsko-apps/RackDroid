@@ -99,6 +99,8 @@ class ModulePalette(
 	private lateinit var strip: RecyclerView
 	private lateinit var chipRow: LinearLayout
 	private var activeChip: TextView? = null
+	/** The chip the interface tour folded away, so it can be put back on. */
+	private var foldedChip: String? = null
 	private val adapter = TileAdapter()
 
 	// ---- search / brand filter ----
@@ -201,6 +203,34 @@ class ModulePalette(
 		val loc = IntArray(2)
 		v.getLocationOnScreen(loc)
 		return android.graphics.Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
+	}
+
+	/** Fold the tile strip away for the interface tour, remembering the chip
+	 * that was on. In landscape the toolbar and an open palette leave no rack
+	 * between them, and a demonstration behind the tiles is one nobody sees --
+	 * but hiding the whole bar and reopening it with showAll() would hand the
+	 * user back a palette on ALL when they had left it on ENV. Folding keeps
+	 * the chip bar, and unfold puts their category back on. Returns true if
+	 * there was anything to fold. */
+	fun foldForTour(): Boolean {
+		val chip = activeChip ?: return false
+		foldedChip = chip.text?.toString()
+		collapseStrip()
+		return true
+	}
+
+	/** Re-open the chip the tour folded, if it folded one. */
+	fun unfoldForTour() {
+		val want = foldedChip ?: return
+		foldedChip = null
+		chipRow.post {
+			runCatching {
+				val chip = (0 until chipRow.childCount)
+					.map { chipRow.getChildAt(it) as TextView }
+					.firstOrNull { it.text == want } ?: return@runCatching
+				if (activeChip !== chip) chip.performClick()
+			}
+		}
 	}
 
 	/** Collapse only the open tile strip (the "modules menu"), keeping the chip

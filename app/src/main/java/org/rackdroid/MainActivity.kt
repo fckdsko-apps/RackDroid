@@ -242,6 +242,16 @@ class MainActivity : NativeActivity() {
 		runCatching { if (show) modulePalette.showAll() else modulePalette.hide() }
 	}
 
+	/** Fold the palette's tile strip away for the tour and put it back, chip
+	 * and all. Not hide(): the rack demonstrations only need the vertical
+	 * space the tiles take, and a palette the user had open on a category must
+	 * come back on that category. */
+	fun tourFoldPalette(fold: Boolean) = uiHandler.post {
+		runCatching {
+			if (fold) modulePalette.foldForTour() else modulePalette.unfoldForTour()
+		}
+	}
+
 	/** Multi-select as the toolbar shows it. Held here (rather than as a local
 	 * of the toolbar builder) so the tour can switch it and have the button
 	 * light up with it. */

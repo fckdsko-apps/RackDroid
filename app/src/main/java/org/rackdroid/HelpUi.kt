@@ -1009,6 +1009,7 @@ class Tour(
 	// What the current step has open or moved, so it can be put back exactly.
 	private var openedMenu = false
 	private var openedPalette = false
+	private var closedPalette = false
 	private var movedRack = false
 	private var turnedOnMultiSelect = false
 	private var popup: PopupWindow? = null
@@ -1146,7 +1147,7 @@ class Tour(
 		// user never scrolled it. This is the one place that is guaranteed to
 		// run, so the undo lives here.
 		p.setOnDismissListener {
-			undoAction()
+			undoAction(ending = true)
 			popup = null
 		}
 		popup = p
@@ -1187,9 +1188,17 @@ class Tour(
 
 	/** Everything the tour opened or moved, put back. Called before each step
 	 * and when the tour ends, however it ends -- Next, the scrim, or Skip. */
-	private fun undoAction() {
+	private fun undoAction(ending: Boolean = false) {
 		handler.removeCallbacksAndMessages(null)
 		val main = activity as? MainActivity ?: return
+		// Only when the tour is over. Putting the palette back between steps
+		// makes it flap through the run of rack demonstrations, and worse: it
+		// reopens over a card that was placed while it was folded, and then
+		// swallows the taps meant for Next -- which is exactly how a landscape
+		// run got stuck on the cable-park step.
+		if (ending && closedPalette) {
+			main.tourFoldPalette(false); closedPalette = false
+		}
 		if (openedMenu) {
 			main.tourCloseSheet()
 			openedMenu = false
@@ -1213,6 +1222,21 @@ class Tour(
 	private fun runAction(act: Int, arg: Int = 0) {
 		undoAction()
 		val main = activity as? MainActivity ?: return
+		// The four demonstrations below all happen in the rack.
+		val needsRack = act == ACT_MOVE || act == ACT_ZOOM ||
+			act == ACT_CABLE || act == ACT_SELECT
+		// In landscape the toolbar and an open palette can leave no rack
+		// between them at all. The band then collapses to its minimum height
+		// and lands on the palette itself, and the demonstration runs behind
+		// it where there is nothing to see -- a phone in landscape put the
+		// spotlight squarely on the module tiles and moved a module out of
+		// sight. Fold the palette away and put it back afterwards.
+		if (needsRack && !closedPalette && main.tourPaletteIsOpen() && !rackBandFits()) {
+			closedPalette = true
+			main.tourFoldPalette(true)
+			// The palette is a window of its own: re-aim once it has gone.
+			handler.postDelayed({ if (popup != null) reaim() }, 420L)
+		}
 		when (act) {
 			ACT_MENU -> {
 				// The card is left to be read first, then the real menu opens
@@ -1270,6 +1294,17 @@ class Tour(
 			movedRack = true
 			main.tourDemo(what)
 		}, 1200L)
+	}
+
+	/** Is there enough rack left between the toolbar and the palette to show a
+	 * demonstration in? Measured from the live views, never assumed: the same
+	 * two of them leave a comfortable band in portrait and nothing whatsoever
+	 * in landscape, where the toolbar alone takes close to half the height. */
+	private fun rackBandFits(): Boolean {
+		val main = activity as? MainActivity ?: return true
+		val top = main.toolbarBounds()?.let { toScrimSpace(it) }?.bottom ?: return true
+		val bottom = main.paletteBounds()?.let { toScrimSpace(it) }?.top ?: return true
+		return bottom - top >= dp(140)
 	}
 
 	/** Re-measures the holes for the step on screen, without replaying it. */
@@ -1464,7 +1499,7 @@ class Tour(
 	}
 
 	private fun finish() {
-		undoAction()
+		undoAction(ending = true)
 		popup?.let { runCatching { it.dismiss() } }
 		popup = null
 		if (doneFlag != null)
