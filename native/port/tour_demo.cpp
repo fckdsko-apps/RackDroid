@@ -181,14 +181,45 @@ app::ModuleWidget* findById(int64_t id) {
 	return NULL;
 }
 
+/** Where on screen the demonstration should play, in scene units: the hole the
+tour has cut in its scrim, not the whole viewport. Set from Java, which is the
+only side that knows where the card and the folded chrome have left room. Zero
+means "nobody said", and then the whole viewport is the stage. */
+std::atomic<float> g_stagePx[4] = {{0.f}, {0.f}, {0.f}, {0.f}};
+
+/** The stage, clipped to the viewport, or the whole viewport when Java has not
+named one. Centring on the viewport while the tour is showing half the screen
+is what left the modules jammed against the edge of the spotlight, half of them
+behind the card that was explaining them. */
+math::Rect stageRect() {
+	app::RackScrollWidget* rs = scroll();
+	math::Rect full = math::Rect(math::Vec(), rs ? rs->box.size : math::Vec());
+	if (!rs)
+		return full;
+	float ratio = APP->window ? APP->window->pixelRatio : 1.f;
+	if (ratio <= 0.f)
+		ratio = 1.f;
+	float w = g_stagePx[2].load() / ratio, h = g_stagePx[3].load() / ratio;
+	if (w < 1.f || h < 1.f)
+		return full;
+	math::Rect r = math::Rect(
+		math::Vec(g_stagePx[0].load() / ratio, g_stagePx[1].load() / ratio).minus(rs->box.pos),
+		math::Vec(w, h));
+	// A stage that does not overlap the viewport is a measurement gone wrong,
+	// and aiming at it would put the modules off screen entirely.
+	math::Rect clipped = r.intersect(full);
+	return (clipped.size.x < 1.f || clipped.size.y < 1.f) ? full : clipped;
+}
+
 /** The scroll offset that puts `bound` (in rack coordinates) in the middle of
-the viewport at `zoom` -- the arithmetic RackScrollWidget's own zoomToBound
-uses, with the zoom passed in rather than taken from the widget. */
+the stage at `zoom` -- the arithmetic RackScrollWidget's own zoomToBound uses,
+with the zoom passed in rather than taken from the widget, and the stage in
+place of the viewport. */
 math::Vec offsetCentring(math::Rect bound, float zoom) {
 	app::RackScrollWidget* rs = scroll();
 	if (!rs)
 		return math::Vec();
-	return bound.getCenter().mult(zoom).minus(rs->box.size.div(2.f));
+	return bound.getCenter().mult(zoom).minus(stageRect().getCenter());
 }
 
 void saveView() {
@@ -213,7 +244,7 @@ void beginCentring(const std::vector<app::ModuleWidget*>& mws) {
 	if (mws.empty()) {
 		// Nothing to aim at: stay put.
 		g.centreBound = math::Rect(
-			rs->offset.plus(rs->box.size.div(2.f)).div(g.centreZoomFrom), math::Vec());
+			rs->offset.plus(stageRect().getCenter()).div(g.centreZoomFrom), math::Vec());
 		return;
 	}
 	math::Rect bound;
@@ -226,7 +257,8 @@ void beginCentring(const std::vector<app::ModuleWidget*>& mws) {
 	// Zoom out only, and only as far as needed: a demonstration that shrinks
 	// the rack it is explaining has made things worse, not better.
 	if (bound.size.x > 0.f && bound.size.y > 0.f) {
-		float fit = std::min(rs->box.size.x / bound.size.x, rs->box.size.y / bound.size.y) * 0.92f;
+		math::Rect st = stageRect();
+		float fit = std::min(st.size.x / bound.size.x, st.size.y / bound.size.y) * 0.92f;
 		if (fit < g.centreZoomTo)
 			g.centreZoomTo = std::max(fit, 0.25f);
 	}
@@ -537,7 +569,10 @@ void processTourDemo() {
 				break;
 			}
 			double phase = (p < PAN) ? p / PAN : 1.0 - (p - PAN) / PAN_BACK;
-			float dx = rs->box.size.x * 0.35f * ease(phase);
+			// A third of the stage, not of the viewport: when the tour has half
+			// the screen, a viewport-sized swing carries the rack clean out of
+			// the lit box and the user watches an empty rectangle.
+			float dx = stageRect().size.x * 0.35f * ease(phase);
 			rs->offset = g.panBase.plus(math::Vec(dx, 0.f));
 			break;
 		}
@@ -572,6 +607,14 @@ void processTourDemo() {
 }
 
 
+void tourDemoStage(float xPx, float yPx, float wPx, float hPx) {
+	g_stagePx[0].store(xPx);
+	g_stagePx[1].store(yPx);
+	g_stagePx[2].store(wPx);
+	g_stagePx[3].store(hPx);
+}
+
+
 } // namespace rackdroid
 
 
@@ -579,6 +622,13 @@ void processTourDemo() {
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeTourDemo(JNIEnv*, jobject, jint what) {
 	rackdroid::tourDemoRequest(what);
+}
+
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeTourStage(
+		JNIEnv*, jobject, jint x, jint y, jint w, jint h) {
+	rackdroid::tourDemoStage((float) x, (float) y, (float) w, (float) h);
 }
 
 

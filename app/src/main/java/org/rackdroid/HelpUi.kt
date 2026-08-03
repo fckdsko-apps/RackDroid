@@ -1175,13 +1175,24 @@ class Tour(
 		nextBtn.text = activity.getString(
 			if (step == steps.size - 1) R.string.wizard_done else R.string.wizard_next)
 
-		applyChrome(s)
+		val chromeMoved = applyChrome(s)
 		val rect = spotRect(s.spot, s.arg)
 		scrim.spot = rect
 		scrim.spot2 = spotRect(s.spot2)
 		scrim.invalidate()
 		positionCard(rect)
+		publishStage(s, rect)
 		runAction(s.act, s.arg)
+		// After runAction, never before: it starts by cancelling every pending
+		// callback on this handler, so a re-aim queued earlier is thrown away.
+		// Twice, because the toolbar expands through a LayoutTransition and one
+		// measurement at 420 ms caught it still growing -- the band kept its
+		// collapsed height, the spotlight ran up behind the toolbar, and the
+		// modules were framed into the part of it the user cannot see.
+		if (chromeMoved) {
+			handler.postDelayed({ if (popup != null) reaim() }, 420L)
+			handler.postDelayed({ if (popup != null) reaim() }, 900L)
+		}
 
 		card.alpha = 0f; card.translationY = dp(14).toFloat()
 		card.animate().alpha(1f).translationY(0f).setDuration(240L)
@@ -1204,12 +1215,12 @@ class Tour(
 	 * A step that points at nothing in particular is left alone rather than
 	 * folding things for the sake of it -- the welcome and the closing card
 	 * would otherwise make the toolbar flap on the way past. */
-	private fun applyChrome(s: Step) {
-		val main = activity as? MainActivity ?: return
+	private fun applyChrome(s: Step): Boolean {
+		val main = activity as? MainActivity ?: return false
 		val aboutToolbar = s.spot in TOOLBAR_SPOTS || s.spot2 in TOOLBAR_SPOTS
 		val aboutPalette = s.spot == 2 || s.act == ACT_PALETTE
 		val aboutTheRack = s.spot == 10 || s.spot == 3
-		if (!aboutToolbar && !aboutPalette && !aboutTheRack) return
+		if (!aboutToolbar && !aboutPalette && !aboutTheRack) return false
 		var changed = false
 		if (!aboutToolbar && !collapsedToolbar) {
 			collapsedToolbar = true
@@ -1225,9 +1236,9 @@ class Tour(
 			main.tourFoldPalette(true)
 			changed = true
 		}
-		// Both are windows of their own: re-measure the hole once they have
-		// finished moving, or the spotlight lands where they used to be.
-		if (changed) handler.postDelayed({ if (popup != null) reaim() }, 420L)
+		// Both are windows of their own, so the hole has to be re-measured once
+		// they have finished moving. render() queues that, after runAction.
+		return changed
 	}
 
 	/** Everything the tour opened or moved, put back. Called before each step
@@ -1249,6 +1260,7 @@ class Tour(
 		if (ending && collapsedToolbar) {
 			main.setToolbarCollapsedForTutorial(false); collapsedToolbar = false
 		}
+		if (ending) main.tourStage(null)
 		if (openedMenu) {
 			main.tourCloseSheet()
 			openedMenu = false
@@ -1339,6 +1351,16 @@ class Tour(
 		scrim.spot2 = spotRect(s.spot2)
 		scrim.invalidate()
 		positionCard(rect)
+		publishStage(s, rect)
+	}
+
+	/** Tells the engine which part of the screen its demonstrations should aim
+	 * at. Only the rack steps name one: everywhere else the whole window is
+	 * right, and a stage left over from an earlier step would frame the modules
+	 * inside a spotlight that is no longer on screen. */
+	private fun publishStage(s: Step, rect: RectF?) {
+		val main = activity as? MainActivity ?: return
+		main.tourStage(if (s.spot == 10 && rect != null) toScreenSpace(rect) else null)
 	}
 
 	/** Fits the card to the scrim: nine tenths of the width, capped so it does
@@ -1455,6 +1477,17 @@ class Tour(
 	 * PopupWindow: its origin is only the screen origin when the app owns the
 	 * whole display, which is not true in a freeform/desktop window or with
 	 * insets on one side. Everything below measures the real thing on screen. */
+	/** Scrim space back to screen pixels, which is what the engine works in.
+	 * The scrim is a PopupWindow, so its origin is the screen origin only when
+	 * the app owns the whole display -- the same reason toScrimSpace exists. */
+	private fun toScreenSpace(r: RectF): android.graphics.Rect {
+		val loc = IntArray(2)
+		scrim.getLocationOnScreen(loc)
+		return android.graphics.Rect(
+			(r.left + loc[0]).toInt(), (r.top + loc[1]).toInt(),
+			(r.right + loc[0]).toInt(), (r.bottom + loc[1]).toInt())
+	}
+
 	private fun toScrimSpace(r: android.graphics.Rect): RectF? {
 		val loc = IntArray(2)
 		scrim.getLocationOnScreen(loc)

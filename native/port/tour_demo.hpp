@@ -26,6 +26,13 @@ user left it at. Called when the tour ends or is dismissed, and before any
 autosave. */
 void tourDemoRestore();
 
+/** Where on screen the demonstrations should play, in screen pixels: the hole
+the tour has cut in its scrim, not the whole viewport. Java is the only side
+that knows it -- it depends on where the card sits and on what chrome the step
+has folded away. A zero size means "no stage", and the whole viewport is used,
+which is what portrait wants. Safe from any thread; it only sets atomics. */
+void tourDemoStage(float xPx, float yPx, float wPx, float hPx);
+
 /** Modules on the rack, from the count the render thread republishes every
 frame. Safe from any thread; the tour uses it to leave out the steps it could
 not demonstrate on an empty rack. */

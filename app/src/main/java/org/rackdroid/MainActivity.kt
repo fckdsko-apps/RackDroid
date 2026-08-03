@@ -221,6 +221,16 @@ class MainActivity : NativeActivity() {
 	 * nothing. See native/port/tour_demo.cpp. */
 	fun tourDemo(what: Int) = runCatching { nativeTourDemo(what) }
 
+	/** The part of the screen the demonstrations should play in, in screen
+	 * pixels -- the tour's lit rectangle, which in landscape is half the width.
+	 * Without it the engine frames the modules in the middle of the window and
+	 * they end up jammed against the edge of the spotlight, half of them behind
+	 * the card explaining them. An empty rect means the whole window. */
+	fun tourStage(r: android.graphics.Rect?) = runCatching {
+		if (r == null) nativeTourStage(0, 0, 0, 0)
+		else nativeTourStage(r.left, r.top, r.width(), r.height())
+	}
+
 	/** True while the tour is opening menus to show what they hold. The sheets
 	 * it opens are made untouchable (see showNativeMenu): they are there to be
 	 * looked at, and a stray tap on File ▸ New during the demonstration would
@@ -1996,6 +2006,7 @@ class MainActivity : NativeActivity() {
 	private external fun nativeSelectionCount(): Int
 	private external fun nativeCableParkBounds(): IntArray?
 	private external fun nativeTourDemo(what: Int)
+	private external fun nativeTourStage(x: Int, y: Int, w: Int, h: Int)
 	private external fun nativeRackModuleCount(): Int
 	private external fun nativeGetCableTension(): Float
 	private external fun nativeSetCableTension(v: Float)
