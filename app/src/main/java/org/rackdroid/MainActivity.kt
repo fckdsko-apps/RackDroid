@@ -362,6 +362,59 @@ class MainActivity : NativeActivity() {
 		}
 	}
 
+	/** A toolbar dimension, cut by a third in landscape.
+	 *
+	 * The card carries a menu strip and two rows of tools whatever the shape of
+	 * the screen, and in landscape that is close to half the height -- on a
+	 * phone it left the rack a slot, and the interface tour had nothing to
+	 * demonstrate in. The icons are drawable vectors and lose nothing by being
+	 * smaller; the touch targets stay finger-sized because a landscape phone is
+	 * wide, so the cells grow sideways as they shrink vertically. */
+	private fun tbDp(v: Int): Int {
+		val land = resources.configuration.orientation ==
+			android.content.res.Configuration.ORIENTATION_LANDSCAPE
+		return if (land) dp((v * 0.7f).toInt().coerceAtLeast(2)) else dp(v)
+	}
+
+	/** The toolbar is built once and the manifest keeps this activity alive
+	 * across a rotation, so nothing would re-read tbDp() when the screen turns.
+	 * Re-apply the sizes to the views that are already there rather than
+	 * rebuilding the card: addMidiButton() wires up more than layout, and
+	 * running it twice would register it all twice. */
+	override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+		super.onConfigurationChanged(newConfig)
+		uiHandler.post { runCatching { applyToolbarDensity() } }
+	}
+
+	private var toolbarMenuRow: LinearLayout? = null
+	private var toolbarGrid: android.widget.GridLayout? = null
+	private var toolbarHolder: android.widget.FrameLayout? = null
+
+	private fun applyToolbarDensity() {
+		val land = resources.configuration.orientation ==
+			android.content.res.Configuration.ORIENTATION_LANDSCAPE
+		// Flush with the top edge in landscape. The inset that floats the card
+		// off the screen edge is worth its eight points in portrait, where
+		// height is what there is most of; in landscape every one of them comes
+		// straight out of the rack.
+		toolbarHolder?.setPadding(
+			if (land) 0 else dp(8), if (land) 0 else dp(4), if (land) 0 else dp(8), 0)
+		toolbarMenuRow?.let { row ->
+			for (i in 0 until row.childCount)
+				row.getChildAt(i).setPadding(0, tbDp(12), 0, tbDp(12))
+		}
+		toolbarGrid?.let { grid ->
+			for (i in 0 until grid.childCount) {
+				val v = grid.getChildAt(i)
+				v.setPadding(tbDp(7), tbDp(9), tbDp(7), tbDp(9))
+				(v.layoutParams as? android.widget.GridLayout.LayoutParams)?.let {
+					it.height = tbDp(42); v.layoutParams = it
+				}
+			}
+			grid.requestLayout()
+		}
+	}
+
 	private fun addMidiButton() {
 		val toolbarPrefs = getSharedPreferences("toolbar", Context.MODE_PRIVATE)
 		toolbarUserCollapsed = toolbarPrefs.getBoolean("collapsed", false)
@@ -391,7 +444,7 @@ class MainActivity : NativeActivity() {
 				setTextColor(AppTheme.current.textPrimary)
 				gravity = Gravity.CENTER
 				background = amberRippleRounded()
-				setPadding(0, dp(12), 0, dp(12))
+				setPadding(0, tbDp(12), 0, tbDp(12))
 				layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 					.apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
 				setOnClickListener { nativeToolbarTap(i) }
@@ -400,6 +453,7 @@ class MainActivity : NativeActivity() {
 		// Fifteen tools do not have a usable touch target when squeezed into one
 		// phone-width row. Keep eight fixed columns and flow them over two rows;
 		// an invisible final cell keeps the second row aligned with the first.
+		toolbarMenuRow = menuRow
 		val toolGrid = android.widget.GridLayout(this).apply {
 			columnCount = 8
 			rowCount = 2
@@ -408,6 +462,7 @@ class MainActivity : NativeActivity() {
 			layoutParams = LinearLayout.LayoutParams(
 				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 		}
+		toolbarGrid = toolGrid
 		val iconTint = android.content.res.ColorStateList.valueOf(AppTheme.current.textPrimary)
 		val amberTint = android.content.res.ColorStateList.valueOf(AppTheme.current.accent)
 		// One consistent set of line icons (vector drawables, uniformly tinted),
@@ -421,7 +476,7 @@ class MainActivity : NativeActivity() {
 				background = amberRippleRounded()
 				contentDescription = desc
 				minimumWidth = 0; minimumHeight = 0
-				setPadding(dp(7), dp(9), dp(7), dp(9))
+				setPadding(tbDp(7), tbDp(9), tbDp(7), tbDp(9))
 				setOnClickListener { onClick(this) }
 			}
 		fun addTool(view: View, index: Int) {
@@ -429,7 +484,7 @@ class MainActivity : NativeActivity() {
 				android.widget.GridLayout.spec(index / 8),
 				android.widget.GridLayout.spec(index % 8, 1f)).apply {
 				width = 0
-				height = dp(42)
+				height = tbDp(42)
 				setMargins(dp(1), 0, dp(1), 0)
 			})
 		}
@@ -589,9 +644,12 @@ class MainActivity : NativeActivity() {
 		collapseButton.background = amberRippleRounded()
 		applyCollapsed(toolbarUserCollapsed)
 		val holder = android.widget.FrameLayout(this).apply {
-			setPadding(dp(8), dp(4), dp(8), 0)
 			addView(card)
 		}
+		toolbarHolder = holder
+		// The padding lives in applyToolbarDensity, which is also what a
+		// rotation calls; run it once here or the first layout has none.
+		applyToolbarDensity()
 		val topPopup = PopupWindow(holder,
 			ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 		topPopup.isFocusable = false // never steal keys from the canvas

@@ -1468,7 +1468,13 @@ class Tour(
 		val available = h - lp.topMargin - lp.bottomMargin - dp(12)
 		val over = card.measuredHeight - available
 		if (over > 0) {
-			slp.height = (bodyScroll.measuredHeight - over).coerceAtLeast(dp(56))
+			// No floor under this. A minimum body height meant that when the
+			// text still did not fit -- a long paragraph in the narrow column
+			// landscape leaves beside the rack -- the surplus went somewhere,
+			// and where it went was off the bottom of the card, taking Skip and
+			// Next with it. Buttons you cannot reach are worse than a body you
+			// have to scroll, so the body gives up whatever is needed.
+			slp.height = (bodyScroll.measuredHeight - over).coerceAtLeast(0)
 			bodyScroll.layoutParams = slp
 		}
 	}
