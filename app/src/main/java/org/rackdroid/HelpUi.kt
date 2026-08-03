@@ -1428,12 +1428,22 @@ class Tour(
 				// is telling the user to watch. Clearing only the first put the
 				// card over the second, and half the buttons the text names
 				// were behind it.
-				val right = maxOf(spot.right, spot2?.right ?: spot.right)
-				val left = minOf(spot.left, spot2?.left ?: spot.left)
-				val room = (if (onLeft) w - right else left) - gap * 2
+				// Width comes from the main spotlight alone, so the card keeps a
+				// readable column. A second lit thing -- the edit row the
+				// multi-select step tells the user to watch -- is cleared by
+				// dropping the card below it instead of squeezing it sideways
+				// past it, which left a strip too narrow to read a paragraph in.
+				val room = (if (onLeft) w - spot.right else spot.left) - gap * 2
 				lp.width = room.toInt().coerceAtMost(dp(560))
-				lp.gravity = Gravity.CENTER_VERTICAL or
-					(if (onLeft) Gravity.END else Gravity.START)
+				val clash = spot2 != null &&
+					(if (onLeft) spot2.right > spot.right else spot2.left < spot.left)
+				if (clash) {
+					lp.gravity = Gravity.TOP or (if (onLeft) Gravity.END else Gravity.START)
+					lp.topMargin = (spot2!!.bottom + gap).toInt().coerceAtMost((h * 0.7f).toInt())
+				} else {
+					lp.gravity = Gravity.CENTER_VERTICAL or
+						(if (onLeft) Gravity.END else Gravity.START)
+				}
 				if (onLeft) lp.rightMargin = gap else lp.leftMargin = gap
 			}
 			// Narrow and tall (the cable parking bar): sit next to it, on the
