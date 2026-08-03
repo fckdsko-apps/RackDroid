@@ -14,6 +14,12 @@ Visible in any file manager, no storage permission required. A `README.txt`
 is written there on first run. Drop `.rdmod` files, then restart the app —
 a toast confirms how many extra packs loaded.
 
+A zip holding several packs — `all_rdmods.zip` from the releases page — can be
+dropped here as it is. Anything with no top-level `plugin.json` but with
+`.rdmod` entries is unwrapped into this folder before the import runs, and the
+zip is removed once its contents are out. The packs it yields are then imported
+like any other, with the same validation: unwrapping grants nothing.
+
 ## Pack format (`.rdmod`)
 
 A `.rdmod` is a plain **zip** whose top level contains:

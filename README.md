@@ -63,6 +63,9 @@ Impromptu, Befaco, HetrickCV…) **on the fly**, without updating the app:
   manager.
 - **From a folder**: copy the `.rdmod` files to
   `Android/data/org.rackdroid/files/Modules/` and restart.
+- **All of them at once**: give either route the `all_rdmods.zip` from the
+  releases page as it is. A zip holding packs is unpacked and each one
+  installed, so there is nothing to extract and nothing to multi-select.
 
 Package format, the native loading mechanism, and instructions for
 **creating** a plugin: see **[MODULES.md](MODULES.md)** and the manual at
