@@ -86,6 +86,54 @@ class MainActivity : NativeActivity() {
 	private var startupRecoveryActive = false
 	private var recoveryDialogShown = false
 
+	/** Our half of the strings -- toolbar, palette, tour, our dialogs -- comes
+	 * from Android resources, which follow the DEVICE locale. Rack's half comes
+	 * from its own translation files, which follow settings::language. Picking
+	 * a language in Rack's Help menu used to move only its half, leaving an
+	 * English File menu under an Italian toolbar (or the reverse). Once the
+	 * user has chosen, that choice is remembered here and forced onto the
+	 * resources too, so the two halves agree.
+	 *
+	 * Only after a deliberate choice: with no preference stored, resources
+	 * follow the device exactly as they always did, and the port layer
+	 * separately defaults Rack to the same place. */
+	override fun attachBaseContext(base: Context) {
+		val lang = runCatching {
+			base.getSharedPreferences("ui", Context.MODE_PRIVATE).getString("lang", null)
+		}.getOrNull()
+		if (lang.isNullOrEmpty()) {
+			super.attachBaseContext(base)
+			return
+		}
+		val cfg = android.content.res.Configuration(base.resources.configuration)
+		val loc = java.util.Locale.forLanguageTag(lang)
+		java.util.Locale.setDefault(loc)
+		cfg.setLocale(loc)
+		super.attachBaseContext(base.createConfigurationContext(cfg))
+	}
+
+	/** Called from the render thread when Rack's Help ▸ Language changed it.
+	 * The engine has already saved the patch and the settings by now. Rack asks
+	 * for a restart and cannot perform one; Android can, and has to -- the
+	 * resource locale above is read when the activity is built. */
+	fun languageChangedFromNative(code: String) {
+		uiHandler.post {
+			runCatching {
+				getSharedPreferences("ui", Context.MODE_PRIVATE)
+					.edit().putString("lang", code).commit()
+				val i = packageManager.getLaunchIntentForPackage(packageName)
+				if (i != null) {
+					i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+					startActivity(i)
+				}
+			}
+			// Not finish(): the engine, the audio stream and the loaded plugin
+			// libraries all live in this process, and the new one has to build
+			// them from scratch. Ending the process is the restart.
+			Runtime.getRuntime().exit(0)
+		}
+	}
+
 	override fun onCreate(savedInstanceState: Bundle?) {
 		prepareStartupRecovery()
 		super.onCreate(savedInstanceState)

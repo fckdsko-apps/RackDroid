@@ -56,6 +56,10 @@
 using namespace rack;
 
 
+/** The language the frame loop started in. Rack's Help ▸ Language writes
+straight into settings::language and tells nobody, so noticing means looking. */
+static std::string g_language;
+
 struct RackDroidApp {
 	android_app* app = NULL;
 	bool rackStarted = false;
@@ -155,6 +159,10 @@ struct RackDroidApp {
 				}
 			}
 		}
+
+		// Baseline for checkLanguageChanged(). Taken AFTER the default above,
+		// so following the device is not mistaken for the user choosing.
+		g_language = settings::language;
 
 		if (rackdroid::startupSafeModeRequested()) {
 			settings::safeMode = true;
@@ -348,6 +356,32 @@ static int32_t handleInput(android_app* app, AInputEvent* event) {
 // (blocking there was the app's known input-timeout ANR).
 static android_app* pumpApp = NULL;
 
+/** Act on a language chosen from Rack's own menu. Rack asks for a restart
+because it cannot relabel widgets already built; the other half of the app --
+toolbar, palette, tour, every dialog of ours -- comes from Android resources,
+which follow the DEVICE locale and have never heard of Rack's setting, so it
+needs the restart even more. On a phone there is no reason to make the user
+perform it: save, tell Java, and Java comes back up in the new language. */
+static void checkLanguageChanged() {
+	if (g_language.empty() || settings::language == g_language)
+		return;
+	std::string code = settings::language;
+	g_language = code; // never fire twice while the restart is in flight
+	LOGI("Interface language changed to '%s': saving and restarting", code.c_str());
+	// Nothing else will save. The relaunch kills the process outright, so the
+	// lifecycle callbacks that normally autosave never get their turn.
+	rackdroid::tourDemoRestore();
+	try {
+		if (APP->patch && !settings::safeMode)
+			APP->patch->saveAutosave();
+		settings::save();
+	}
+	catch (Exception& e) {
+		LOGE("save before the language restart failed: %s", e.what());
+	}
+	rackdroid::nativeLanguageChanged(code);
+}
+
 static void pumpGlueOnce(int timeoutMs) {
 	int events;
 	android_poll_source* source;
@@ -387,6 +421,7 @@ void android_main(android_app* app) {
 			try {
 				rackdroid::touchStep();
 				rackdroid::processTourDemo();
+				checkLanguageChanged();
 				APP->window->step();
 			}
 			catch (std::exception& e) {

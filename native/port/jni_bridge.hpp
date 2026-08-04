@@ -46,6 +46,15 @@ void nativeShowHelp(int which);
 build the model list and raise the palette. Non-blocking. */
 void nativePatchReady();
 
+/** The user picked a different interface language from Rack's own Help menu.
+Java owns the other half of the app's strings -- everything in the toolbar,
+the palette, the tour -- and those come from Android resources, which follow
+the DEVICE locale and know nothing about Rack's setting. So it is told, it
+remembers the choice, and it restarts: Rack asks for a restart anyway, having
+no way to relabel widgets already on screen, and on a phone there is no reason
+to make the user do it by hand. */
+void nativeLanguageChanged(const std::string& code);
+
 /** Runs MainActivity.loadUserPluginsFromNative() and BLOCKS the calling glue
 thread until it reports back (pumping the looper meanwhile), so side-loaded
 .rdmod packs are registered before the patch is restored. A pack's .so can

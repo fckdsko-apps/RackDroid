@@ -46,6 +46,7 @@ static jmethodID midSharePatch;
 static jmethodID midShowHelp;
 static jmethodID midLoadUserPlugins;
 static jmethodID midPatchReady;
+static jmethodID midLanguageChanged;
 
 // ---- dialog result handoff (UI thread -> pumping glue thread) ----
 static void (*pumpOnce)(int timeoutMs) = NULL; // installed by main_android
@@ -141,6 +142,7 @@ void jniInit(ANativeActivity* activity) {
 	midShowHelp = env->GetMethodID(activityCls, "showHelpFromNative", "(I)V");
 	midLoadUserPlugins = env->GetMethodID(activityCls, "loadUserPluginsFromNative", "()V");
 	midPatchReady = env->GetMethodID(activityCls, "patchReadyFromNative", "()V");
+	midLanguageChanged = env->GetMethodID(activityCls, "languageChangedFromNative", "(Ljava/lang/String;)V");
 	if (env->ExceptionCheck()) {
 		env->ExceptionClear();
 		LOGE("jniInit: MainActivity methods missing; dialogs/clipboard disabled");
@@ -283,6 +285,18 @@ void nativePatchReady() {
 	if (!env || !midPatchReady)
 		return;
 	env->CallVoidMethod(activityObj, midPatchReady);
+	if (env->ExceptionCheck())
+		env->ExceptionClear();
+}
+
+
+void nativeLanguageChanged(const std::string& code) {
+	JNIEnv* env = getEnv();
+	if (!env || !midLanguageChanged)
+		return;
+	jstring js = env->NewStringUTF(code.c_str());
+	env->CallVoidMethod(activityObj, midLanguageChanged, js);
+	env->DeleteLocalRef(js);
 	if (env->ExceptionCheck())
 		env->ExceptionClear();
 }
