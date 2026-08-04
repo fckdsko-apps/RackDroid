@@ -11,8 +11,10 @@ namespace rackdroid {
  * impossible. This bar gives a cable end somewhere to wait: drop it in one of
  * the holes, pan wherever you like, then drag it out onto the target port.
  *
- * Five holes, because that is enough for the "route a voice through several
- * modules" case without the bar eating the screen.
+ * Three holes to start with, growing one at a time as they fill, up to ten --
+ * enough for the "route a voice through several modules" case without the bar
+ * eating the screen when it is empty. Past what fits in a column it takes a
+ * second one rather than shrinking the holes.
  *
  * Everything here lives in the port layer -- Rack's own drag is left alone
  * and only observed, so no upstream file is touched. */
