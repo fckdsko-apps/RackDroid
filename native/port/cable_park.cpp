@@ -114,13 +114,6 @@ static bool parkableCableInFlight() {
 		!APP->scene->rack->getIncompleteCables().empty();
 }
 
-/** True when a parkable cable is being dragged AND its end is over the bar. The
-spare hole is an invitation to drop right here, so it should only appear once the
-user brings the cable onto the bar -- not every time any cable moves anywhere. */
-static bool parkableOverBar() {
-	return parkableCableInFlight() && g_inflightX <= barLeft() + BAR_W;
-}
-
 /** Number of parked ends. Slots are kept packed (see cableParkClear), so the
 filled ones are always 0..count-1 with no gaps. */
 static int filledCount() {
@@ -140,6 +133,49 @@ static int restingHoles() {
 	return n;
 }
 
+// The collapse/expand handle. Expanded, its chevron sits INSIDE the bar at the
+// top (a cap above hole 0). Collapsed, only a glass pill with the chevron
+// remains, at the same spot so it never jumps.
+static const float PILL_W = 38.f;
+static const float PILL_H = 30.f;
+static const float HANDLE_CAP = 28.f; // room at the top of the bar for the chevron
+
+/** How many holes fit in one column between the toolbar and the bottom of the
+screen. A column of ten is 506 units tall; a landscape phone has about 415 to
+begin with and the toolbar card takes a third of that, so past the fourth hole
+the column simply ran off the bottom of the display. Portrait has room for all
+ten, which is why this only ever splits the bar on its side.
+
+The reserve at the bottom is a hole's radius: without it the last hole comes out
+flush with the screen edge, which is both ugly and hard to hit. */
+static int holesPerColumn() {
+	float h = APP->scene ? APP->scene->box.size.y : 800.f;
+	// A bar of n holes stands (n-1)*HOLE_GAP + 92 tall: the cap and its gap
+	// above hole 0, and half a gap plus the end margin below the last one.
+	float avail = h - barTop() - HOLE_R;
+	int n = (int) std::floor((avail - 92.f) / HOLE_GAP) + 1;
+	if (n < 1) n = 1;
+	if (n > MAX_SLOTS) n = MAX_SLOTS;
+	return n;
+}
+
+/** Columns the bar rests at, before any drag spare. Kept apart from
+barColumns() because the spare depends on the cable being over the bar, and
+"over the bar" depends on how wide the bar is -- asking barColumns() there would
+be a question answering itself. */
+static int restingColumns() {
+	int per = holesPerColumn();
+	return (restingHoles() + per - 1) / per;
+}
+
+/** True when a parkable cable is being dragged AND its end is over the bar. The
+spare hole is an invitation to drop right here, so it should only appear once the
+user brings the cable onto the bar -- not every time any cable moves anywhere. */
+static bool parkableOverBar() {
+	return parkableCableInFlight() &&
+		g_inflightX <= barLeft() + BAR_W * restingColumns();
+}
+
 /** How many holes to show right now: the resting count, plus one spare (up to
 MAX_SLOTS) while a cable is dragged onto the bar and every resting hole is full
 -- that extra hole is the drop target. */
@@ -150,12 +186,15 @@ static int visibleHoles() {
 	return n;
 }
 
-// The collapse/expand handle. Expanded, its chevron sits INSIDE the bar at the
-// top (a cap above hole 0). Collapsed, only a glass pill with the chevron
-// remains, at the same spot so it never jumps.
-static const float PILL_W = 38.f;
-static const float PILL_H = 30.f;
-static const float HANDLE_CAP = 28.f; // room at the top of the bar for the chevron
+/** Columns the bar currently needs, and how wide that makes it. The holes keep
+their size when they run out of height -- shrinking them would be the wrong
+trade on a touch screen -- so the bar grows sideways instead. */
+static int barColumns() {
+	int per = holesPerColumn();
+	return (visibleHoles() + per - 1) / per;
+}
+
+static float barWidth() { return BAR_W * barColumns(); }
 
 /** Vertical centre of hole `i`, in screen units. The resting holes are centred
 on the screen, so the bar stays centred whatever the count; the drag spare (when
@@ -169,15 +208,26 @@ only happens when the bar would otherwise run under the card, so in portrait
 with a few holes nothing shifts at all. */
 static float holeY(int i) {
 	float h = APP->scene ? APP->scene->box.size.y : 800.f;
+	int per = holesPerColumn();
+	// Rows, not holes: a second column starts at the top again, so what the
+	// layout centres on is the length of the longest column.
 	int n = restingHoles();
+	if (n > per) n = per;
 	float first = h * 0.5f - (n - 1) * HOLE_GAP * 0.5f;
 	float lowest = barTop() + HANDLE_CAP + 8.f + HOLE_GAP * 0.5f;
 	if (first < lowest)
 		first = lowest;
-	return first + i * HOLE_GAP;
+	return first + (i % per) * HOLE_GAP;
 }
 
-static float holeX() { return barLeft() + BAR_W * 0.5f; }
+/** Horizontal centre of hole `i`: the second column sits one bar-width right of
+the first, so the holes stay on the same grid the eye already learned. */
+static float holeX(int i) {
+	return barLeft() + BAR_W * 0.5f + (i / holesPerColumn()) * BAR_W;
+}
+
+/** The handle stays over the first column whatever the bar does. */
+static float handleX() { return barLeft() + BAR_W * 0.5f; }
 
 static float handleY() {
 	return holeY(0) - HOLE_GAP * 0.5f - 8.f - HANDLE_CAP * 0.5f;
@@ -323,19 +373,22 @@ struct CableParkBar : widget::Widget {
 		// Collapsed: nothing but the handle pill remains, its chevron pointing
 		// out ("›") so it reads as "pull the bar back out".
 		if (g_collapsed) {
-			drawPill(args.vg, holeX(), handleY());
-			drawChevron(args.vg, holeX(), handleY(), false);
+			drawPill(args.vg, handleX(), handleY());
+			drawChevron(args.vg, handleX(), handleY(), false);
 			return;
 		}
 
 		int holes = visibleHoles();
 		// Bar body: same smoked-glass slab as the Kotlin surfaces. The top cap
 		// holds the close chevron INSIDE the bar (no protruding pill); the body
-		// grows and shrinks with the visible holes below it.
+		// grows and shrinks with the visible holes below it. Its height is the
+		// LONGEST column, not the last hole: a second column starts at the top
+		// again, so measuring to hole n-1 would cut the slab short.
+		int rows = holes < holesPerColumn() ? holes : holesPerColumn();
 		float top = holeY(0) - HOLE_GAP * 0.5f - 8.f - HANDLE_CAP;
-		float height = holeY(holes - 1) + HOLE_GAP * 0.5f + 10.f - top;
+		float height = holeY(rows - 1) + HOLE_GAP * 0.5f + 10.f - top;
 		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, barLeft() + 4.f, top, BAR_W - 8.f, height, 16.f);
+		nvgRoundedRect(args.vg, barLeft() + 4.f, top, barWidth() - 8.f, height, 16.f);
 		nvgFillColor(args.vg, nvgRGBA(0x1B, 0x18, 0x13, 0xE0));
 		nvgFill(args.vg);
 		nvgStrokeColor(args.vg, nvgRGBA(0xFF, 0xFF, 0xFF, 0x18));
@@ -345,16 +398,16 @@ struct CableParkBar : widget::Widget {
 		// Close chevron, inside the cap, pointing in ("‹") to tuck the bar away.
 		// A hairline below it separates the handle from the holes. Tap handled
 		// in the touch layer.
-		drawChevron(args.vg, holeX(), handleY(), true);
+		drawChevron(args.vg, handleX(), handleY(), true);
 		nvgBeginPath(args.vg);
 		nvgMoveTo(args.vg, barLeft() + 12.f, handleY() + HANDLE_CAP * 0.5f - 1.f);
-		nvgLineTo(args.vg, barLeft() + BAR_W - 12.f, handleY() + HANDLE_CAP * 0.5f - 1.f);
+		nvgLineTo(args.vg, barLeft() + barWidth() - 12.f, handleY() + HANDLE_CAP * 0.5f - 1.f);
 		nvgStrokeColor(args.vg, nvgRGBA(0xFF, 0xFF, 0xFF, 0x12));
 		nvgStrokeWidth(args.vg, 1.f);
 		nvgStroke(args.vg);
 
 		for (int i = 0; i < holes; i++) {
-			float cx = holeX(), cy = holeY(i);
+			float cx = holeX(i), cy = holeY(i);
 			// Jack: dark bore with a metal ring, mirroring the panel art so the
 			// holes read as sockets rather than as buttons.
 			nvgBeginPath(args.vg);
@@ -400,7 +453,7 @@ struct CableParkBar : widget::Widget {
 			// second cable branching from the hole.
 			if (!g_slots[i].filled() || i == g_dragSlot)
 				continue;
-			float cx = holeX(), cy = holeY(i);
+			float cx = holeX(i), cy = holeY(i);
 			app::PortWidget* pw = resolvePort(g_slots[i]);
 			if (pw) {
 				math::Vec e = pw->getAbsoluteOffset(pw->box.size.div(2.f));
@@ -412,8 +465,17 @@ struct CableParkBar : widget::Widget {
 				nvgLineCap(args.vg, NVG_ROUND);
 				nvgStroke(args.vg);
 			}
-			// Which module and which jack is waiting here.
-			float tx = barLeft() + BAR_W + 8.f;
+			// Which module and which jack is waiting here. Only while the bar is
+			// a single column: the labels are placed by their hole's row, and
+			// once a second column starts the rows repeat, so two ends would
+			// write their names over each other. There is no room beside a
+			// landscape bar for ten of them stacked either -- the screen is
+			// shorter than the list. What tells the ends apart there is what
+			// told them apart all along: each keeps its colour, and the stub
+			// above is drawn live from the hole to the port it came from.
+			if (barColumns() > 1)
+				continue;
+			float tx = barLeft() + barWidth() + 8.f;
 			nvgFontFaceId(args.vg, labelFont(args));
 			nvgFillColor(args.vg, nvgRGBA(0, 0, 0, 190));
 			nvgText(args.vg, tx + 0.4f, cy - 5.f + 0.4f, g_slots[i].moduleName.c_str(), NULL);
@@ -449,7 +511,7 @@ struct CableParkBar : widget::Widget {
 			app::PortWidget* pw = resolvePort(g_slots[g_dragSlot]);
 			math::Vec start = pw
 				? pw->getAbsoluteOffset(pw->box.size.div(2.f))
-				: math::Vec(holeX(), holeY(g_dragSlot));
+				: math::Vec(holeX(g_dragSlot), holeY(g_dragSlot));
 			nvgBeginPath(args.vg);
 			nvgMoveTo(args.vg, start.x, start.y);
 			// Slack in the middle, like Rack's own cables.
@@ -497,7 +559,7 @@ state, since the handle stays put). */
 bool cableParkArrowAt(float x, float y) {
 	if (!g_visible)
 		return false;
-	float cx = holeX(), cy = handleY();
+	float cx = handleX(), cy = handleY();
 	return std::fabs(x - cx) <= PILL_W * 0.5f + 4.f &&
 		std::fabs(y - cy) <= HANDLE_CAP * 0.5f + 4.f;
 }
@@ -510,14 +572,14 @@ void cableParkToggleCollapsed() {
 
 
 int cableParkSlotAt(float x, float y) {
-	if (!g_visible || g_collapsed || x > barLeft() + BAR_W)
+	if (!g_visible || g_collapsed || x > barLeft() + barWidth())
 		return -1;
 	// Only the holes currently on screen are droppable; the spare that appears
 	// while parking is included by visibleHoles() so it can be dropped onto.
 	int holes = visibleHoles();
 	for (int i = 0; i < holes; i++) {
 		float dy = y - holeY(i);
-		float dx = x - holeX();
+		float dx = x - holeX(i);
 		// Generous radius: fingers are not mouse pointers.
 		if (dx * dx + dy * dy <= (HOLE_R + 12.f) * (HOLE_R + 12.f))
 			return i;
@@ -706,7 +768,7 @@ void cableParkSetTopInsetPx(float px) {
 }
 
 
-float cableParkLeftInset() { return barLeft(); }
+float cableParkRightEdge() { return barLeft() + barWidth(); }
 
 
 void cableParkPublishBounds() {
@@ -719,7 +781,7 @@ void cableParkPublishBounds() {
 	}
 	float x, y, w, h;
 	if (g_collapsed) {
-		x = holeX() - PILL_W * 0.5f;
+		x = handleX() - PILL_W * 0.5f;
 		y = handleY() - PILL_H * 0.5f;
 		w = PILL_W;
 		h = PILL_H;
@@ -732,11 +794,12 @@ void cableParkPublishBounds() {
 		}
 		// Same geometry the draw pass uses, so a spotlight over the bar lands
 		// on exactly what is on screen.
+		int rows = holes < holesPerColumn() ? holes : holesPerColumn();
 		float top = holeY(0) - HOLE_GAP * 0.5f - 8.f - HANDLE_CAP;
 		x = barLeft() + 4.f;
 		y = top;
-		w = BAR_W - 8.f;
-		h = holeY(holes - 1) + HOLE_GAP * 0.5f + 10.f - top;
+		w = barWidth() - 8.f;
+		h = holeY(rows - 1) + HOLE_GAP * 0.5f + 10.f - top;
 	}
 	float ratio = APP && APP->window ? APP->window->pixelRatio : 1.f;
 	g_boundsPx[0].store((int) (x * ratio), std::memory_order_relaxed);

@@ -28,9 +28,15 @@ static const float CABLE_PARK_SNAP_JACKS = 2.2f;
 out the rack is zoomed. */
 static const float CABLE_PARK_SNAP_MIN = 10.f;
 
-/** Width of the bar, in screen units. Shared so the touch layer can tell "over
-the bar" (a cancel / a drop target) from "in the rack void" (a discard). */
+/** Width of ONE column of the bar, in screen units. */
 static const float CABLE_PARK_BAR_W = 46.f;
+
+/** Right edge of the bar as it stands, in screen units, cutout inset included.
+Shared so the touch layer can tell "over the bar" (a cancel / a drop target)
+from "in the rack void" (a discard). Not a constant: a landscape screen has no
+room for ten holes in a column, so past the fourth the bar takes a second one
+and gets wider. Render thread only -- it reads pixelRatio and the scene. */
+float cableParkRightEdge();
 
 /** How far in from the left edge of the window the bar has to start, in screen
 units. Zero everywhere except under a display cutout: the window draws under
@@ -46,10 +52,6 @@ bar's top cap -- the collapse handle -- slid underneath it and could not be
 tapped. The bar is pushed down only when it would otherwise start above this;
 where there is room to centre, nothing moves. */
 void cableParkSetTopInsetPx(float px);
-
-/** The same inset in screen units, for the touch layer's "over the bar" test.
-Render thread only -- it reads pixelRatio. */
-float cableParkLeftInset();
 
 /** Adds the bar widget to the scene. Call once, after the Scene exists. */
 void installCableParkBar();
