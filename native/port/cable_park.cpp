@@ -159,21 +159,33 @@ static int holesPerColumn() {
 	return n;
 }
 
+static int columnsFor(int holes) {
+	int per = holesPerColumn();
+	return (holes + per - 1) / per;
+}
+
 /** Columns the bar rests at, before any drag spare. Kept apart from
 barColumns() because the spare depends on the cable being over the bar, and
 "over the bar" depends on how wide the bar is -- asking barColumns() there would
 be a question answering itself. */
-static int restingColumns() {
-	int per = holesPerColumn();
-	return (restingHoles() + per - 1) / per;
-}
+static int restingColumns() { return columnsFor(restingHoles()); }
 
 /** True when a parkable cable is being dragged AND its end is over the bar. The
 spare hole is an invitation to drop right here, so it should only appear once the
-user brings the cable onto the bar -- not every time any cable moves anywhere. */
+user brings the cable onto the bar -- not every time any cable moves anywhere.
+
+Measured against the width the bar would have WITH the spare, not the width it
+has now. When the resting holes fill the last column exactly, the spare opens a
+new one -- and reaching for it took the cable past the old right edge, which
+turned the spare off, which took the column away again. The hole flickered out
+from under the finger and the drop landed on nothing. */
 static bool parkableOverBar() {
-	return parkableCableInFlight() &&
-		g_inflightX <= barLeft() + BAR_W * restingColumns();
+	if (!parkableCableInFlight())
+		return false;
+	int n = restingHoles();
+	if (n < MAX_SLOTS)
+		n++;
+	return g_inflightX <= barLeft() + BAR_W * columnsFor(n);
 }
 
 /** How many holes to show right now: the resting count, plus one spare (up to
@@ -473,9 +485,12 @@ struct CableParkBar : widget::Widget {
 			// shorter than the list. What tells the ends apart there is what
 			// told them apart all along: each keeps its colour, and the stub
 			// above is drawn live from the hole to the port it came from.
-			if (barColumns() > 1)
+			if (restingColumns() > 1)
 				continue;
-			float tx = barLeft() + barWidth() + 8.f;
+			// Off the RESTING width, not the current one: a drag spare can open
+			// a second column for a moment, and the labels sliding right and
+			// back as the finger passes over the bar is pure noise.
+			float tx = barLeft() + BAR_W + 8.f;
 			nvgFontFaceId(args.vg, labelFont(args));
 			nvgFillColor(args.vg, nvgRGBA(0, 0, 0, 190));
 			nvgText(args.vg, tx + 0.4f, cy - 5.f + 0.4f, g_slots[i].moduleName.c_str(), NULL);
