@@ -154,8 +154,10 @@ Manual checks still required on at least one phone:
   of the camera; the park bar taking a second column past the fourth hole, with
   a fifth end parked into it and dragged back out; the module palette rebuilt
   at the right size after a rotation; and File ▸ New naming the template it
-  loads. Verified in Italian after the interface language began following the
-  device. Not covered: audio quality (see the Surface entry), MIDI, long
+  loads. The interface language was exercised in all directions: it follows the
+  device on first run, Help ▸ Language restarts the app by itself, and both
+  halves of the app change together -- checked Italian to English and Italian to
+  German and back, with the restart prompt naming RackDroid rather than Rack. Not covered: audio quality (see the Surface entry), MIDI, long
   sessions, and any device whose screen is not this shape.
 
 - 2026-07-27 — Microsoft Surface Go 2, BlissOS 16.9.7, Android 13 / API 33,
