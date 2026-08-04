@@ -234,6 +234,30 @@ class ModulePalette(
 	fun unfoldForTour() {
 		val want = foldedChip ?: return
 		foldedChip = null
+		reopenChip(want)
+	}
+
+	/** Rebuild the bar for a new screen orientation. EVERY size it has is
+	 * decided while show() runs -- the tile height, the thumbnail the cache is
+	 * asked for, how far up from the bottom edge the window sits -- and a
+	 * rotation runs none of it. Left alone, a bar opened in portrait keeps
+	 * portrait tiles in landscape, where they are tall enough to cover half the
+	 * rack and hide two of the cable park bar's three holes behind them.
+	 *
+	 * Rebuilding is what show() already does, so this is the cheap fix rather
+	 * than a second set of measurements to keep in step with the first. The one
+	 * thing worth carrying across is the category that was open -- the same
+	 * thing the tour's fold/unfold pair takes care to preserve. */
+	fun relayoutForOrientation() {
+		if (popup == null) return
+		val want = activeChip?.text?.toString()
+		hide()
+		show()
+		if (want != null) reopenChip(want)
+	}
+
+	/** Click the chip with this label once the bar it belongs to exists. */
+	private fun reopenChip(want: String) {
 		chipRow.post {
 			runCatching {
 				val chip = (0 until chipRow.childCount)

@@ -8,14 +8,33 @@
 #include <string>
 
 #include <osdialog.h>
+#include <string.hpp>
 
 #include "jni_bridge.hpp"
+
+
+/** Rack asks "clear it and start a new patch?" before File > New, and then
+ * loads the TEMPLATE -- which is a patch with modules and cables in it, not an
+ * empty rack. The promise and the result do not match, and the first thing a
+ * new user does with a menu is press the first item in it.
+ *
+ * The behaviour is right and is left alone: the same template is what a first
+ * launch opens, and File > Overwrite template exists precisely to choose it.
+ * So the sentence is what gets fixed. Matched against translate() rather than
+ * against an English literal, so it still catches the prompt in any language,
+ * and handed to Java as a marker because that is the side with the strings --
+ * the same trick the menu bridge already uses for the rows we add ourselves. */
+static const char* NEW_PATCH_MARKER = "@rackdroid:new_patch_confirm";
 
 
 extern "C" {
 
 int osdialog_message(osdialog_message_level level, osdialog_message_buttons buttons, const char* message) {
-	return rackdroid::dialogMessage(level, buttons, message ? message : "");
+	std::string text = message ? message : "";
+	std::string newPatch = rack::string::translate("patch.loadTemplateConfirm");
+	if (!newPatch.empty() && text == newPatch)
+		text = NEW_PATCH_MARKER;
+	return rackdroid::dialogMessage(level, buttons, text);
 }
 
 char* osdialog_prompt(osdialog_message_level level, const char* message, const char* text) {

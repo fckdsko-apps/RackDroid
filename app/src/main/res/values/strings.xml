@@ -46,6 +46,8 @@
 	<string name="toolbar_info">Information and licenses</string>
 	<string name="toolbar_record">Record master output</string>
 	<string name="toolbar_lock_layout">Lock module layout and cables</string>
+	<!-- File > New loads the template patch, not an empty rack; say so. -->
+	<string name="patch_new_confirm">The current patch is unsaved. Replace it with a new one built from your template?</string>
 	<string name="toolbar_lock_all">Lock all controls</string>
 	<string name="toolbar_collapse">Collapse toolbar</string>
 	<string name="toolbar_expand">Expand toolbar</string>

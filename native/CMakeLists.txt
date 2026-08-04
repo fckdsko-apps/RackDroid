@@ -182,7 +182,12 @@ if(ANDROID)
 	add_library(osdialog STATIC
 		${RACK_DIR}/dep/osdialog/osdialog.c
 		${CMAKE_CURRENT_SOURCE_DIR}/port/osdialog_android.cpp)
-	target_include_directories(osdialog PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/port)
+	# Rack's own headers too: the backend compares a prompt against
+	# string::translate() so it can recognise one of them in any language.
+	target_include_directories(osdialog PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/port
+		${RACK_DIR}/include
+		${RACK_DIR}/dep/include)
 else()
 	add_library(osdialog STATIC
 		${RACK_DIR}/dep/osdialog/osdialog.c

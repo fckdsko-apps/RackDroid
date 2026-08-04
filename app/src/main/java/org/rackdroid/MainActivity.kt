@@ -400,6 +400,9 @@ class MainActivity : NativeActivity() {
 	override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
 		super.onConfigurationChanged(newConfig)
 		uiHandler.post { runCatching { applyToolbarDensity() } }
+		// The palette needs the same treatment, and for the same reason: its
+		// sizes are all fixed when it opens.
+		uiHandler.post { runCatching { modulePalette.relayoutForOrientation() } }
 		// The insets are not always right on the first pass after a rotation --
 		// the window is resized before the cutout follows it round -- and a
 		// stale one leaves the park bar under the camera until something else
@@ -1593,8 +1596,13 @@ class MainActivity : NativeActivity() {
 		uiHandler.post {
 			var answered = false
 			fun answer(r: Int) { if (!answered) { answered = true; nativeDialogInt(r) } }
+			// The port layer replaces prompts whose wording does not survive the
+			// trip to Android with a marker; the text lives here, where it is
+			// translated. See NEW_PATCH_MARKER in osdialog_android.cpp.
+			val text = if (message == "@rackdroid:new_patch_confirm")
+				getString(R.string.patch_new_confirm) else message
 			val b = AlertDialog.Builder(this)
-				.setMessage(message)
+				.setMessage(text)
 				.setCancelable(false)
 			val positive = if (buttons == 2) getString(android.R.string.yes) else getString(android.R.string.ok)
 			b.setPositiveButton(positive) { _, _ -> answer(1) }
