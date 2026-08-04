@@ -19,7 +19,49 @@ plugins {
 // Rack's system assets (res/, Core.json, template.vcv) are packed into a
 // single zip because AAssetDir cannot enumerate subdirectories at runtime.
 // native/port/asset_extract.cpp unpacks it on first launch.
+// A handful of Rack's translated messages name the application, and they spell
+// it out rather than going through APP_NAME -- so the rebrand in
+// main_android.cpp, which does reach every other mention, cannot touch them.
+// The one a RackDroid user actually meets is the restart prompt after changing
+// language, which spoke of "Rack" in an app called RackDroid.
+//
+// Upstream stays untouched: the JSONs are rewritten into build/ on the way into
+// the asset zip, the same shape of trick as the string(REPLACE) rules in
+// native/CMakeLists.txt. Keyed by entry name, not by searching for the word --
+// "Requires Rack 2.6+" really does mean upstream Rack, and TipWindow's mentions
+// of the VCV Library and the Rack SDK are other people's product names.
+val rebrandTranslations = tasks.register("rebrandTranslations") {
+	val src = rootProject.file("third_party/Rack/translations")
+	val out = layout.buildDirectory.dir("rebranded-translations")
+	inputs.dir(src)
+	outputs.dir(out)
+	doLast {
+		val keys = listOf(
+			"MenuBar.help.language.restart",
+			"MenuBar.help.language.restartDaw",
+			"MenuBar.library.restart")
+		val dir = out.get().asFile
+		dir.mkdirs()
+		src.listFiles { f -> f.name.endsWith(".json") }?.forEach { f ->
+			var text = f.readText(Charsets.UTF_8)
+			for (key in keys) {
+				// Rewrite only this entry's value, and only whole words, so
+				// "RackDroid" written twice is impossible and neighbouring
+				// entries are never touched.
+				val entry = Regex("(\"" + Regex.escape(key) + "\"\\s*:\\s*\")((?:[^\"\\\\]|\\\\.)*)(\")")
+				text = entry.replace(text) { m ->
+					m.groupValues[1] +
+						m.groupValues[2].replace(Regex("\\bRack\\b"), "RackDroid") +
+						m.groupValues[3]
+				}
+			}
+			File(dir, f.name).writeText(text, Charsets.UTF_8)
+		}
+	}
+}
+
 val packSystemAssets = tasks.register<Zip>("packSystemAssets") {
+	dependsOn(rebrandTranslations)
 	// Later entries win: original RackDroid graphics (graphics/, GPLv3)
 	// override VCV's non-commercial ComponentLibrary + Core + Fundamental
 	// panel SVGs so the app is commercially distributable. Upstream res is
@@ -30,10 +72,12 @@ val packSystemAssets = tasks.register<Zip>("packSystemAssets") {
 		exclude("res/ComponentLibrary/**")
 		exclude("res/Core/**")
 		exclude("res/icon.png") // VCV logo (trademark) — not shipped
-		include("translations/**")
 		include("Core.json")
 		include("template.vcv")
 		include("LICENSE-GPLv3.txt")
+	}
+	from(rebrandTranslations.map { it.outputs.files.singleFile }) {
+		into("translations")
 	}
 	from(rootProject.file("graphics/system-res")) {
 		into("res")
