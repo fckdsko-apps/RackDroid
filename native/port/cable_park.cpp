@@ -56,14 +56,16 @@ static const int MIN_HOLES = 3;
 static const float BAR_W = CABLE_PARK_BAR_W;
 // Set from Java in pixels; read here in screen units. See cable_park.hpp.
 static std::atomic<float> g_leftInsetPx{0.f};
-static float barLeft() {
-	float px = g_leftInsetPx.load(std::memory_order_relaxed);
+static std::atomic<float> g_topInsetPx{0.f};
+static float toUnits(float px) {
 	if (px <= 0.f)
 		return 0.f;
 	float ratio = APP && APP->window && APP->window->pixelRatio > 0.f
 		? APP->window->pixelRatio : 1.f;
 	return px / ratio;
 }
+static float barLeft() { return toUnits(g_leftInsetPx.load(std::memory_order_relaxed)); }
+static float barTop() { return toUnits(g_topInsetPx.load(std::memory_order_relaxed)); }
 static const float HOLE_R = 13.f;
 static const float HOLE_GAP = 46.f;
 
@@ -148,24 +150,35 @@ static int visibleHoles() {
 	return n;
 }
 
-/** Vertical centre of hole `i`, in screen units. The resting holes are centred
-on the screen, so the bar stays centred whatever the count; the drag spare (when
-present) hangs just below them. */
-static float holeY(int i) {
-	float h = APP->scene ? APP->scene->box.size.y : 800.f;
-	int n = restingHoles();
-	float first = h * 0.5f - (n - 1) * HOLE_GAP * 0.5f;
-	return first + i * HOLE_GAP;
-}
-
-static float holeX() { return barLeft() + BAR_W * 0.5f; }
-
 // The collapse/expand handle. Expanded, its chevron sits INSIDE the bar at the
 // top (a cap above hole 0). Collapsed, only a glass pill with the chevron
 // remains, at the same spot so it never jumps.
 static const float PILL_W = 38.f;
 static const float PILL_H = 30.f;
 static const float HANDLE_CAP = 28.f; // room at the top of the bar for the chevron
+
+/** Vertical centre of hole `i`, in screen units. The resting holes are centred
+on the screen, so the bar stays centred whatever the count; the drag spare (when
+present) hangs just below them.
+
+Centred, but never above the toolbar's bottom edge: in landscape the card takes
+nearly a third of the screen, and a centred bar put its top cap -- the collapse
+handle -- underneath it, where the tap lands on the card instead. Pushing the
+whole bar down to clear it is the only move that keeps every hole reachable; it
+only happens when the bar would otherwise run under the card, so in portrait
+with a few holes nothing shifts at all. */
+static float holeY(int i) {
+	float h = APP->scene ? APP->scene->box.size.y : 800.f;
+	int n = restingHoles();
+	float first = h * 0.5f - (n - 1) * HOLE_GAP * 0.5f;
+	float lowest = barTop() + HANDLE_CAP + 8.f + HOLE_GAP * 0.5f;
+	if (first < lowest)
+		first = lowest;
+	return first + i * HOLE_GAP;
+}
+
+static float holeX() { return barLeft() + BAR_W * 0.5f; }
+
 static float handleY() {
 	return holeY(0) - HOLE_GAP * 0.5f - 8.f - HANDLE_CAP * 0.5f;
 }
@@ -688,6 +701,11 @@ void cableParkSetLeftInsetPx(float px) {
 }
 
 
+void cableParkSetTopInsetPx(float px) {
+	g_topInsetPx.store(px > 0.f ? px : 0.f, std::memory_order_relaxed);
+}
+
+
 float cableParkLeftInset() { return barLeft(); }
 
 
@@ -753,6 +771,14 @@ Java_org_rackdroid_MainActivity_nativeSetCableParkVisible(JNIEnv*, jobject, jboo
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeCableParkLeftInset(JNIEnv*, jobject, jint px) {
 	rackdroid::cableParkSetLeftInsetPx((float) px);
+}
+
+/** Bottom edge of the toolbar card, so the bar can keep its collapse handle out
+ * from under it. Republished whenever the card is laid out -- collapsing it
+ * gives the bar the room back. */
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeCableParkTopInset(JNIEnv*, jobject, jint px) {
+	rackdroid::cableParkSetTopInsetPx((float) px);
 }
 
 /** The bar's on-screen rectangle as {left, top, right, bottom} window pixels,

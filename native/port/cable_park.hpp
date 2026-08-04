@@ -40,6 +40,13 @@ middle jack. Set it in PIXELS from Java (the only side that knows the inset);
 the conversion happens on the render thread, where pixelRatio is readable. */
 void cableParkSetLeftInsetPx(float px);
 
+/** How far down the toolbar card reaches, in pixels. The bar centres itself on
+the screen, and in landscape the card takes nearly a third of the height, so the
+bar's top cap -- the collapse handle -- slid underneath it and could not be
+tapped. The bar is pushed down only when it would otherwise start above this;
+where there is room to centre, nothing moves. */
+void cableParkSetTopInsetPx(float px);
+
 /** The same inset in screen units, for the touch layer's "over the bar" test.
 Render thread only -- it reads pixelRatio. */
 float cableParkLeftInset();

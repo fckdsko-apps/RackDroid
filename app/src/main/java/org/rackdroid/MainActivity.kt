@@ -423,6 +423,18 @@ class MainActivity : NativeActivity() {
 		runCatching { nativeCableParkLeftInset(left) }
 	}
 
+	/** And how far down the toolbar card reaches, for the same reason: the park
+	 * bar centres itself on the screen, and in landscape the card is tall enough
+	 * that the bar's collapse handle ended up behind it. Driven off the card's
+	 * own layout, so collapsing the toolbar hands the room straight back. */
+	private fun publishToolbarBottomToNative() {
+		val h = toolbarHolder ?: return
+		if (h.height <= 0) return
+		val loc = IntArray(2)
+		h.getLocationOnScreen(loc)
+		runCatching { nativeCableParkTopInset(loc[1] + h.height) }
+	}
+
 	private fun applyToolbarDensity() {
 		publishCutoutToNative()
 		val land = resources.configuration.orientation ==
@@ -706,6 +718,11 @@ class MainActivity : NativeActivity() {
 			addView(card)
 		}
 		toolbarHolder = holder
+		// Every time the card is measured -- first layout, collapse, expand,
+		// rotation -- tell the render thread where its bottom edge ended up.
+		holder.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+			publishToolbarBottomToNative()
+		}
 		// The padding lives in applyToolbarDensity, which is also what a
 		// rotation calls; run it once here or the first layout has none.
 		applyToolbarDensity()
@@ -1535,6 +1552,7 @@ class MainActivity : NativeActivity() {
 			// again, so the park bar stayed under the camera until the first
 			// rotation. Focus arrives after the window is really laid out.
 			publishCutoutToNative()
+			publishToolbarBottomToNative()
 		}
 	}
 
@@ -2137,6 +2155,7 @@ class MainActivity : NativeActivity() {
 	private external fun nativeSelectionCount(): Int
 	private external fun nativeCableParkBounds(): IntArray?
 	private external fun nativeCableParkLeftInset(px: Int)
+	private external fun nativeCableParkTopInset(px: Int)
 	private external fun nativeTourDemo(what: Int)
 	private external fun nativeTourStage(x: Int, y: Int, w: Int, h: Int)
 	private external fun nativeRackModuleCount(): Int
