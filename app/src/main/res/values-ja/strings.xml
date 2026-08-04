@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the strings RackDroid replaces in Rack's own dialogs live
+     here; everything else falls back to values/ as before. -->
+<resources>
+	<string name="patch_new_confirm">現在のパッチは保存されていません。テンプレートから新しいパッチを作成して置き換えますか？</string>
+</resources>

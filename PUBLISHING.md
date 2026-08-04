@@ -144,6 +144,20 @@ Manual checks still required on at least one phone:
   Audio/MIDI and `.rdmod` interaction checks remain manual and are not implied
   by this automated smoke result.
 
+- 2026-08-03/04 — Samsung SM-S901E, Android 15 / API 35: the 0.1.2.1 landscape
+  and tour work, checked by hand on hardware rather than by script. Exercised
+  and observed: `all_rdmods.zip` installed as it comes (21 packs, 1004 models);
+  the whole 20-step interface tour in both orientations, including the cable
+  step seating its cable in the jack and leaving the rack exactly as it was;
+  the toolbar flush to the top edge in landscape and surviving a rotation; the
+  rack reaching under the display cutout with the cable park bar pushed clear
+  of the camera; the park bar taking a second column past the fourth hole, with
+  a fifth end parked into it and dragged back out; the module palette rebuilt
+  at the right size after a rotation; and File ▸ New naming the template it
+  loads. Verified in Italian after the interface language began following the
+  device. Not covered: audio quality (see the Surface entry), MIDI, long
+  sessions, and any device whose screen is not this shape.
+
 - 2026-07-27 — Microsoft Surface Go 2, BlissOS 16.9.7, Android 13 / API 33,
   x86_64: development-signed 0.1.2 APK installed over the previous build.
   Audio checked the only way audio can be checked, by listening: the patch
@@ -158,7 +172,9 @@ Manual checks still required on at least one phone:
 ### Recorded build checks
 
 - Linux host smoke loaded Core, both base plugins and all 21 optional plugins,
-  then instantiated and rendered 1004 registered models successfully.
+  then instantiated and rendered 1004 registered models successfully. Re-run on
+  2026-08-04 after the 0.1.2.1 port-layer changes (tour demonstrations, cable
+  park bar, touch layer): same result, 1004.
 - Development-signed arm64 APK and AAB built successfully. The APK/AAB payload
   contains only Fundamental and RackDroid Drums; optional libraries remain out
   of the base application.

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the strings RackDroid replaces in Rack's own dialogs live
+     here; everything else falls back to values/ as before. -->
+<resources>
+	<string name="patch_new_confirm">El parche actual no está guardado. ¿Sustituirlo por uno nuevo creado a partir de tu plantilla?</string>
+</resources>

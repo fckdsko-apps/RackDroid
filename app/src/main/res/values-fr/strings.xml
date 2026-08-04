@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the strings RackDroid replaces in Rack's own dialogs live
+     here; everything else falls back to values/ as before. -->
+<resources>
+	<string name="patch_new_confirm">Le patch actuel n\'est pas enregistré. Souhaitez-vous le remplacer par un nouveau patch créé à partir du patch par défaut ?</string>
+</resources>

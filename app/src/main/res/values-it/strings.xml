@@ -42,7 +42,7 @@
 	<string name="toolbar_info">Informazioni e licenze</string>
 	<string name="toolbar_record">Registra l’uscita master</string>
 	<string name="toolbar_lock_layout">Blocca posizione dei moduli e cavi</string>
-	<string name="patch_new_confirm">La patch corrente non è salvata. Vuoi sostituirla con una nuova, creata dal tuo template?</string>
+	<string name="patch_new_confirm">La patch corrente non è salvata. Vuoi sostituirla con una nuova, creata dalla patch iniziale?</string>
 	<string name="toolbar_lock_all">Blocca tutti i controlli</string>
 	<string name="toolbar_collapse">Comprimi la barra degli strumenti</string>
 	<string name="toolbar_expand">Espandi la barra degli strumenti</string>
@@ -107,7 +107,7 @@
 	<string name="guide_s9_t">Salvare e condividere</string>
 	<string name="guide_s9_b">File ▸ Salva memorizza la patch. File ▸ Condividi patch… invia la patch corrente come file .vcv a qualsiasi app. Aprendo un file .vcv da un\'altra app lo importi.</string>
 	<string name="guide_s10_t">Annulla e lingua</string>
-	<string name="guide_s10_b">↶ e ↷ annullano e ripetono qualsiasi modifica. Aiuto ▸ Language cambia la lingua dei menu dei moduli.</string>
+	<string name="guide_s10_b">↶ e ↷ annullano e ripetono qualsiasi modifica. L\'interfaccia segue la lingua del telefono; Aiuto ▸ Language ne imposta un\'altra.</string>
 
 	<!-- Tutorial passo-passo -->
 	<string name="wizard_title">La prima patch</string>

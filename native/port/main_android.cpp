@@ -118,6 +118,44 @@ struct RackDroidApp {
 		catch (Exception& e) {
 			LOGE("settings corrupted, resetting: %s", e.what());
 		}
+		// Rack's own menus and dialogs -- File, Edit, View, every confirm --
+		// come from the translation files, which we ship for all seven
+		// languages. But settings::language starts at "en" and the only thing
+		// that ever changes it is Help > Language, buried two taps in. On an
+		// Italian phone that left the app half translated: our strings in
+		// Italian, Rack's in English, which is a mixture nobody chose.
+		//
+		// Default it from the device, once. The marker is written whatever
+		// happens -- including when the device speaks a language we do not
+		// ship -- so that Help > Language stays the last word ever after: a
+		// user who deliberately picks English must not be overruled on the
+		// next launch, and "the settings file has a language key" cannot tell
+		// us anything, since save() always writes one.
+		{
+			std::string marker = asset::user("language-defaulted");
+			// Only ever over the default. Existing installs have no marker, so
+			// without this the update would flip somebody who had gone and
+			// picked French on an English phone back to English, once.
+			if (!system::isFile(marker) && settings::language == "en") {
+				char code[3] = {0, 0, 0};
+				if (app->config)
+					AConfiguration_getLanguage(app->config, code);
+				std::string want(code);
+				for (const std::string& have : string::getLanguages()) {
+					if (have == want) {
+						settings::language = want;
+						LOGI("Interface language defaulted to '%s' from the device",
+							want.c_str());
+						break;
+					}
+				}
+				if (FILE* f = std::fopen(marker.c_str(), "w")) {
+					std::fputc('\n', f);
+					std::fclose(f);
+				}
+			}
+		}
+
 		if (rackdroid::startupSafeModeRequested()) {
 			settings::safeMode = true;
 			LOGW("Recovery startup: autosave and user plugins disabled");

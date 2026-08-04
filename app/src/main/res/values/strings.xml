@@ -112,7 +112,7 @@
 	<string name="guide_s9_t">Saving and sharing</string>
 	<string name="guide_s9_b">File ▸ Save stores your patch. File ▸ Share patch… sends the current patch as a .vcv file to any app. Opening a .vcv file from another app imports it.</string>
 	<string name="guide_s10_t">Undo and language</string>
-	<string name="guide_s10_b">↶ and ↷ undo and redo any change. Help ▸ Language changes the language of the module menus.</string>
+	<string name="guide_s10_b">↶ and ↷ undo and redo any change. The interface follows your phone\'s language; Help ▸ Language sets a different one.</string>
 
 	<!-- Step-by-step wizard -->
 	<string name="wizard_title">First patch</string>

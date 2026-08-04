@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the strings RackDroid replaces in Rack's own dialogs live
+     here; everything else falls back to values/ as before. -->
+<resources>
+	<string name="patch_new_confirm">当前工程未保存。是否用基于模板创建的新工程替换它？</string>
+</resources>
