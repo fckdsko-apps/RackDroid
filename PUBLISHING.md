@@ -201,8 +201,13 @@ Manual checks still required on at least one phone:
   rather than trusted by file name, plus `all_rdmods-x86_64.zip`. Published
   with an `-x86_64` suffix; the arm64 series keeps the bare names it already
   has, so existing links stay right (see MODULES.md).
-- The plugin sources did not change between 0.1.2 and 0.1.2.1, so 0.1.2's arm64
-  packs remain valid; they were not rebuilt.
+- 2026-08-04, reported by the maintainer: the x86_64 packs were installed and
+  used on x86_64 hardware and work. That closes the gap the ELF check could
+  not: reading a header proves the architecture, not that a single module ever
+  instantiated.
+- The plugin sources did not change between 0.1.2 and 0.1.2.1, but the arm64
+  packs attached to 0.1.2.1 were rebuilt from this tree anyway rather than
+  reused, and each archive's library was checked to be ARM aarch64.
 
 ## Pre-launch checklist
 
