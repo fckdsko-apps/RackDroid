@@ -185,6 +185,15 @@ Manual checks still required on at least one phone:
   x86_64 emulator or device.
 - All 21 `.rdmod` archives were generated from the arm64 release build and
   passed ZIP integrity, required-library and required-resource checks.
+- 2026-08-04: the x86_64 series was built for the first time — 0.1.2 published
+  an x86_64 APK but only arm64 packs, so on a Chromebook or BlissOS every
+  expansion pack was refused and the app was stuck with its 66 built-in
+  modules. All 21 built and packed, each one's ELF header checked to be x86-64
+  rather than trusted by file name, plus `all_rdmods-x86_64.zip`. Published
+  with an `-x86_64` suffix; the arm64 series keeps the bare names it already
+  has, so existing links stay right (see MODULES.md).
+- The plugin sources did not change between 0.1.2 and 0.1.2.1, so 0.1.2's arm64
+  packs remain valid; they were not rebuilt.
 
 ## Pre-launch checklist
 

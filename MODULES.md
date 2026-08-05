@@ -14,6 +14,20 @@ Visible in any file manager, no storage permission required. A `README.txt`
 is written there on first run. Drop `.rdmod` files, then restart the app —
 a toast confirms how many extra packs loaded.
 
+### Which packs to take
+
+Packs carry native code, so there is one set per architecture, and a pack for
+the wrong one is refused on install with "native library ABI is not supported
+by this device" — the installer reads the ELF header rather than trusting the
+file name. Phones and tablets are `arm64-v8a`; Chromebooks, BlissOS and
+emulators are `x86_64`. If in doubt, take the arm64 set.
+
+- **arm64-v8a** — `Bogaudio.rdmod`, `all_rdmods.zip`, plain names.
+- **x86_64** — `Bogaudio-x86_64.rdmod`, `all_rdmods-x86_64.zip`.
+
+The suffix is for the reader only: the installer takes each pack's identity
+from the `plugin.json` inside it, so a renamed file installs just the same.
+
 A zip holding several packs — `all_rdmods.zip` from the releases page — can be
 dropped here as it is. Anything with no top-level `plugin.json` but with
 `.rdmod` entries is unwrapped into this folder before the import runs, and the
