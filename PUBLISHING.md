@@ -167,9 +167,18 @@ Manual checks still required on at least one phone:
   interface tour in landscape and portrait, multi-select, and patch load/save.
   MIDI and long sessions remain untested on this machine.
 
-- The 0.1.2 release publishes six APKs — sideload and Play, each for arm64-v8a,
-  x86_64 and universal. A plain `assembleSideloadRelease` builds arm64 only;
-  the other two come from `-PtargetAbis` (see the build section).
+- Releases publish THREE APKs: sideload only, for arm64-v8a, x86_64 and
+  universal. A plain `assembleSideloadRelease` builds arm64 only; the other two
+  come from `-PtargetAbis` (see the build section).
+- Do NOT attach the Play-flavour APKs. 0.1.2 did, and its updater could not
+  tell them from the sideload ones, so a sideload install could update itself
+  into a build with no network permission and no updater -- silently ending its
+  own update path. 0.1.2.1's updater skips them, but that is the updater on the
+  NEW build; the one choosing is whatever the phone already runs. The only
+  thing that protects a phone still on 0.1.2 is the asset not being there, so
+  they were deleted from the 0.1.2 release too (2026-08-05). The Play
+  distribution reaches users through the AAB on the store, which is what it is
+  for.
 
 ### Recorded build checks
 
