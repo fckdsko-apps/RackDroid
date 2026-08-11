@@ -1132,6 +1132,21 @@ class MainActivity : NativeActivity() {
 		return name
 	}
 
+	/** Sanitizes a Storage Access Framework display name without changing its
+	 * type. `allowed` is already validated by the caller; it is used only to
+	 * choose a sensible fallback extension when a provider supplies no name. */
+	private fun safeDocumentName(raw: String?, allowed: Set<String>): String {
+		val fallback = if (allowed.isEmpty()) "imported-file" else "imported-file.${allowed.first()}"
+		val base = (raw ?: fallback).replace('\\', '/').substringAfterLast('/')
+		var name = base.filter { it.code >= 32 && it != '/' }
+			.replace(Regex("[^A-Za-z0-9._ ()+\\-]"), "_")
+			.trim().take(160)
+		if (name.isEmpty() || name == "." || name == "..") name = fallback
+		if (allowed.isNotEmpty() && name.substringAfterLast('.', "").isEmpty())
+			name += ".${allowed.first()}"
+		return name
+	}
+
 	private fun uniqueDestination(dir: File, requestedName: String): File {
 		val root = dir.canonicalFile
 		val dot = requestedName.lastIndexOf('.')
@@ -1172,6 +1187,8 @@ class MainActivity : NativeActivity() {
 	}
 
 	private val REQ_PICK_RDMOD = 4711
+	private val REQ_PICK_OSDIALOG_FILE = 4712
+	@Volatile private var pendingOsdialogExtensions: Set<String> = emptySet()
 	private var moduleManagerDialog: AlertDialog? = null
 
 	/** 📥 toolbar button: the module manager. Lists every installed .rdmod pack
@@ -1442,6 +1459,44 @@ class MainActivity : NativeActivity() {
 	@Deprecated("Deprecated in Java")
 	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
 		super.onActivityResult(requestCode, resultCode, data)
+
+		if (requestCode == REQ_PICK_OSDIALOG_FILE) {
+			val allowed = pendingOsdialogExtensions
+			pendingOsdialogExtensions = emptySet()
+			val uri = if (resultCode == RESULT_OK) data?.data else null
+			if (uri == null) {
+				nativeDialogString(null)
+				return
+			}
+			// A sample can be large and cloud-backed. Never copy it on the UI
+			// thread; the native osdialog caller is already waiting synchronously.
+			Thread {
+				try {
+					val display = queryDisplayName(uri) ?: "imported-file"
+					val normalized = display.replace('\\', '/').substringAfterLast('/')
+					if (allowed.isNotEmpty()) {
+						val selectedExt = normalized.substringAfterLast('.', "").lowercase()
+						// Some document providers expose a display name without an
+						// extension even though the MIME type is correct. Accept that and
+						// add the requested extension below; reject an explicit wrong one.
+						if (selectedExt.isNotEmpty() && selectedExt !in allowed)
+							throw IllegalArgumentException("expected ${allowed.joinToString(" or ") { ".$it" }}")
+					}
+					val safeName = safeDocumentName(normalized, allowed)
+					val dir = File(filesDir, "user/imports").apply { mkdirs() }
+					val dest = uniqueDestination(dir, safeName)
+					copyUriAtomically(uri, dest, MAX_OSDIALOG_IMPORT_BYTES)
+					nativeDialogString(dest.absolutePath)
+				} catch (e: Exception) {
+					uiHandler.post {
+						Toast.makeText(this, "Couldn't import file: ${e.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
+					}
+					nativeDialogString(null)
+				}
+			}.start()
+			return
+		}
+
 		if (requestCode != REQ_PICK_RDMOD || resultCode != RESULT_OK || data == null) return
 		val uris = ArrayList<Uri>()
 		data.clipData?.let { clip -> for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri) }
@@ -1685,26 +1740,43 @@ class MainActivity : NativeActivity() {
 		}
 	}
 
-	/** save=false: single-choice list of .vcv files in dir. save=true: filename prompt. */
-	fun dialogFileAsync(save: Boolean, dir: String, filename: String) {
-		if (save) {
+	/** Android backend for osdialog_file(). Rack's own private .vcv browser is
+	 * intentionally preserved. Other OPEN requests use ACTION_OPEN_DOCUMENT so
+	 * plugins can browse Downloads, Music, SD cards, Drive, etc. without broad
+	 * storage permission or root. The selected document is copied into
+	 * user/imports and the plugin receives that ordinary absolute path. */
+	fun dialogFileAsync(action: Int, dir: String, filename: String, extensionsCsv: String) {
+		val extensions = extensionsCsv.split(',')
+			.map { it.trim().trimStart('*', '.').lowercase() }
+			.filter { it.isNotEmpty() }
+			.toSet()
+
+		// OSDIALOG_SAVE = 2. Preserve RackDroid's existing private-file save
+		// behavior, but use the requested extension instead of forcing .vcv.
+		if (action == 2) {
 			uiHandler.post {
+				val preferredExt = extensions.firstOrNull()?.let { ".$it" } ?: ""
+				val fallbackName = if (preferredExt.isEmpty()) "file" else "file$preferredExt"
 				val edit = EditText(this)
 				edit.inputType = InputType.TYPE_CLASS_TEXT
-				edit.setText(filename.ifEmpty { "patch.vcv" })
+				edit.setText(filename.ifEmpty { fallbackName })
 				edit.setSelectAllOnFocus(true)
 				var answered = false
 				AlertDialog.Builder(this)
-					.setTitle("Save patch")
+					.setTitle("Save file")
 					.setView(edit)
 					.setPositiveButton(android.R.string.ok) { _, _ ->
 						answered = true
-						var name = edit.text.toString()
+						var name = edit.text.toString().trim()
 						if (name.isEmpty()) {
 							nativeDialogString(null)
 						} else {
-							if (!name.endsWith(".vcv")) name += ".vcv"
-							nativeDialogString(File(dir, name).absolutePath)
+							if (extensions.isNotEmpty() && extensions.none { name.endsWith(".$it", ignoreCase = true) })
+								name += preferredExt
+							val targetDir = File(dir).takeIf { dir.isNotEmpty() && it.isDirectory }
+								?: File(filesDir, "user/exports").apply { mkdirs() }
+							val safeName = safeDocumentName(name, extensions)
+							nativeDialogString(File(targetDir, safeName).absolutePath)
 						}
 					}
 					.setNegativeButton(android.R.string.cancel) { _, _ ->
@@ -1717,32 +1789,76 @@ class MainActivity : NativeActivity() {
 			return
 		}
 
-		val files = File(dir).listFiles { f -> f.isFile && f.name.endsWith(".vcv") }
-			?.sortedBy { it.name } ?: emptyList()
-		if (files.isEmpty()) {
-			uiHandler.post {
-				android.widget.Toast.makeText(this, getString(R.string.toast_no_patches, dir), android.widget.Toast.LENGTH_SHORT).show()
-			}
+		// OSDIALOG_OPEN_DIR = 1. A SAF tree is a URI, not a POSIX directory,
+		// so handing it to an unmodified Rack plugin would be dishonest. Keep
+		// directory selection unsupported until there is a directory bridge.
+		if (action == 1) {
 			nativeDialogString(null)
 			return
 		}
-		uiHandler.post {
-			var answered = false
-			val dialog = AlertDialog.Builder(this)
-				.setTitle("Open patch  (long-press to share)")
-				.setItems(files.map { it.name }.toTypedArray()) { _, which ->
-					answered = true; nativeDialogString(files[which].absolutePath)
+
+		// Keep Rack's File > Open patch browser exactly as it was. This is the
+		// only .vcv-only OPEN path in Rack core and avoids changing patch UX.
+		val privatePatchDir = File(filesDir, "user/patches").canonicalFile
+		val requestedDir = runCatching { File(dir).canonicalFile }.getOrNull()
+		val isPrivatePatchOpen = extensions == setOf("vcv") && requestedDir != null &&
+			(requestedDir == privatePatchDir || requestedDir.path.startsWith(privatePatchDir.path + File.separator))
+		if (isPrivatePatchOpen) {
+			val files = File(dir).listFiles { f -> f.isFile && f.name.endsWith(".vcv", ignoreCase = true) }
+				?.sortedBy { it.name } ?: emptyList()
+			if (files.isEmpty()) {
+				uiHandler.post {
+					Toast.makeText(this, getString(R.string.toast_no_patches, dir), Toast.LENGTH_SHORT).show()
 				}
-				.setNegativeButton(android.R.string.cancel) { _, _ ->
-					answered = true; nativeDialogString(null)
-				}
-				.setOnDismissListener { if (!answered) { answered = true; nativeDialogString(null) } }
-				.create()
-			dialog.show()
-			dialog.listView?.setOnItemLongClickListener { _, _, position, _ ->
-				sharePatch(files[position])
-				true
+				nativeDialogString(null)
+				return
 			}
+			uiHandler.post {
+				var answered = false
+				val dialog = AlertDialog.Builder(this)
+					.setTitle("Open patch  (long-press to share)")
+					.setItems(files.map { it.name }.toTypedArray()) { _, which ->
+						answered = true; nativeDialogString(files[which].absolutePath)
+					}
+					.setNegativeButton(android.R.string.cancel) { _, _ ->
+						answered = true; nativeDialogString(null)
+					}
+					.setOnDismissListener { if (!answered) { answered = true; nativeDialogString(null) } }
+					.create()
+				dialog.show()
+				dialog.listView?.setOnItemLongClickListener { _, _, position, _ ->
+					sharePatch(files[position])
+					true
+				}
+			}
+			return
+		}
+
+		pendingOsdialogExtensions = extensions
+		uiHandler.post {
+			val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+				addCategory(Intent.CATEGORY_OPENABLE)
+				type = pickerMimeType(extensions)
+			}
+			try {
+				startActivityForResult(intent, REQ_PICK_OSDIALOG_FILE)
+			} catch (t: Throwable) {
+				pendingOsdialogExtensions = emptySet()
+				nativeDialogString(null)
+			}
+		}
+	}
+
+	private fun pickerMimeType(extensions: Set<String>): String {
+		if (extensions.isEmpty()) return "*/*"
+		val audio = setOf("wav", "wave", "aif", "aiff", "flac", "ogg", "oga", "mp3", "m4a", "aac", "opus", "amr", "mid", "midi")
+		val images = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "svg")
+		val video = setOf("mp4", "m4v", "mkv", "webm", "avi", "mov")
+		return when {
+			extensions.all { it in audio } -> "audio/*"
+			extensions.all { it in images } -> "image/*"
+			extensions.all { it in video } -> "video/*"
+			else -> "*/*"
 		}
 	}
 
@@ -2377,6 +2493,7 @@ class MainActivity : NativeActivity() {
 	companion object {
 		private const val MAX_PATCH_IMPORT_BYTES = 256L * 1024 * 1024
 		private const val MAX_MODULE_PACK_BYTES = 256L * 1024 * 1024
+		private const val MAX_OSDIALOG_IMPORT_BYTES = 1024L * 1024 * 1024
 		@Volatile private var activeActivity: WeakReference<MainActivity>? = null
 
 		/** Notification action entry point. Finishing the task, rather than only

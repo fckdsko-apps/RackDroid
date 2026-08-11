@@ -134,7 +134,8 @@ void jniInit(ANativeActivity* activity) {
 	midClipboardGet = env->GetMethodID(activityCls, "clipboardGet", "()Ljava/lang/String;");
 	midDialogMessage = env->GetMethodID(activityCls, "dialogMessageAsync", "(IILjava/lang/String;)V");
 	midDialogPrompt = env->GetMethodID(activityCls, "dialogPromptAsync", "(Ljava/lang/String;Ljava/lang/String;)V");
-	midDialogFile = env->GetMethodID(activityCls, "dialogFileAsync", "(ZLjava/lang/String;Ljava/lang/String;)V");
+	midDialogFile = env->GetMethodID(activityCls, "dialogFileAsync",
+		"(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
 	midMenuShow = env->GetMethodID(activityCls, "showNativeMenu", "([Ljava/lang/String;[Ljava/lang/String;[I)V");
 	midMenuDismiss = env->GetMethodID(activityCls, "dismissNativeMenu", "()V");
 	midBrowserShow = env->GetMethodID(activityCls, "showNativeBrowser", "()V");
@@ -360,16 +361,19 @@ bool dialogPrompt(const std::string& title, const std::string& text, std::string
 }
 
 
-bool dialogFile(bool save, const std::string& dir, const std::string& filename, std::string& path) {
+bool dialogFile(int action, const std::string& dir, const std::string& filename,
+		const std::string& extensions, std::string& path) {
 	JNIEnv* env = getEnv();
 	if (!env || !midClipboardSet)
 		return false;
 	dialogDone = false;
 	jstring jDir = env->NewStringUTF(dir.c_str());
 	jstring jName = env->NewStringUTF(filename.c_str());
-	env->CallVoidMethod(activityObj, midDialogFile, (jboolean) save, jDir, jName);
+	jstring jExt = env->NewStringUTF(extensions.c_str());
+	env->CallVoidMethod(activityObj, midDialogFile, (jint) action, jDir, jName, jExt);
 	env->DeleteLocalRef(jDir);
 	env->DeleteLocalRef(jName);
+	env->DeleteLocalRef(jExt);
 	if (env->ExceptionCheck()) {
 		env->ExceptionClear();
 		return false;

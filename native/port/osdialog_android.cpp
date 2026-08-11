@@ -46,12 +46,26 @@ char* osdialog_prompt(osdialog_message_level level, const char* message, const c
 }
 
 char* osdialog_file(osdialog_file_action action, const char* path, const char* filename, osdialog_filters* filters) {
-	(void) filters;
-	if (action == OSDIALOG_OPEN_DIR)
-		return NULL; // No directory picker; not used by Rack core flows
+	// Android's document picker filters by MIME rather than filename glob. Pass
+	// the extensions to Java so it can choose a useful MIME family (audio/* for
+	// WAV, for example) and still validate the selected document's extension.
+	std::string extensions;
+	for (osdialog_filters* f = filters; f; f = f->next) {
+		for (osdialog_filter_patterns* p = f->patterns; p; p = p->next) {
+			if (!p->pattern || !*p->pattern)
+				continue;
+			if (!extensions.empty())
+				extensions += ',';
+			std::string ext = p->pattern;
+			while (!ext.empty() && (ext.front() == '.' || ext.front() == '*'))
+				ext.erase(ext.begin());
+			extensions += ext;
+		}
+	}
+
 	std::string result;
-	bool save = (action == OSDIALOG_SAVE);
-	if (!rackdroid::dialogFile(save, path ? path : "", filename ? filename : "", result))
+	if (!rackdroid::dialogFile((int) action, path ? path : "", filename ? filename : "",
+			extensions, result))
 		return NULL;
 	return strdup(result.c_str());
 }

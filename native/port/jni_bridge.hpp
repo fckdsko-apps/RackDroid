@@ -74,9 +74,12 @@ int dialogMessage(int level, int buttons, const std::string& message);
 /** Text prompt. Returns true and fills `result` if confirmed. */
 bool dialogPrompt(const std::string& title, const std::string& text, std::string& result);
 
-/** Patch file picker. save=false lists *.vcv files in `dir` for opening;
-save=true asks for a filename (suggesting `filename`). Returns true and fills
-`path` (absolute) if confirmed. */
-bool dialogFile(bool save, const std::string& dir, const std::string& filename, std::string& path);
+/** File picker bridge. `action` uses the osdialog_file_action numeric values.
+`extensions` is a comma-separated list such as "wav,aiff". Java preserves
+RackDroid's private .vcv patch browser, and routes other OPEN requests through
+Android's Storage Access Framework before importing the selected document into
+RackDroid's persistent user/imports directory. */
+bool dialogFile(int action, const std::string& dir, const std::string& filename,
+	const std::string& extensions, std::string& path);
 
 } // namespace rackdroid
