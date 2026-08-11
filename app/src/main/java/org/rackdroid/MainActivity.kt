@@ -1980,20 +1980,43 @@ class MainActivity : NativeActivity() {
 
 		override fun onInterceptTouchEvent(ev: android.view.MotionEvent): Boolean {
 			when (ev.actionMasked) {
-				android.view.MotionEvent.ACTION_DOWN -> { startRawY = ev.rawY; dragging = false }
-				android.view.MotionEvent.ACTION_MOVE ->
-					if (scrollY == 0 && ev.rawY - startRawY > slop) { dragging = true; return true }
+				android.view.MotionEvent.ACTION_DOWN -> {
+					startRawY = ev.rawY
+					dragging = false
+				}
+				android.view.MotionEvent.ACTION_MOVE -> {
+					val dy = ev.rawY - startRawY
+					// Only steal a gesture for sheet dismissal when it is
+					// actually moving DOWN from the top. Upward movement must
+					// remain a normal ScrollView gesture so long module menus
+					// can reach every row.
+					if (scrollY == 0 && dy > slop) {
+						dragging = true
+						return true
+					}
+				}
 			}
 			return super.onInterceptTouchEvent(ev)
 		}
 
 		override fun onTouchEvent(ev: android.view.MotionEvent): Boolean {
 			when (ev.actionMasked) {
-				android.view.MotionEvent.ACTION_DOWN -> { startRawY = ev.rawY; return true }
-				android.view.MotionEvent.ACTION_MOVE -> if (dragging || scrollY == 0) {
-					dragging = true
-					translationY = (ev.rawY - startRawY).coerceAtLeast(0f)
-					return true
+				android.view.MotionEvent.ACTION_DOWN -> {
+					startRawY = ev.rawY
+					dragging = false
+					translationY = 0f
+				}
+				android.view.MotionEvent.ACTION_MOVE -> {
+					val dy = ev.rawY - startRawY
+					if (dragging) {
+						translationY = dy.coerceAtLeast(0f)
+						return true
+					}
+					if (scrollY == 0 && dy > slop) {
+						dragging = true
+						translationY = dy
+						return true
+					}
 				}
 				android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL ->
 					if (dragging) {
@@ -2008,6 +2031,10 @@ class MainActivity : NativeActivity() {
 						return true
 					}
 			}
+			// Important: let ScrollView receive DOWN/MOVE/UP for normal
+			// upward scrolling. The old code returned true on DOWN and on
+			// every MOVE while scrollY==0, preventing scrolling from ever
+			// starting at the top of a long menu.
 			return super.onTouchEvent(ev)
 		}
 	}
