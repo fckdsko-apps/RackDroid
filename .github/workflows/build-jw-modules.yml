@@ -2,6 +2,9 @@ name: Build JW Modules pack
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
 
 jobs:
   build-jw-arm64:
