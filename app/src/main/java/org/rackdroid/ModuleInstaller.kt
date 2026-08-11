@@ -217,10 +217,19 @@ object ModuleInstaller {
             return
         }
 
+        // A failed SAF/provider copy from an older build could leave a zero-byte
+        // .rdmod behind. It can never be valid, and keeping it makes every
+        // future scan emit a misleading "pack size is invalid" failure.
+        packs.filter { it.length() == 0L }.forEach { stale ->
+            if (stale.delete())
+                jlog("removed empty stale module pack ${stale.name}")
+        }
+
         // Newest first. If several source files with the same slug exist,
         // the newly selected/downloaded pack wins and successful import removes
         // older duplicates.
-        val ordered = packs.sortedByDescending { it.lastModified() }
+        val ordered = packs.filter { it.isFile && it.length() > 0L }
+            .sortedByDescending { it.lastModified() }
         val handledSlugs = HashSet<String>()
 
         for (pack in ordered) {
@@ -415,6 +424,15 @@ object ModuleInstaller {
             false
         }
     }
+
+    /**
+     * Lightweight preflight for a newly copied .rdmod/.zip pack.
+     * Confirms the file is non-empty, within the size cap, is a readable zip,
+     * and contains a valid top-level plugin.json. Full native/layout/ABI
+     * validation still happens in unzip() before install/update.
+     */
+    fun inspectPack(pack: File): PackInfo =
+        peekPackInfo(pack) ?: throw IllegalArgumentException("missing plugin.json")
 
     private fun peekPackInfo(pack: File): PackInfo? {
         if (pack.length() !in 1..MAX_PACK_BYTES)

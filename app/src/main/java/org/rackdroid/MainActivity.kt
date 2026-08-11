@@ -1167,10 +1167,10 @@ class MainActivity : NativeActivity() {
 		try {
 			val input = contentResolver.openInputStream(uri)
 				?: throw IllegalArgumentException("cannot open selected file")
+			var total = 0L
 			input.use { source ->
 				tmp.outputStream().use { output ->
 					val buffer = ByteArray(64 * 1024)
-					var total = 0L
 					while (true) {
 						val count = source.read(buffer)
 						if (count < 0) break
@@ -1180,6 +1180,7 @@ class MainActivity : NativeActivity() {
 					}
 				}
 			}
+			if (total <= 0L) throw IllegalArgumentException("selected file is empty")
 			if (!tmp.renameTo(destination)) throw IllegalStateException("cannot finalize imported file")
 		} finally {
 			if (tmp.exists()) tmp.delete()
@@ -1498,31 +1499,55 @@ class MainActivity : NativeActivity() {
 		}
 
 		if (requestCode != REQ_PICK_RDMOD || resultCode != RESULT_OK || data == null) return
-		val uris = ArrayList<Uri>()
-		data.clipData?.let { clip -> for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri) }
-		data.data?.let { uris.add(it) }
-		if (uris.isEmpty()) return
-		Toast.makeText(this, getString(R.string.installing_modules), Toast.LENGTH_SHORT).show()
-		// Copy off the UI thread (a pack can be 10+ MB); load back on it, so the
-		// native registration path matches the startup loader exactly.
-		Thread {
-			val copied = uris.count { uri ->
-				runCatching {
-					val name = safeIncomingName(queryDisplayName(uri), "pack.rdmod", listOf(".rdmod", ".zip"))
-					val dest = uniqueDestination(ModuleInstaller.modulesDir(this), name)
-					copyUriAtomically(uri, dest, MAX_MODULE_PACK_BYTES)
-					true
-				}.getOrDefault(false)
+		// Some Android document providers return the same selection in BOTH
+		// clipData and data.data. Treat the URI string as the identity so one
+		// tap can never create "pack.rdmod" plus "pack (1).rdmod".
+		val uris = LinkedHashMap<String, Uri>()
+		data.clipData?.let { clip ->
+			for (i in 0 until clip.itemCount) {
+				val uri = clip.getItemAt(i).uri
+				uris.putIfAbsent(uri.toString(), uri)
 			}
+		}
+		data.data?.let { uri -> uris.putIfAbsent(uri.toString(), uri) }
+		if (uris.isEmpty()) return
+
+		Toast.makeText(this, getString(R.string.installing_modules), Toast.LENGTH_SHORT).show()
+
+		// Copy off the UI thread (a pack can be 10+ MB). Each finished copy is
+		// immediately checked for a readable plugin.json before the module
+		// importer is allowed to scan the folder. A failed/empty copy is deleted
+		// here, so it cannot poison a later update attempt.
+		Thread {
+			var copied = 0
+			val failures = ArrayList<String>()
+			for (uri in uris.values) {
+				var dest: File? = null
+				try {
+					val name = safeIncomingName(
+						queryDisplayName(uri), "pack.rdmod", listOf(".rdmod", ".zip"))
+					dest = uniqueDestination(ModuleInstaller.modulesDir(this), name)
+					copyUriAtomically(uri, dest, MAX_MODULE_PACK_BYTES)
+					ModuleInstaller.inspectPack(dest)
+					copied++
+				} catch (t: Throwable) {
+					dest?.delete()
+					failures.add(t.message ?: "unknown error")
+				}
+			}
+
 			uiHandler.post {
 				if (copied > 0) {
-					// loadUserPlugins imports+loads the new packs and toasts the
-					// count; already-installed slugs are skipped harmlessly.
 					ModuleInstaller.loadUserPlugins(this)
 					runCatching { nativeBrowserRequestBuild() }
 					runCatching { modulePalette.reload() }
 				} else {
-					Toast.makeText(this, getString(R.string.install_failed), Toast.LENGTH_LONG).show()
+					val reason = failures.firstOrNull()
+					val msg = if (reason.isNullOrBlank())
+						getString(R.string.install_failed)
+					else
+						"Module pack import failed: $reason"
+					Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 				}
 			}
 		}.start()
