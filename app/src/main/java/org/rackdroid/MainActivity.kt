@@ -213,6 +213,11 @@ class MainActivity : NativeActivity() {
 		val now = System.currentTimeMillis()
 		val previousIncomplete = prefs.getBoolean("in_progress", false)
 		val recent = now - prefs.getLong("started_at", 0L) <= 5 * 60 * 1000L
+		// A module update is a much narrower suspect than the entire autosave/plugin set.
+		// If the previous launch died before patchReady, roll back all packages that
+		// were awaiting first successful activation before escalating to generic recovery.
+		if (previousIncomplete && recent)
+			runCatching { ModuleInstaller.rollbackPendingAfterFailedStartup(this) }
 		val failures = if (previousIncomplete && recent)
 			(prefs.getInt("failures", 0) + 1).coerceAtMost(3)
 		else 0
@@ -1514,43 +1519,94 @@ class MainActivity : NativeActivity() {
 
 		Toast.makeText(this, getString(R.string.installing_modules), Toast.LENGTH_SHORT).show()
 
-		// Copy off the UI thread (a pack can be 10+ MB). Each finished copy is
-		// immediately checked for a readable plugin.json before the module
-		// importer is allowed to scan the folder. A failed/empty copy is deleted
-		// here, so it cannot poison a later update attempt.
+		// Manual installs are exact operations. Copy every selected document
+		// first, then preflight the ENTIRE multi-select as one batch. This prevents
+		// picker order from deciding which of two conflicting same-slug packages wins.
 		Thread {
-			var copied = 0
-			val failures = ArrayList<String>()
+			val stagedInputs = ArrayList<File>()
+			val copyFailures = ArrayList<ModuleInstallResult>()
+
 			for (uri in uris.values) {
-				var dest: File? = null
+				var staged: File? = null
 				try {
 					val name = safeIncomingName(
-						queryDisplayName(uri), "pack.rdmod", listOf(".rdmod", ".zip"))
-					dest = uniqueDestination(ModuleInstaller.modulesDir(this), name)
-					copyUriAtomically(uri, dest, MAX_MODULE_PACK_BYTES)
-					ModuleInstaller.inspectPack(dest)
-					copied++
+						queryDisplayName(uri),
+						"pack.rdmod",
+						listOf(".rdmod", ".zip")
+					)
+					staged = ModuleInstaller.inboxDestination(this, name)
+					copyUriAtomically(uri, staged, MAX_MODULE_PACK_BYTES)
+					stagedInputs.add(staged)
 				} catch (t: Throwable) {
-					dest?.delete()
-					failures.add(t.message ?: "unknown error")
+					staged?.delete()
+					copyFailures.add(
+						ModuleInstallResult(
+							ModuleInstallStatus.FAILED,
+							null,
+							queryDisplayName(uri) ?: "Module pack",
+							"Module pack import failed: ${t.message ?: "unknown error"}."
+						)
+					)
 				}
 			}
 
+			val batchResults =
+				if (stagedInputs.isNotEmpty())
+					ModuleInstaller.installIncomingBatch(this, stagedInputs)
+				else emptyList()
+			val results = ArrayList<ModuleInstallResult>().apply {
+				addAll(copyFailures)
+				addAll(batchResults)
+			}
+			val needsDowngradeConfirm =
+				batchResults.any {
+					it.status == ModuleInstallStatus.DOWNGRADE_REQUIRES_CONFIRMATION
+				}
+
 			uiHandler.post {
-				if (copied > 0) {
-					ModuleInstaller.loadUserPlugins(this)
+				val restart = results.any { it.restartRequired }
+				val text = results.joinToString("\n") { it.message }
+				Toast.makeText(
+					this,
+					if (text.isBlank()) getString(R.string.install_failed) else text,
+					Toast.LENGTH_LONG
+				).show()
+
+				if (needsDowngradeConfirm) {
+					AlertDialog.Builder(this)
+						.setTitle("Confirm module downgrade")
+						.setMessage(
+							"One or more selected module packs are older than the installed version. " +
+								"Continue only if you intentionally want to downgrade them. " +
+								"No package from this selection has been installed yet."
+						)
+						.setNegativeButton(android.R.string.cancel) { _, _ ->
+							stagedInputs.forEach { it.delete() }
+						}
+						.setPositiveButton("Downgrade") { _, _ ->
+							Thread {
+								val confirmed = ModuleInstaller.installIncomingBatch(
+									this,
+									stagedInputs,
+									allowDowngrade = true
+								)
+								uiHandler.post {
+									Toast.makeText(
+										this,
+										confirmed.joinToString("\n") { it.message },
+										Toast.LENGTH_LONG
+									).show()
+								}
+							}.start()
+						}
+						.show()
+				} else if (!restart) {
 					runCatching { nativeBrowserRequestBuild() }
 					runCatching { modulePalette.reload() }
-				} else {
-					val reason = failures.firstOrNull()
-					val msg = if (reason.isNullOrBlank())
-						getString(R.string.install_failed)
-					else
-						"Module pack import failed: $reason"
-					Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 				}
 			}
 		}.start()
+
 	}
 
 	/** Called from native when a synthetic Help row is selected:
@@ -2318,14 +2374,26 @@ class MainActivity : NativeActivity() {
 	 * loses those modules on every single launch. */
 	fun loadUserPluginsFromNative() {
 		runOnUiThread {
+			var restartForRollback = false
 			try {
 				ModuleInstaller.loadUserPlugins(this)
+			} catch (t: ModuleActivationRestartRequiredException) {
+				jlog("module activation rolled back; restarting before patch restore: $t")
+				restartForRollback = true
 			} catch (t: Throwable) {
 				jlog("loading side-loaded module packs failed: $t")
 			} finally {
-				// Must fire whatever happened, or startup stalls until the
-				// native watchdog gives up.
-				runCatching { nativeUserPluginsLoaded() }
+				// Do NOT release native startup if a successfully dlopen'd but
+				// unregistered candidate was rolled back. That .so remains resident
+				// until process death, so patch restore must wait for the clean restart.
+				if (!restartForRollback) runCatching { nativeUserPluginsLoaded() }
+			}
+			if (restartForRollback) {
+				packageManager.getLaunchIntentForPackage(packageName)?.let {
+					it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+					startActivity(it)
+				}
+				Runtime.getRuntime().exit(0)
 			}
 		}
 	}
@@ -2341,6 +2409,7 @@ class MainActivity : NativeActivity() {
 	 * it. Slow device or slow patch and the palette came up empty. */
 	fun patchReadyFromNative() {
 		uiHandler.post {
+			runCatching { ModuleInstaller.commitPendingActivations(this) }
 			markStartupReady()
 			runCatching { nativeBrowserRequestBuild() }
 			runCatching { modulePalette.show() }
