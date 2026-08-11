@@ -1,0 +1,38 @@
+name: Build SAF picker APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
+      - 'android-file-picker/**'
+
+jobs:
+  build-arm64-apk:
+    name: Build arm64 sideload APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Build development-signed sideload APK
+        run: >-
+          ./gradlew assembleSideloadRelease
+          -PdevKeystore -PtargetAbis=arm64-v8a --no-daemon
+
+      - name: Verify APK exists
+        run: |
+          test -s app/build/outputs/apk/sideload/release/app-sideload-release.apk
+          unzip -t app/build/outputs/apk/sideload/release/app-sideload-release.apk >/dev/null
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rackdroid-saf-picker-arm64-apk
+          path: app/build/outputs/apk/sideload/release/app-sideload-release.apk
+          if-no-files-found: error
