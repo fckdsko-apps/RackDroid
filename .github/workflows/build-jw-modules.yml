@@ -1,0 +1,39 @@
+name: Build JW Modules pack
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-jw-arm64:
+    name: Build JW Modules arm64
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+
+      - name: Build all plugin libraries
+        run: >-
+          ./gradlew assembleSideloadRelease
+          -PdevKeystore
+          -PallPlugins
+          -PtargetAbis=arm64-v8a
+          --no-daemon
+
+      - name: Package RackDroid module packs
+        run: |
+          scripts/make_rdmods.sh "$RUNNER_TEMP/rdmods" arm64-v8a
+          test -s "$RUNNER_TEMP/rdmods/JW-Modules.rdmod"
+          unzip -t "$RUNNER_TEMP/rdmods/JW-Modules.rdmod"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: JW-Modules-current-arm64
+          path: ${{ runner.temp }}/rdmods/JW-Modules.rdmod
+          if-no-files-found: error
