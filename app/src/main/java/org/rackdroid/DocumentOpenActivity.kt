@@ -16,9 +16,14 @@ import java.util.UUID
  *
  * Rack needs a normal filesystem path, while Android SAF returns content://.
  * The selected patch is therefore mirrored under filesDir/user/patches, then
- * Rack opens that mirror. When the provider grants persistent write access,
- * the mirror is linked to the original URI so ordinary File > Save publishes
- * back to the exact external document through commitDocumentSave().
+ * Rack opens that mirror. The mirror is ALWAYS linked to the original URI so
+ * ordinary File > Save can attempt to publish back to that exact external
+ * document through commitDocumentSave().
+ *
+ * Important: ACTION_OPEN_DOCUMENT's current URI grant and its persisted grant
+ * are different things. A document can be writable now even when
+ * persistedUriPermissions does not yet report a persistent write grant.
+ * Never discard the path->URI link merely because persistence was not taken.
  */
 class DocumentOpenActivity : Activity() {
 
@@ -78,60 +83,80 @@ class DocumentOpenActivity : Activity() {
 				throw IllegalArgumentException("selected file is not a .vcv patch")
 			val safeName = safeVcvName(normalized)
 
-			// Persist whatever the provider actually granted. ACTION_OPEN_DOCUMENT
-			// is designed for persistable access, but third-party providers may
-			// decline write persistence. In that case the patch still opens safely
-			// as a detached local mirror and Save As remains available.
+			// Take the long-lived grant when Android/provider offers it.
+			// This is best-effort. The CURRENT grant from ACTION_OPEN_DOCUMENT
+			// is still useful even if taking the persisted form fails.
 			val grantFlags = (data?.flags ?: 0) and
 				(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-			if (grantFlags != 0)
-				runCatching { contentResolver.takePersistableUriPermission(uri, grantFlags) }
+			if (grantFlags != 0) {
+				runCatching {
+					contentResolver.takePersistableUriPermission(uri, grantFlags)
+				}
+			}
 
 			val prefs = getSharedPreferences(DocumentSaveActivity.PREFS, Context.MODE_PRIVATE)
 			val uriString = uri.toString()
 			val reverseKey = DocumentSaveActivity.KEY_URI_PREFIX + uriString
 			val patchDir = File(filesDir, "user/patches").canonicalFile.apply { mkdirs() }
 
-			// v02 stored path -> URI only. Prefer the new reverse index, but scan
-			// once for that older shape so a v02-created external patch reuses its
-			// existing mirror instead of creating a second linked copy.
+			// Reuse an existing mirror for the same external URI when possible.
+			// v02 stored only path -> URI; v03+ also has URI -> path.
 			val remembered = prefs.getString(reverseKey, null) ?: prefs.all.entries
 				.firstOrNull { (key, value) ->
 					key != DocumentSaveActivity.KEY_LAST_URI &&
-					!key.startsWith(DocumentSaveActivity.KEY_URI_PREFIX) &&
-					File(key).isAbsolute && value == uriString
+						!key.startsWith(DocumentSaveActivity.KEY_URI_PREFIX) &&
+						runCatching { File(key).isAbsolute }.getOrDefault(false) &&
+						value == uriString
 				}
 				?.key
-			val rememberedFile = remembered?.let { runCatching { File(it).canonicalFile }.getOrNull() }
+			val rememberedFile = remembered?.let {
+				runCatching { File(it).canonicalFile }.getOrNull()
+			}
 			val reusable = rememberedFile?.takeIf {
 				it.parentFile == patchDir && it.name.endsWith(".vcv", ignoreCase = true)
 			}
 			val mirror = reusable ?: uniqueDestination(patchDir, safeName)
 
+			// Import the exact external bytes before changing any link metadata.
 			copyUriReplacingAtomically(uri, mirror, maxPatchBytes)
 
+			/*
+			 * THE v03 BUG WAS HERE.
+			 *
+			 * v03 required:
+			 *   persistedUriPermissions.any { same URI && write }
+			 *
+			 * and if that was false it REMOVED mirror.absolutePath -> URI.
+			 * commitDocumentSave() then interpreted the missing mapping as an
+			 * internal-only patch and silently skipped the external write.
+			 *
+			 * Correct behavior: selecting a document with ACTION_OPEN_DOCUMENT
+			 * establishes its identity regardless of whether Android managed to
+			 * convert the current grant into a reboot-persistent grant. Always
+			 * remember the identity. On Save, commitDocumentSave() attempts the
+			 * write; if write access is actually unavailable, it returns false
+			 * and Rack shows a save error instead of silently saving only local.
+			 */
+			val saved = prefs.edit()
+				.putString(mirror.absolutePath, uriString)
+				.putString(reverseKey, mirror.absolutePath)
+				.putString(DocumentSaveActivity.KEY_LAST_URI, uriString)
+				.commit()
+			if (!saved)
+				throw IllegalStateException("could not remember external patch link")
+
+			// If the provider returned no write grant at all, warn now. Do NOT
+			// remove the link: Save must fail visibly rather than pretending the
+			// external document was updated.
+			val immediateWrite = (grantFlags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0
 			val persistentWrite = contentResolver.persistedUriPermissions.any {
 				it.uri == uri && it.isWritePermission
 			}
-			if (persistentWrite) {
-				val saved = prefs.edit()
-					.putString(mirror.absolutePath, uriString)
-					.putString(reverseKey, mirror.absolutePath)
-					.putString(DocumentSaveActivity.KEY_LAST_URI, uriString)
-					.commit()
-				if (!saved)
-					throw IllegalStateException("could not remember external patch link")
-			} else {
-				// Do not pretend ordinary Save will update an external document if
-				// that promise cannot survive a process restart.
-				prefs.edit()
-					.remove(mirror.absolutePath)
-					.remove(reverseKey)
-					.apply()
+			if (!immediateWrite && !persistentWrite) {
 				runOnUiThread {
 					Toast.makeText(
 						this,
-						"Opened a local copy. This provider did not grant persistent write access; use Save As to write externally.",
+						"This document appears read-only. RackDroid will keep a local safety copy, and Save will report an error if Android refuses the external write.",
 						Toast.LENGTH_LONG
 					).show()
 				}
