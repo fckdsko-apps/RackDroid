@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+	<shortcut
+		android:shortcutId="audio_lab"
+		android:enabled="true"
+		android:icon="@mipmap/ic_launcher"
+		android:shortcutShortLabel="@string/audio_lab_short_label"
+		android:shortcutLongLabel="@string/audio_lab_long_label">
+		<intent
+			android:action="android.intent.action.VIEW"
+			android:targetPackage="org.rackdroid"
+			android:targetClass="org.rackdroid.AudioLabActivity" />
+	</shortcut>
+</shortcuts>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="audio_lab_short_label">Audio Lab</string>
+	<string name="audio_lab_long_label">RackDroid Audio A/B Lab</string>
+</resources>

@@ -53,6 +53,16 @@
 			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
 			android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+		<!-- Experimental controller/diagnostics for v06. It is reached from a
+		     static long-press app shortcut, not a second MAIN/LAUNCHER entry.
+		     Settings are startup-only; no live stream mutation. -->
+		<activity
+			android:name=".AudioLabActivity"
+			android:exported="true"
+			android:excludeFromRecents="true"
+			android:label="@string/audio_lab_short_label"
+			android:theme="@android:style/Theme.Material.NoActionBar" />
+
 		<activity
 			android:name=".MainActivity"
 			android:exported="true"
@@ -63,6 +73,12 @@
 			<meta-data
 				android:name="android.app.lib_name"
 				android:value="rackdroid" />
+
+			<!-- v06 experiment only: long-press the normal RackDroid launcher
+			     icon to open Audio Lab without adding a second launcher activity. -->
+			<meta-data
+				android:name="android.app.shortcuts"
+				android:resource="@xml/shortcuts" />
 
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />

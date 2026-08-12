@@ -4,6 +4,9 @@
 #include <condition_variable>
 #include <mutex>
 #include <atomic>
+#if defined(__ANDROID__)
+#include <cstdint>
+#endif
 #include <tuple>
 #include <pthread.h>
 
@@ -19,6 +22,31 @@
 
 namespace rack {
 namespace engine {
+
+
+#if defined(__ANDROID__)
+// v06 Audio Lab: startup-only experiment switch. This is deliberately not
+// part of Rack's public headers/ABI. oboeInit() sets it before Engine/audio
+// objects exist, and the Audio Lab never mutates it while Rack is running.
+static bool gRackDroidFastSingleThread = false;
+
+// Publish Rack's existing one-second CPU meter through atomics so the Android
+// diagnostics Activity can read it without racing the real-time writer.
+static std::atomic<uint64_t> gRackDroidEngineAveragePpm{0};
+static std::atomic<uint64_t> gRackDroidEngineMaxPpm{0};
+
+extern "C" void rackdroid_audio_experiment_set_fast_engine(int enabled) {
+	gRackDroidFastSingleThread = enabled != 0;
+}
+
+extern "C" uint64_t rackdroid_audio_experiment_get_engine_average_ppm() {
+	return gRackDroidEngineAveragePpm.load(std::memory_order_relaxed);
+}
+
+extern "C" uint64_t rackdroid_audio_experiment_get_engine_max_ppm() {
+	return gRackDroidEngineMaxPpm.load(std::memory_order_relaxed);
+}
+#endif
 
 
 inline void cpuPause() {
@@ -449,11 +477,28 @@ static void Engine_stepFrame(Engine* that) {
 		}
 	}
 
-	// Step modules along with workers
-	internal->workerModuleIndex = 0;
-	internal->engineBarrier.wait();
-	Engine_stepWorker(that, 0);
-	internal->workerBarrier.wait();
+	// Step modules. For the Android experiment only, a one-thread engine can
+	// preserve Rack's exact module order while skipping the worker allocator
+	// atomic and both barriers. Multi-thread mode and the control condition
+	// remain upstream behavior.
+#if defined(__ANDROID__)
+	if (gRackDroidFastSingleThread && internal->threadCount == 1) {
+		Module::ProcessArgs processArgs;
+		processArgs.sampleRate = internal->sampleRate;
+		processArgs.sampleTime = internal->sampleTime;
+		processArgs.frame = internal->frame;
+		for (Module* module : internal->modules) {
+			module->doProcess(processArgs);
+		}
+	}
+	else
+#endif
+	{
+		internal->workerModuleIndex = 0;
+		internal->engineBarrier.wait();
+		Engine_stepWorker(that, 0);
+		internal->workerBarrier.wait();
+	}
 
 	Engine_stepFrameCables(that);
 
@@ -576,7 +621,10 @@ void Engine::stepBlock(int frames) {
 		Engine_stepFrame(this);
 	}
 
-	yieldWorkers();
+#if defined(__ANDROID__)
+	if (!(gRackDroidFastSingleThread && internal->threadCount == 1))
+#endif
+		yieldWorkers();
 
 	internal->block++;
 
@@ -593,6 +641,14 @@ void Engine::stepBlock(int frames) {
 		internal->meterLastAverage = internal->meterTotal / internal->meterCount;
 		internal->meterLastMax = internal->meterMax;
 		internal->meterLastTime = startTime;
+#if defined(__ANDROID__)
+		gRackDroidEngineAveragePpm.store(
+			(uint64_t) std::max(0.0, internal->meterLastAverage * 1000000.0),
+			std::memory_order_relaxed);
+		gRackDroidEngineMaxPpm.store(
+			(uint64_t) std::max(0.0, internal->meterLastMax * 1000000.0),
+			std::memory_order_relaxed);
+#endif
 		internal->meterCount = 0;
 		internal->meterTotal = 0.0;
 		internal->meterMax = 0.0;

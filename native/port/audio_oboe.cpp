@@ -7,27 +7,54 @@
  * inside the output callback (standard Oboe full-duplex pattern); if the input
  * stream can't be opened (e.g. RECORD_AUDIO permission not granted), the
  * device degrades to output-only.
+ *
+ * v06 Audio Lab adds restart-only A/B switches and low-overhead diagnostics.
+ * The default config is byte-for-byte behavioral intent of the pre-v06 path:
+ * fixed Rack block callback, upstream Rack engine dispatch, input enabled.
  */
 #include "audio_oboe.hpp"
 
-#include <vector>
-#include <mutex>
+#include <algorithm>
+#include <array>
 #include <atomic>
-#include <thread>
+#include <chrono>
+#include <cctype>
+#include <climits>
+#include <cstdint>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <cmath>
+#include <fstream>
+#include <iomanip>
+#include <mutex>
+#include <pthread.h>
+#include <set>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <time.h>
+#include <vector>
 
 #include <jni.h>
 #include <android/log.h>
 
 #include <oboe/Oboe.h>
 
+#include <asset.hpp>
 #include <audio.hpp>
-#include <system.hpp>
+#include <common.hpp>
 #include <context.hpp>
 #include <engine/Engine.hpp>
-#include <common.hpp>
+#include <settings.hpp>
+#include <system.hpp>
+
+
+/* Defined inside Rack's Engine.cpp on Android. The setter is called once from
+ * oboeInit(), before an Engine instance or audio callback exists. The meter
+ * getters read atomics updated by Engine::stepBlock() once per meter window. */
+extern "C" void rackdroid_audio_experiment_set_fast_engine(int enabled);
+extern "C" uint64_t rackdroid_audio_experiment_get_engine_average_ppm();
+extern "C" uint64_t rackdroid_audio_experiment_get_engine_max_ppm();
 
 
 // ---- Master WAV recorder ------------------------------------------------
@@ -153,6 +180,186 @@ static const int NUM_OUTPUTS = 2;
 static const int NUM_INPUTS = 2;
 static const int DEFAULT_SAMPLE_RATE = 48000;
 static const int DEFAULT_BLOCK_SIZE = 256;
+// Defensive ceiling only. A genuine low-latency Oboe callback should be far
+// smaller; keeping a fixed preallocated slab means the callback never resizes.
+static const int MAX_CALLBACK_FRAMES = 16384;
+
+
+static uint64_t clockNanos(clockid_t id) {
+	timespec ts{};
+	if (clock_gettime(id, &ts) != 0)
+		return 0;
+	return (uint64_t) ts.tv_sec * 1000000000ULL + (uint64_t) ts.tv_nsec;
+}
+
+
+struct AudioLabConfig {
+	bool nativeCallback = false;
+	bool fastEngine = false;
+	bool inputEnabled = true;
+};
+
+static AudioLabConfig gAudioLabConfig;
+
+static bool parseBool(const std::string& value, bool& out) {
+	if (value == "1" || value == "true" || value == "on" || value == "yes") {
+		out = true;
+		return true;
+	}
+	if (value == "0" || value == "false" || value == "off" || value == "no") {
+		out = false;
+		return true;
+	}
+	return false;
+}
+
+static std::string trim(std::string s) {
+	const char* ws = " \t\r\n";
+	size_t first = s.find_first_not_of(ws);
+	if (first == std::string::npos)
+		return "";
+	size_t last = s.find_last_not_of(ws);
+	return s.substr(first, last - first + 1);
+}
+
+static void loadAudioLabConfig() {
+	gAudioLabConfig = AudioLabConfig(); // baseline defaults if absent/malformed
+	std::string path = rack::asset::user("audio-lab.cfg");
+	std::ifstream in(path.c_str());
+	std::string line;
+	while (in && std::getline(in, line)) {
+		line = trim(line);
+		if (line.empty() || line[0] == '#')
+			continue;
+		size_t eq = line.find('=');
+		if (eq == std::string::npos)
+			continue;
+		std::string key = trim(line.substr(0, eq));
+		std::string value = trim(line.substr(eq + 1));
+		std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+			return (char) std::tolower(c);
+		});
+		bool parsed = false;
+		if (key == "native_callback") {
+			if (parseBool(value, parsed)) gAudioLabConfig.nativeCallback = parsed;
+		}
+		else if (key == "fast_engine") {
+			if (parseBool(value, parsed)) gAudioLabConfig.fastEngine = parsed;
+		}
+		else if (key == "input_enabled") {
+			if (parseBool(value, parsed)) gAudioLabConfig.inputEnabled = parsed;
+		}
+	}
+
+	// The Engine flag is startup-only. Audio Lab never mutates it live.
+	rackdroid_audio_experiment_set_fast_engine(gAudioLabConfig.fastEngine ? 1 : 0);
+	INFO("Audio Lab config: callback=%s engine=%s input=%s",
+		gAudioLabConfig.nativeCallback ? "oboe-managed" : "fixed",
+		gAudioLabConfig.fastEngine ? "fast-single" : "upstream",
+		gAudioLabConfig.inputEnabled ? "on" : "off");
+}
+
+
+struct AudioStatsSnapshot {
+	uint64_t callbacks = 0;
+	uint64_t frames = 0;
+	int minFrames = 0;
+	int maxFrames = 0;
+	uint64_t otherFramesCallbacks = 0;
+	uint64_t inputShortfallFrames = 0;
+	uint64_t oversizedCallbacks = 0;
+	std::array<uint64_t, 65> frameBins{};
+};
+
+struct AudioStats {
+	std::atomic<uint64_t> callbacks;
+	std::atomic<uint64_t> frames;
+	std::atomic<int> minFrames;
+	std::atomic<int> maxFrames;
+	std::atomic<uint64_t> otherFramesCallbacks;
+	std::atomic<uint64_t> inputShortfallFrames;
+	std::atomic<uint64_t> oversizedCallbacks;
+	std::array<std::atomic<uint64_t>, 65> frameBins;
+
+	AudioStats() { reset(); }
+
+	void reset() {
+		callbacks.store(0, std::memory_order_relaxed);
+		frames.store(0, std::memory_order_relaxed);
+		minFrames.store(INT_MAX, std::memory_order_relaxed);
+		maxFrames.store(0, std::memory_order_relaxed);
+		otherFramesCallbacks.store(0, std::memory_order_relaxed);
+		inputShortfallFrames.store(0, std::memory_order_relaxed);
+		oversizedCallbacks.store(0, std::memory_order_relaxed);
+		for (auto& b : frameBins)
+			b.store(0, std::memory_order_relaxed);
+	}
+
+	/** Single audio-writer, relaxed diagnostic counters only. No clocks, locks,
+	 * allocation, logging, or file/UI work are added to the steady-state callback. */
+	void record(int numFrames) {
+		callbacks.fetch_add(1, std::memory_order_relaxed);
+		frames.fetch_add((uint64_t) std::max(numFrames, 0), std::memory_order_relaxed);
+
+		int prevMin = minFrames.load(std::memory_order_relaxed);
+		while (numFrames < prevMin &&
+				!minFrames.compare_exchange_weak(prevMin, numFrames, std::memory_order_relaxed)) {}
+		int prevMax = maxFrames.load(std::memory_order_relaxed);
+		while (numFrames > prevMax &&
+				!maxFrames.compare_exchange_weak(prevMax, numFrames, std::memory_order_relaxed)) {}
+
+		if (numFrames > 0 && numFrames <= 1024 && (numFrames % 16) == 0)
+			frameBins[(size_t) numFrames / 16].fetch_add(1, std::memory_order_relaxed);
+		else
+			otherFramesCallbacks.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	AudioStatsSnapshot snapshot() const {
+		AudioStatsSnapshot s;
+		s.callbacks = callbacks.load(std::memory_order_relaxed);
+		s.frames = frames.load(std::memory_order_relaxed);
+		int min = minFrames.load(std::memory_order_relaxed);
+		s.minFrames = (min == INT_MAX) ? 0 : min;
+		s.maxFrames = maxFrames.load(std::memory_order_relaxed);
+		s.otherFramesCallbacks = otherFramesCallbacks.load(std::memory_order_relaxed);
+		s.inputShortfallFrames = inputShortfallFrames.load(std::memory_order_relaxed);
+		s.oversizedCallbacks = oversizedCallbacks.load(std::memory_order_relaxed);
+		for (size_t i = 0; i < s.frameBins.size(); i++)
+			s.frameBins[i] = frameBins[i].load(std::memory_order_relaxed);
+		return s;
+	}
+};
+
+static AudioStats gAudioStats;
+
+static const char* apiName(oboe::AudioApi api) {
+	switch (api) {
+		case oboe::AudioApi::AAudio: return "AAudio";
+		case oboe::AudioApi::OpenSLES: return "OpenSL ES";
+		default: return "Unspecified";
+	}
+}
+
+static const char* performanceName(oboe::PerformanceMode mode) {
+	switch (mode) {
+		case oboe::PerformanceMode::LowLatency: return "LowLatency";
+		case oboe::PerformanceMode::PowerSaving: return "PowerSaving";
+		case oboe::PerformanceMode::None: return "None";
+		default: return "Unknown";
+	}
+}
+
+static const char* sharingName(oboe::SharingMode mode) {
+	switch (mode) {
+		case oboe::SharingMode::Exclusive: return "Exclusive";
+		case oboe::SharingMode::Shared: return "Shared";
+		default: return "Unknown";
+	}
+}
+
+struct OboeDevice;
+static std::mutex gActiveDeviceMutex;
+static OboeDevice* gActiveDevice = NULL;
 
 
 struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::AudioStreamErrorCallback {
@@ -161,19 +368,67 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 	float sampleRate = DEFAULT_SAMPLE_RATE;
 	int blockSize = DEFAULT_BLOCK_SIZE;
 	std::vector<float> inputBuffer;
-	/** Guards stream open/close against the data callback. */
+	uint64_t measurementStartWallNs = 0;
+	uint64_t measurementStartProcessNs = 0;
+	std::atomic<uint64_t> measurementStartCallbackCpuNs{0};
+	// pthread CPU clock for the Oboe callback thread. Captured once by that
+	// thread, then queried only from Audio Lab so steady-state callbacks do not
+	// pay two timing calls each.
+	std::atomic<int64_t> callbackClockIdRaw{0};
+	int xrunBaseline = 0;
+	bool xrunBaselineValid = false;
+	/** Guards stream open/close and non-RT diagnostics queries. */
 	std::mutex streamMutex;
 
 	OboeDevice() {
 		openStreams();
+		std::lock_guard<std::mutex> lock(gActiveDeviceMutex);
+		gActiveDevice = this;
 	}
 
 	~OboeDevice() override {
+		{
+			std::lock_guard<std::mutex> lock(gActiveDeviceMutex);
+			if (gActiveDevice == this)
+				gActiveDevice = NULL;
+		}
 		closeStreams();
+	}
+
+	void resetMeasurementsNoLock() {
+		gAudioStats.reset();
+		measurementStartWallNs = clockNanos(CLOCK_MONOTONIC);
+		measurementStartProcessNs = clockNanos(CLOCK_PROCESS_CPUTIME_ID);
+
+		int64_t rawClock = callbackClockIdRaw.load(std::memory_order_acquire);
+		if (rawClock != 0)
+			measurementStartCallbackCpuNs.store(
+				clockNanos((clockid_t) rawClock), std::memory_order_relaxed);
+		else
+			measurementStartCallbackCpuNs.store(0, std::memory_order_relaxed);
+
+		xrunBaselineValid = false;
+		xrunBaseline = 0;
+		if (outputStream) {
+			auto xruns = outputStream->getXRunCount();
+			if (xruns) {
+				xrunBaseline = xruns.value();
+				xrunBaselineValid = true;
+			}
+		}
+	}
+
+	void resetMeasurements() {
+		std::lock_guard<std::mutex> lock(streamMutex);
+		resetMeasurementsNoLock();
 	}
 
 	void openStreams() {
 		std::lock_guard<std::mutex> lock(streamMutex);
+		// A reopened Oboe stream may receive callbacks on a different thread.
+		// Force the first callback of this stream to publish its own CPU clock.
+		callbackClockIdRaw.store(0, std::memory_order_relaxed);
+		measurementStartCallbackCpuNs.store(0, std::memory_order_relaxed);
 
 		oboe::AudioStreamBuilder outBuilder;
 		outBuilder.setDirection(oboe::Direction::Output)
@@ -182,9 +437,10 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 			->setFormat(oboe::AudioFormat::Float)
 			->setChannelCount(NUM_OUTPUTS)
 			->setSampleRate((int) sampleRate)
-			->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
-			->setFramesPerDataCallback(blockSize)
-			->setDataCallback(this)
+			->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium);
+		if (!gAudioLabConfig.nativeCallback)
+			outBuilder.setFramesPerDataCallback(blockSize);
+		outBuilder.setDataCallback(this)
 			->setErrorCallback(this);
 
 		oboe::Result result = outBuilder.openStream(outputStream);
@@ -195,25 +451,45 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		// The stream may have been opened with a different rate than requested.
 		sampleRate = outputStream->getSampleRate();
 
-		oboe::AudioStreamBuilder inBuilder;
-		inBuilder.setDirection(oboe::Direction::Input)
-			->setPerformanceMode(oboe::PerformanceMode::LowLatency)
-			->setFormat(oboe::AudioFormat::Float)
-			->setChannelCount(NUM_INPUTS)
-			->setSampleRate(outputStream->getSampleRate());
+		if (gAudioLabConfig.inputEnabled) {
+			oboe::AudioStreamBuilder inBuilder;
+			inBuilder.setDirection(oboe::Direction::Input)
+				->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+				->setFormat(oboe::AudioFormat::Float)
+				->setChannelCount(NUM_INPUTS)
+				->setSampleRate(outputStream->getSampleRate());
 
-		result = inBuilder.openStream(inputStream);
-		if (result != oboe::Result::OK) {
-			WARN("Oboe: no input stream (%s), running output-only", oboe::convertToText(result));
+			result = inBuilder.openStream(inputStream);
+			if (result != oboe::Result::OK) {
+				WARN("Oboe: no input stream (%s), running output-only", oboe::convertToText(result));
+				inputStream.reset();
+			}
+		}
+		else {
 			inputStream.reset();
 		}
 
-		inputBuffer.resize(outputStream->getBufferCapacityInFrames() * NUM_INPUTS);
+		// Never allocate/resize this vector from onAudioReady(). 16k frames is
+		// vastly above a sane low-latency callback and costs only 128 KiB stereo.
+		inputBuffer.assign((size_t) MAX_CALLBACK_FRAMES * NUM_INPUTS, 0.f);
 
 		if (inputStream)
 			inputStream->requestStart();
 		outputStream->requestStart();
-		INFO("Oboe: stream started, sampleRate=%g burst=%d", sampleRate, outputStream->getFramesPerBurst());
+
+		// Default measurement window starts with this stream. Audio Lab can reset
+		// it after the representative patch is loaded, which removes startup/load
+		// time from A/B CPU comparisons.
+		resetMeasurementsNoLock();
+		INFO("Oboe: stream started, sampleRate=%g burst=%d callback=%d buffer=%d/%d api=%s mode=%s sharing=%s",
+			sampleRate,
+			outputStream->getFramesPerBurst(),
+			outputStream->getFramesPerDataCallback(),
+			outputStream->getBufferSizeInFrames(),
+			outputStream->getBufferCapacityInFrames(),
+			apiName(outputStream->getAudioApi()),
+			performanceName(outputStream->getPerformanceMode()),
+			sharingName(outputStream->getSharingMode()));
 		onStartStream();
 	}
 
@@ -267,34 +543,67 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 	void setBlockSize(int bs) override {
 		if (bs == blockSize)
 			return;
-		closeStreams();
 		blockSize = bs;
+		// In native-callback mode this remains Rack/.vcv metadata only. Do not
+		// force a phone-specific callback size or reopen a stream unnecessarily.
+		if (gAudioLabConfig.nativeCallback)
+			return;
+		closeStreams();
 		openStreams();
 	}
 
 	// oboe::AudioStreamDataCallback
 
 	oboe::DataCallbackResult onAudioReady(oboe::AudioStream* stream, void* audioData, int32_t numFrames) override {
+		// Capture the callback thread's CPU clock exactly once. After this first
+		// callback, diagnostics can query that thread's accumulated CPU time from
+		// a normal UI/JNI thread; steady-state audio callbacks do not call a timer.
+		if (callbackClockIdRaw.load(std::memory_order_relaxed) == 0) {
+			clockid_t cid;
+			if (pthread_getcpuclockid(pthread_self(), &cid) == 0) {
+				callbackClockIdRaw.store((int64_t) cid, std::memory_order_release);
+				uint64_t nowCpu = clockNanos(cid);
+				uint64_t expected = 0;
+				measurementStartCallbackCpuNs.compare_exchange_strong(
+					expected, nowCpu, std::memory_order_relaxed);
+			}
+		}
+
 		float* output = (float*) audioData;
+		int channels = stream->getChannelCount();
+
+		// A pathological callback must never turn into an allocation or buffer
+		// overrun on the real-time thread. Record it, output silence, continue.
+		if (numFrames <= 0 || numFrames > MAX_CALLBACK_FRAMES) {
+			if (numFrames > 0 && output && channels > 0)
+				std::fill(output, output + (size_t) numFrames * channels, 0.f);
+			gAudioStats.oversizedCallbacks.fetch_add(1, std::memory_order_relaxed);
+			gAudioStats.record(numFrames);
+			return oboe::DataCallbackResult::Continue;
+		}
 
 		const float* input = NULL;
+		uint64_t inputShortfall = 0;
 		if (inputStream) {
-			if ((int) inputBuffer.size() < numFrames * NUM_INPUTS)
-				inputBuffer.resize(numFrames * NUM_INPUTS);
-			// Non-blocking read; on underrun the missing frames stay zeroed.
+			// Non-blocking read; on underrun the missing frames are explicitly zeroed.
 			auto readResult = inputStream->read(inputBuffer.data(), numFrames, 0);
 			int framesRead = readResult ? readResult.value() : 0;
+			framesRead = std::max(0, std::min(framesRead, (int) numFrames));
 			if (framesRead < numFrames) {
-				std::fill(inputBuffer.begin() + framesRead * NUM_INPUTS,
-					inputBuffer.begin() + numFrames * NUM_INPUTS, 0.f);
+				inputShortfall = (uint64_t) (numFrames - framesRead);
+				std::fill(inputBuffer.begin() + (size_t) framesRead * NUM_INPUTS,
+					inputBuffer.begin() + (size_t) numFrames * NUM_INPUTS, 0.f);
 			}
 			input = inputBuffer.data();
 		}
 
 		// Drives Engine::stepBlock() through the subscribed audio Ports.
-		processBuffer(input, NUM_INPUTS, output, stream->getChannelCount(), numFrames);
-		gRecorder.push(output, (size_t) numFrames * stream->getChannelCount());
+		processBuffer(input, NUM_INPUTS, output, channels, numFrames);
+		gRecorder.push(output, (size_t) numFrames * channels);
 
+		if (inputShortfall)
+			gAudioStats.inputShortfallFrames.fetch_add(inputShortfall, std::memory_order_relaxed);
+		gAudioStats.record(numFrames);
 		return oboe::DataCallbackResult::Continue;
 	}
 
@@ -305,6 +614,121 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		WARN("Oboe: stream error %s, reopening", oboe::convertToText(error));
 		closeStreams();
 		openStreams();
+	}
+
+	std::string diagnostics() {
+		std::lock_guard<std::mutex> lock(streamMutex);
+		std::ostringstream s;
+		s << std::fixed << std::setprecision(2);
+		s << "Running config\n";
+		s << "  callback: " << (gAudioLabConfig.nativeCallback ? "Oboe-managed / unspecified" : "fixed Rack block") << "\n";
+		s << "  engine: " << (gAudioLabConfig.fastEngine ? "fast single-thread" : "upstream Rack") << "\n";
+		s << "  audio input requested: " << (gAudioLabConfig.inputEnabled ? "on" : "off") << "\n";
+		s << "  Rack engine threads: " << rack::settings::threadCount;
+		if (gAudioLabConfig.fastEngine && rack::settings::threadCount != 1)
+			s << " (fast path inactive: requires 1)";
+		s << "\n";
+		s << "  saved Rack block size: " << blockSize << " frames\n\n";
+
+		if (!outputStream) {
+			s << "Output stream is not open.\n";
+			return s.str();
+		}
+
+		int sr = outputStream->getSampleRate();
+		int hwSr = outputStream->getHardwareSampleRate();
+		int burst = outputStream->getFramesPerBurst();
+		int cb = outputStream->getFramesPerDataCallback();
+		int buf = outputStream->getBufferSizeInFrames();
+		int cap = outputStream->getBufferCapacityInFrames();
+
+		s << "Oboe stream\n";
+		s << "  API: " << apiName(outputStream->getAudioApi()) << "\n";
+		s << "  performance: " << performanceName(outputStream->getPerformanceMode()) << "\n";
+		s << "  sharing: " << sharingName(outputStream->getSharingMode()) << "\n";
+		s << "  sample rate: " << sr << " Hz\n";
+		s << "  hardware sample rate: " << (hwSr > 0 ? std::to_string(hwSr) + " Hz" : "unavailable (< API 34 or route did not report it)") << "\n";
+		s << "  frames/burst: " << burst << "\n";
+		s << "  reported frames/data callback: " << (cb > 0 ? std::to_string(cb) : "variable/unspecified") << "\n";
+		s << "  buffer: " << buf << " / " << cap << " frames";
+		if (sr > 0 && buf > 0)
+			s << " (" << (1000.0 * buf / sr) << " ms configured)";
+		s << "\n";
+		s << "  input actually open: " << (inputStream ? "yes" : "no") << "\n";
+		s << "  master recorder active: " << (gRecorder.active.load(std::memory_order_relaxed) ? "yes" : "no") << "\n";
+
+		uint64_t nowWall = clockNanos(CLOCK_MONOTONIC);
+		uint64_t nowProcess = clockNanos(CLOCK_PROCESS_CPUTIME_ID);
+		if (measurementStartWallNs && measurementStartProcessNs &&
+				nowWall > measurementStartWallNs && nowProcess >= measurementStartProcessNs) {
+			double wallSeconds = (nowWall - measurementStartWallNs) / 1e9;
+			double cpuSeconds = (nowProcess - measurementStartProcessNs) / 1e9;
+			s << "  whole-process CPU in measurement window: "
+			  << (100.0 * cpuSeconds / wallSeconds)
+			  << "% of one core-equivalent over " << wallSeconds << " s\n";
+
+			int64_t rawClock = callbackClockIdRaw.load(std::memory_order_acquire);
+			uint64_t callbackStart = measurementStartCallbackCpuNs.load(std::memory_order_relaxed);
+			if (rawClock != 0 && callbackStart != 0) {
+				uint64_t callbackNow = clockNanos((clockid_t) rawClock);
+				if (callbackNow >= callbackStart) {
+					double callbackCpuSeconds = (callbackNow - callbackStart) / 1e9;
+					s << "  Oboe callback-thread CPU in window: "
+					  << (100.0 * callbackCpuSeconds / wallSeconds)
+					  << "% of one core-equivalent\n";
+				}
+			}
+		}
+
+		auto xruns = outputStream->getXRunCount();
+		if (xruns) {
+			s << "  xruns total: " << xruns.value() << "\n";
+			if (xrunBaselineValid)
+				s << "  xruns in measurement window: "
+				  << std::max(0, xruns.value() - xrunBaseline) << "\n";
+		}
+		else
+			s << "  xruns: unsupported (" << oboe::convertToText(xruns.error()) << ")\n";
+
+		auto latency = outputStream->calculateLatencyMillis();
+		if (latency)
+			s << "  estimated output latency: " << latency.value() << " ms\n";
+		else
+			s << "  estimated output latency: unavailable (" << oboe::convertToText(latency.error()) << ")\n";
+
+		AudioStatsSnapshot st = gAudioStats.snapshot();
+		s << "\nCallback measurements in current measurement window\n";
+		s << "  callbacks: " << st.callbacks << "\n";
+		if (st.callbacks > 0) {
+			double audioSeconds = (sr > 0) ? ((double) st.frames / sr) : 0.0;
+			double callbacksPerSec = (audioSeconds > 0.0) ? (st.callbacks / audioSeconds) : 0.0;
+			s << "  callback frame min/max: " << st.minFrames << " / " << st.maxFrames << "\n";
+			s << "  callbacks/sec: " << callbacksPerSec << "\n";
+			s << "  frame-size counts: ";
+			bool first = true;
+			for (size_t i = 1; i < st.frameBins.size(); i++) {
+				if (!st.frameBins[i]) continue;
+				if (!first) s << ", ";
+				first = false;
+				s << (i * 16) << "=" << st.frameBins[i];
+			}
+			if (st.otherFramesCallbacks) {
+				if (!first) s << ", ";
+				s << "other=" << st.otherFramesCallbacks;
+				first = false;
+			}
+			if (first) s << "(none yet)";
+			s << "\n";
+		}
+		s << "  input shortfall frames: " << st.inputShortfallFrames << "\n";
+		s << "  oversized callbacks: " << st.oversizedCallbacks << "\n";
+
+		uint64_t engineAvg = rackdroid_audio_experiment_get_engine_average_ppm();
+		uint64_t engineMax = rackdroid_audio_experiment_get_engine_max_ppm();
+		s << "\nRack engine meter (last completed ~1 s window)\n";
+		s << "  average: " << (engineAvg / 10000.0) << "% of real time\n";
+		s << "  max block: " << (engineMax / 10000.0) << "% of real time\n";
+		return s.str();
 	}
 };
 
@@ -325,7 +749,9 @@ struct OboeDriver : rack::audio::Driver {
 		return (deviceId == 0) ? "Default" : "";
 	}
 	int getDeviceNumInputs(int deviceId) override {
-		return (deviceId == 0) ? NUM_INPUTS : 0;
+		// Preserve the pre-v06 driver's advertised input count when the input
+		// experiment is enabled. Only the explicit Off condition changes it.
+		return (deviceId == 0 && gAudioLabConfig.inputEnabled) ? NUM_INPUTS : 0;
 	}
 	int getDeviceNumOutputs(int deviceId) override {
 		return (deviceId == 0) ? NUM_OUTPUTS : 0;
@@ -353,7 +779,40 @@ struct OboeDriver : rack::audio::Driver {
 
 
 void oboeInit() {
+	loadAudioLabConfig();
 	rack::audio::addDriver(OBOE_DRIVER_ID, new OboeDriver);
+}
+
+
+// ---- JNI: Audio Lab diagnostics -----------------------------------------
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_org_rackdroid_AudioLabActivity_nativeGetAudioStatus(JNIEnv* env, jobject thiz) {
+	std::string text;
+	{
+		std::lock_guard<std::mutex> lock(gActiveDeviceMutex);
+		if (gActiveDevice)
+			text = gActiveDevice->diagnostics();
+		else {
+			std::ostringstream s;
+			s << "RackDroid audio stream is not active in this process.\n"
+			  << "Open RackDroid, let the test patch run, then open Audio Lab and Refresh.\n"
+			  << "The checkboxes below are the config file for the next full RackDroid launch.";
+			text = s.str();
+		}
+	}
+	return env->NewStringUTF(text.c_str());
+}
+
+
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_org_rackdroid_AudioLabActivity_nativeResetAudioMeasurements(JNIEnv* env, jobject thiz) {
+	std::lock_guard<std::mutex> lock(gActiveDeviceMutex);
+	if (!gActiveDevice)
+		return (jboolean) 0;
+	gActiveDevice->resetMeasurements();
+	return (jboolean) 1;
 }
 
 
