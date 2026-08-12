@@ -1,20 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-	Permissions only the GitHub/sideload build is allowed to have.
+  Sideload-only networking capability.
 
-	INTERNET: exclusively to ask api.github.com whether a newer release exists
-	and to download that APK. Nothing else in the app makes a request, and the
-	check does not run at all until the user opts in.
+  INTERNET is retained so future Android-compatible third-party modules are
+  not needlessly prevented from networking. RackDroid's self-updater itself
+  is disabled in AppUpdates.kt.
 
-	REQUEST_INSTALL_PACKAGES: to hand the downloaded APK to the system
-	installer, which still shows its own confirmation screen. Android also
-	refuses any update signed with a different key than the installed app.
-
-	The Play build (src/play/) has neither, and its updater is a no-op.
+  The install-packages permission is deliberately absent: this build must not
+  install a replacement RackDroid APK on its own.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
 	<uses-permission android:name="android.permission.INTERNET" />
-	<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
 </manifest>

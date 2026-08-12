@@ -63,9 +63,36 @@ char* osdialog_file(osdialog_file_action action, const char* path, const char* f
 		}
 	}
 
+	const std::string originalPath = path ? path : "";
+	const std::string requestedFilename = filename ? filename : "";
 	std::string result;
-	if (!rackdroid::dialogFile((int) action, path ? path : "", filename ? filename : "",
-			extensions, result))
+
+	// Rack core normally asks Java to open .vcv files specifically from its
+	// private user/patches directory. Java recognizes that path and shows the
+	// old internal-only patch list.
+	//
+	// On Android, external patches can live in Downloads, Documents, an SD
+	// card, Drive, etc., so make the system Storage Access Framework picker the
+	// FIRST .vcv Open experience. Passing an empty path bypasses only Java's
+	// private-patch special case and falls through to ACTION_OPEN_DOCUMENT.
+	//
+	// If the user backs out of the system picker, fall back to the original
+	// private path. This keeps named patches saved inside RackDroid, bundled
+	// demos, and the existing long-press-to-share list reachable instead of
+	// trading one inaccessible location for another.
+	if (action == OSDIALOG_OPEN && extensions == "vcv") {
+		if (rackdroid::dialogFile((int) action, "", requestedFilename, extensions, result))
+			return strdup(result.c_str());
+
+		result.clear();
+		if (!originalPath.empty() &&
+				rackdroid::dialogFile((int) action, originalPath, requestedFilename, extensions, result))
+			return strdup(result.c_str());
+
+		return NULL;
+	}
+
+	if (!rackdroid::dialogFile((int) action, originalPath, requestedFilename, extensions, result))
 		return NULL;
 	return strdup(result.c_str());
 }
