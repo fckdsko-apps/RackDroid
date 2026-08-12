@@ -151,6 +151,16 @@ void Manager::save(std::string path) {
 	// intact under user/patches (and therefore remains backup-eligible).
 	if (!rackdroid::commitDocumentSave(path))
 		throw Exception("Could not write the selected Android document. A local copy was kept at %s", path.c_str());
+
+	// Upstream Rack deliberately clears this->path before saveAutosave() so the
+	// path is not embedded in the .vcv archive. Desktop Rack can rely on a later
+	// autosave/quit to put the current path back into the session autosave.
+	// Android can be backgrounded or killed before that later write, leaving an
+	// otherwise valid restored patch pathless; File > Save then incorrectly
+	// behaves like Save As. The archive has already been created above, so it is
+	// now safe to restore the current path and persist it immediately.
+	this->path = lastPath;
+	saveAutosave();
 #endif
 }
 
@@ -230,6 +240,11 @@ void Manager::saveAsDialog(bool setPath) {
 		this->path = path;
 		settings::lastPatchDirectory = system::getDirectory(path);
 		pushRecentPath(path);
+#if defined(__ANDROID__)
+		// save() could only persist the previous path because Save As does not
+		// commit the new one until this point. Make the new path durable now.
+		saveAutosave();
+#endif
 	}
 }
 
@@ -357,6 +372,10 @@ void Manager::loadTemplate() {
 	// load() sets the patch's original patch, but we don't want to use that.
 	this->path = "";
 	APP->history->setSaved();
+#if defined(__ANDROID__)
+	// Keep the session autosave consistent with the now-untitled patch.
+	saveAutosave();
+#endif
 }
 
 
@@ -411,6 +430,12 @@ void Manager::loadAction(std::string path) {
 	this->path = path;
 	APP->history->setSaved();
 	pushRecentPath(path);
+#if defined(__ANDROID__)
+	// Persist the just-opened path immediately. This is especially important
+	// for SAF-backed mirrors because Android may kill a stopped process without
+	// another reliable autosave opportunity.
+	saveAutosave();
+#endif
 }
 
 
