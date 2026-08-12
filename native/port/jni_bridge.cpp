@@ -14,6 +14,9 @@
 #include <atomic>
 #include <thread>
 #include <chrono>
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <android/native_activity.h>
 #include <android/log.h>
@@ -248,7 +251,8 @@ static std::string jstringToStd(JNIEnv* env, jstring js) {
 		return "";
 	const char* chars = env->GetStringUTFChars(js, NULL);
 	std::string s = chars ? chars : "";
-	env->ReleaseStringUTFChars(js, chars);
+	if (chars)
+		env->ReleaseStringUTFChars(js, chars);
 	return s;
 }
 
@@ -385,7 +389,224 @@ bool dialogFile(int action, const std::string& dir, const std::string& filename,
 }
 
 
-// ---- results posted by MainActivity (UI thread) ----
+/** Launches a tiny helper Activity which immediately opens Android's
+ * ACTION_CREATE_DOCUMENT picker. Keeping it separate avoids changing the
+ * NativeActivity lifecycle/file-dialog code just to support one URI-backed
+ * save operation. The helper returns an ordinary private mirror path under
+ * user/patches; the path is linked to the chosen content URI in private
+ * SharedPreferences. */
+bool documentSaveDialog(const std::string& filename, std::string& path) {
+	JNIEnv* env = getEnv();
+	if (!env || !activityObj || !activityCls)
+		return false;
+
+	dialogDone = false;
+	dialogResultHasStr = false;
+
+	jclass intentCls = env->FindClass("android/content/Intent");
+	if (!intentCls || env->ExceptionCheck()) {
+		if (env->ExceptionCheck()) env->ExceptionClear();
+		return false;
+	}
+	jmethodID ctor = env->GetMethodID(intentCls, "<init>", "()V");
+	jmethodID setClassName = env->GetMethodID(intentCls, "setClassName",
+		"(Landroid/content/Context;Ljava/lang/String;)Landroid/content/Intent;");
+	jmethodID putExtra = env->GetMethodID(intentCls, "putExtra",
+		"(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;");
+	jmethodID startActivity = env->GetMethodID(activityCls, "startActivity",
+		"(Landroid/content/Intent;)V");
+	if (!ctor || !setClassName || !putExtra || !startActivity || env->ExceptionCheck()) {
+		if (env->ExceptionCheck()) env->ExceptionClear();
+		env->DeleteLocalRef(intentCls);
+		return false;
+	}
+
+	jobject intent = env->NewObject(intentCls, ctor);
+	jstring className = env->NewStringUTF("org.rackdroid.DocumentSaveActivity");
+	jstring extraKey = env->NewStringUTF("org.rackdroid.extra.SAVE_FILENAME");
+	jstring extraValue = env->NewStringUTF(filename.empty() ? "Untitled.vcv" : filename.c_str());
+	if (!intent || !className || !extraKey || !extraValue) {
+		if (intent) env->DeleteLocalRef(intent);
+		if (className) env->DeleteLocalRef(className);
+		if (extraKey) env->DeleteLocalRef(extraKey);
+		if (extraValue) env->DeleteLocalRef(extraValue);
+		env->DeleteLocalRef(intentCls);
+		return false;
+	}
+
+	jobject configured = env->CallObjectMethod(intent, setClassName, activityObj, className);
+	if (configured) env->DeleteLocalRef(configured);
+	jobject withExtra = env->CallObjectMethod(intent, putExtra, extraKey, extraValue);
+	if (withExtra) env->DeleteLocalRef(withExtra);
+	env->CallVoidMethod(activityObj, startActivity, intent);
+	env->DeleteLocalRef(extraValue);
+	env->DeleteLocalRef(extraKey);
+	env->DeleteLocalRef(className);
+	env->DeleteLocalRef(intent);
+	env->DeleteLocalRef(intentCls);
+	if (env->ExceptionCheck()) {
+		env->ExceptionClear();
+		return false;
+	}
+
+	if (!pumpUntilDialogDone() || !dialogResultHasStr)
+		return false;
+	path = dialogResultStr;
+	return true;
+}
+
+
+/** If `path` was created by DocumentSaveActivity, synchronously mirror the
+ * finished local .vcv to the remembered SAF URI. Unlinked/private paths are a
+ * no-op. The local file is always written first, so a provider failure cannot
+ * destroy the only copy of a patch. */
+bool commitDocumentSave(const std::string& path) {
+	JNIEnv* env = getEnv();
+	if (!env || !activityObj || !activityCls)
+		return true; // no Android bridge means ordinary private save semantics
+
+	jmethodID getPrefs = env->GetMethodID(activityCls, "getSharedPreferences",
+		"(Ljava/lang/String;I)Landroid/content/SharedPreferences;");
+	jclass prefsCls = env->FindClass("android/content/SharedPreferences");
+	jmethodID getString = prefsCls ? env->GetMethodID(prefsCls, "getString",
+		"(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;") : NULL;
+	if (!getPrefs || !prefsCls || !getString || env->ExceptionCheck()) {
+		if (env->ExceptionCheck()) env->ExceptionClear();
+		if (prefsCls) env->DeleteLocalRef(prefsCls);
+		return false;
+	}
+
+	jstring prefsName = env->NewStringUTF("document_save_links");
+	jobject prefs = env->CallObjectMethod(activityObj, getPrefs, prefsName, 0);
+	jstring key = env->NewStringUTF(path.c_str());
+	jstring uriJs = prefs ? (jstring) env->CallObjectMethod(prefs, getString, key, NULL) : NULL;
+	env->DeleteLocalRef(key);
+	env->DeleteLocalRef(prefsName);
+	if (env->ExceptionCheck()) {
+		env->ExceptionClear();
+		if (prefs) env->DeleteLocalRef(prefs);
+		env->DeleteLocalRef(prefsCls);
+		return false;
+	}
+	if (!uriJs) {
+		if (prefs) env->DeleteLocalRef(prefs);
+		env->DeleteLocalRef(prefsCls);
+		return true; // normal internal RackDroid save
+	}
+	std::string uriString = jstringToStd(env, uriJs);
+	env->DeleteLocalRef(uriJs);
+	if (prefs) env->DeleteLocalRef(prefs);
+	env->DeleteLocalRef(prefsCls);
+	if (uriString.empty())
+		return true;
+
+	jclass uriCls = env->FindClass("android/net/Uri");
+	jclass resolverCls = env->FindClass("android/content/ContentResolver");
+	jclass pfdCls = env->FindClass("android/os/ParcelFileDescriptor");
+	jmethodID parse = uriCls ? env->GetStaticMethodID(uriCls, "parse", "(Ljava/lang/String;)Landroid/net/Uri;") : NULL;
+	jmethodID getResolver = env->GetMethodID(activityCls, "getContentResolver", "()Landroid/content/ContentResolver;");
+	jmethodID openPfd = resolverCls ? env->GetMethodID(resolverCls, "openFileDescriptor",
+		"(Landroid/net/Uri;Ljava/lang/String;)Landroid/os/ParcelFileDescriptor;") : NULL;
+	jmethodID detachFd = pfdCls ? env->GetMethodID(pfdCls, "detachFd", "()I") : NULL;
+	if (!uriCls || !resolverCls || !pfdCls || !parse || !getResolver || !openPfd || !detachFd || env->ExceptionCheck()) {
+		if (env->ExceptionCheck()) env->ExceptionClear();
+		if (uriCls) env->DeleteLocalRef(uriCls);
+		if (resolverCls) env->DeleteLocalRef(resolverCls);
+		if (pfdCls) env->DeleteLocalRef(pfdCls);
+		return false;
+	}
+
+	jstring uriText = env->NewStringUTF(uriString.c_str());
+	jobject uri = env->CallStaticObjectMethod(uriCls, parse, uriText);
+	jobject resolver = env->CallObjectMethod(activityObj, getResolver);
+	env->DeleteLocalRef(uriText);
+	if (env->ExceptionCheck() || !uri || !resolver) {
+		if (env->ExceptionCheck()) env->ExceptionClear();
+		if (uri) env->DeleteLocalRef(uri);
+		if (resolver) env->DeleteLocalRef(resolver);
+		env->DeleteLocalRef(uriCls);
+		env->DeleteLocalRef(resolverCls);
+		env->DeleteLocalRef(pfdCls);
+		return false;
+	}
+
+	jobject pfd = NULL;
+	const char* modes[] = {"rwt", "wt", "w"};
+	for (const char* mode : modes) {
+		jstring modeJs = env->NewStringUTF(mode);
+		pfd = env->CallObjectMethod(resolver, openPfd, uri, modeJs);
+		env->DeleteLocalRef(modeJs);
+		if (env->ExceptionCheck()) {
+			env->ExceptionClear();
+			pfd = NULL;
+		}
+		if (pfd)
+			break;
+	}
+
+	int outFd = -1;
+	if (pfd) {
+		outFd = env->CallIntMethod(pfd, detachFd);
+		if (env->ExceptionCheck()) {
+			env->ExceptionClear();
+			outFd = -1;
+		}
+		env->DeleteLocalRef(pfd);
+	}
+	env->DeleteLocalRef(resolver);
+	env->DeleteLocalRef(uri);
+	env->DeleteLocalRef(uriCls);
+	env->DeleteLocalRef(resolverCls);
+	env->DeleteLocalRef(pfdCls);
+	if (outFd < 0)
+		return false;
+
+	// rwt/wt already request truncation. Repeat it at the fd layer when the
+	// provider exposes a seekable descriptor; ignore EINVAL/ESPIPE for cloud
+	// providers whose descriptor is stream-like and handles truncation itself.
+	::ftruncate(outFd, 0);
+	::lseek(outFd, 0, SEEK_SET);
+
+	int inFd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+	if (inFd < 0) {
+		::close(outFd);
+		return false;
+	}
+
+	bool ok = true;
+	char buffer[64 * 1024];
+	while (true) {
+		ssize_t n = ::read(inFd, buffer, sizeof(buffer));
+		if (n == 0)
+			break;
+		if (n < 0) {
+			if (errno == EINTR) continue;
+			ok = false;
+			break;
+		}
+		ssize_t off = 0;
+		while (off < n) {
+			ssize_t w = ::write(outFd, buffer + off, (size_t) (n - off));
+			if (w < 0 && errno == EINTR) continue;
+			if (w <= 0) {
+				ok = false;
+				break;
+			}
+			off += w;
+		}
+		if (!ok) break;
+	}
+	::close(inFd);
+	// Some cloud providers expose a non-fsyncable descriptor. close() is the
+	// provider boundary that matters; fsync failure alone is not data failure.
+	::fsync(outFd);
+	if (::close(outFd) != 0)
+		ok = false;
+	return ok;
+}
+
+
+// ---- results posted by MainActivity / helper Activity (UI thread) ----
 
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeSetStartupOptions(JNIEnv* env, jobject thiz,
@@ -409,6 +630,21 @@ Java_org_rackdroid_MainActivity_nativeDialogInt(JNIEnv* env, jobject thiz, jint 
 
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeDialogString(JNIEnv* env, jobject thiz, jstring js) {
+	if (js) {
+		dialogResultStr = jstringToStd(env, js);
+		dialogResultHasStr = true;
+	}
+	else {
+		dialogResultHasStr = false;
+	}
+	dialogDone = true;
+}
+
+/** DocumentSaveActivity uses the same synchronous dialog handoff as the
+ * existing MainActivity file picker, but keeps its Activity plumbing isolated
+ * from NativeActivity. */
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_DocumentSaveActivity_nativeDocumentSaveResult(JNIEnv* env, jobject thiz, jstring js) {
 	if (js) {
 		dialogResultStr = jstringToStd(env, js);
 		dialogResultHasStr = true;

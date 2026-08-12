@@ -34,6 +34,16 @@
 		android:dataExtractionRules="@xml/data_extraction_rules"
 		android:usesCleartextTraffic="false">
 
+		<!-- Transparent helper that immediately delegates patch Save As to
+		     Android's Storage Access Framework picker. Not exported and not a
+		     launcher/recents entry. -->
+		<activity
+			android:name=".DocumentSaveActivity"
+			android:exported="false"
+			android:excludeFromRecents="true"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
+			android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
 		<activity
 			android:name=".MainActivity"
 			android:exported="true"

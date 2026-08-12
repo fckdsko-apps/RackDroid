@@ -15,6 +15,12 @@
 #include <settings.hpp>
 #include <plugin.hpp>
 
+#if defined(__ANDROID__)
+namespace rackdroid {
+bool commitDocumentSave(const std::string& path);
+}
+#endif
+
 
 namespace rack {
 namespace patch {
@@ -136,6 +142,16 @@ void Manager::save(std::string path) {
 	system::archiveDirectory(path, autosavePath, 1);
 	double endTime = system::getTime();
 	INFO("Archived patch in %lf seconds", (endTime - startTime));
+
+#if defined(__ANDROID__)
+	// ACTION_CREATE_DOCUMENT gives Android a content:// URI, which Rack cannot
+	// archive to directly. Save As therefore writes this normal private mirror
+	// first, then copies the completed archive to its linked SAF document. A
+	// provider error is reported as a save failure while the local mirror stays
+	// intact under user/patches (and therefore remains backup-eligible).
+	if (!rackdroid::commitDocumentSave(path))
+		throw Exception("Could not write the selected Android document. A local copy was kept at %s", path.c_str());
+#endif
 }
 
 

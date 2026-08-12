@@ -67,6 +67,17 @@ char* osdialog_file(osdialog_file_action action, const char* path, const char* f
 	const std::string requestedFilename = filename ? filename : "";
 	std::string result;
 
+	// Rack patch Save As is special because Android returns a content:// URI,
+	// while Rack's archive writer requires a normal filesystem path. The helper
+	// Activity chooses the SAF destination but returns a backed-up private mirror
+	// path. patch::Manager::save() writes that mirror first and then synchronously
+	// publishes it to the selected document.
+	if (action == OSDIALOG_SAVE && extensions == "vcv") {
+		if (!rackdroid::documentSaveDialog(requestedFilename, result))
+			return NULL;
+		return strdup(result.c_str());
+	}
+
 	// Rack core normally asks Java to open .vcv files specifically from its
 	// private user/patches directory. Java recognizes that path and shows the
 	// old internal-only patch list.

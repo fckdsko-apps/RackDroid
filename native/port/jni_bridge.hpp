@@ -82,4 +82,12 @@ RackDroid's persistent user/imports directory. */
 bool dialogFile(int action, const std::string& dir, const std::string& filename,
 	const std::string& extensions, std::string& path);
 
+/** Android patch Save As. Launches ACTION_CREATE_DOCUMENT through a small
+helper Activity and returns a private mirror path under user/patches. */
+bool documentSaveDialog(const std::string& filename, std::string& path);
+
+/** If `path` is linked to an Android document URI, synchronously copy the
+finished private mirror to that URI. Ordinary internal paths are a no-op. */
+bool commitDocumentSave(const std::string& path);
+
 } // namespace rackdroid
