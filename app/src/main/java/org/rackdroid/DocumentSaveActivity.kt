@@ -81,14 +81,25 @@ class DocumentSaveActivity : Activity() {
 
 			val display = queryDisplayName(uri) ?: "Untitled.vcv"
 			val safeName = safeVcvName(display)
-			val patchDir = File(filesDir, "user/patches").apply { mkdirs() }
-			val mirror = uniqueDestination(patchDir, safeName)
+			val patchDir = File(filesDir, "user/patches").canonicalFile.apply { mkdirs() }
+			val uriString = uri.toString()
+			val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+			val reverseKey = KEY_URI_PREFIX + uriString
+			val remembered = prefs.getString(reverseKey, null) ?: prefs.all.entries
+				.firstOrNull { (key, value) -> key != KEY_LAST_URI && !key.startsWith(KEY_URI_PREFIX) &&
+					File(key).isAbsolute && value == uriString }
+				?.key
+			val rememberedFile = remembered?.let { runCatching { File(it).canonicalFile }.getOrNull() }
+			val mirror = rememberedFile?.takeIf {
+				it.parentFile == patchDir && it.name.endsWith(".vcv", ignoreCase = true)
+			} ?: uniqueDestination(patchDir, safeName)
 
 			// Commit this synchronously before waking native save code. If the
 			// process dies immediately afterward, the link is still durable.
-			val saved = getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-				.putString(mirror.absolutePath, uri.toString())
-				.putString(KEY_LAST_URI, uri.toString())
+			val saved = prefs.edit()
+				.putString(mirror.absolutePath, uriString)
+				.putString(reverseKey, mirror.absolutePath)
+				.putString(KEY_LAST_URI, uriString)
 				.commit()
 			if (!saved)
 				throw IllegalStateException("could not remember selected document")
@@ -144,6 +155,7 @@ class DocumentSaveActivity : Activity() {
 		const val EXTRA_SAVE_FILENAME = "org.rackdroid.extra.SAVE_FILENAME"
 		const val PREFS = "document_save_links"
 		const val KEY_LAST_URI = "__last_uri__"
+		const val KEY_URI_PREFIX = "__uri__:"
 
 		init {
 			// The callback lives in jni_bridge.cpp inside librack_engine.so.

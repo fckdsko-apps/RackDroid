@@ -44,6 +44,15 @@
 			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
 			android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+		<!-- Matching helper for patch Open. It owns ACTION_OPEN_DOCUMENT so an
+		     external .vcv can keep a persistent URI link for later File > Save. -->
+		<activity
+			android:name=".DocumentOpenActivity"
+			android:exported="false"
+			android:excludeFromRecents="true"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
+			android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
 		<activity
 			android:name=".MainActivity"
 			android:exported="true"

@@ -82,6 +82,11 @@ RackDroid's persistent user/imports directory. */
 bool dialogFile(int action, const std::string& dir, const std::string& filename,
 	const std::string& extensions, std::string& path);
 
+/** Android patch Open. Launches ACTION_OPEN_DOCUMENT through a small helper
+Activity, imports to a private mirror, and links ordinary Save back to the
+selected document when persistent write permission is available. */
+bool documentOpenDialog(std::string& path);
+
 /** Android patch Save As. Launches ACTION_CREATE_DOCUMENT through a small
 helper Activity and returns a private mirror path under user/patches. */
 bool documentSaveDialog(const std::string& filename, std::string& path);

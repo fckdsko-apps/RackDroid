@@ -389,6 +389,62 @@ bool dialogFile(int action, const std::string& dir, const std::string& filename,
 }
 
 
+/** Launches the VCV-specific ACTION_OPEN_DOCUMENT helper. It returns a
+ * normal private mirror path under user/patches, while the Java helper keeps
+ * the selected content URI linked to that path when persistent write access is
+ * available. Cancelling returns false so osdialog_android.cpp can fall back to
+ * RackDroid's internal patch list. */
+bool documentOpenDialog(std::string& path) {
+	JNIEnv* env = getEnv();
+	if (!env || !activityObj || !activityCls)
+		return false;
+
+	dialogDone = false;
+	dialogResultHasStr = false;
+
+	jclass intentCls = env->FindClass("android/content/Intent");
+	if (!intentCls || env->ExceptionCheck()) {
+		if (env->ExceptionCheck()) env->ExceptionClear();
+		return false;
+	}
+	jmethodID ctor = env->GetMethodID(intentCls, "<init>", "()V");
+	jmethodID setClassName = env->GetMethodID(intentCls, "setClassName",
+		"(Landroid/content/Context;Ljava/lang/String;)Landroid/content/Intent;");
+	jmethodID startActivity = env->GetMethodID(activityCls, "startActivity",
+		"(Landroid/content/Intent;)V");
+	if (!ctor || !setClassName || !startActivity || env->ExceptionCheck()) {
+		if (env->ExceptionCheck()) env->ExceptionClear();
+		env->DeleteLocalRef(intentCls);
+		return false;
+	}
+
+	jobject intent = env->NewObject(intentCls, ctor);
+	jstring className = env->NewStringUTF("org.rackdroid.DocumentOpenActivity");
+	if (!intent || !className) {
+		if (intent) env->DeleteLocalRef(intent);
+		if (className) env->DeleteLocalRef(className);
+		env->DeleteLocalRef(intentCls);
+		return false;
+	}
+
+	jobject configured = env->CallObjectMethod(intent, setClassName, activityObj, className);
+	if (configured) env->DeleteLocalRef(configured);
+	env->CallVoidMethod(activityObj, startActivity, intent);
+	env->DeleteLocalRef(className);
+	env->DeleteLocalRef(intent);
+	env->DeleteLocalRef(intentCls);
+	if (env->ExceptionCheck()) {
+		env->ExceptionClear();
+		return false;
+	}
+
+	if (!pumpUntilDialogDone() || !dialogResultHasStr)
+		return false;
+	path = dialogResultStr;
+	return true;
+}
+
+
 /** Launches a tiny helper Activity which immediately opens Android's
  * ACTION_CREATE_DOCUMENT picker. Keeping it separate avoids changing the
  * NativeActivity lifecycle/file-dialog code just to support one URI-backed
@@ -639,6 +695,20 @@ Java_org_rackdroid_MainActivity_nativeDialogString(JNIEnv* env, jobject thiz, js
 	}
 	dialogDone = true;
 }
+
+/** DocumentOpenActivity shares the same synchronous dialog result handoff. */
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_DocumentOpenActivity_nativeDocumentOpenResult(JNIEnv* env, jobject thiz, jstring js) {
+	if (js) {
+		dialogResultStr = jstringToStd(env, js);
+		dialogResultHasStr = true;
+	}
+	else {
+		dialogResultHasStr = false;
+	}
+	dialogDone = true;
+}
+
 
 /** DocumentSaveActivity uses the same synchronous dialog handoff as the
  * existing MainActivity file picker, but keeps its Activity plumbing isolated
