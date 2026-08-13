@@ -225,7 +225,7 @@ struct AudioLabConfig {
 
 	// v09 recommended/default = 2 reported hardware bursts.
 	// 0 = leave AAudio/Oboe buffer size alone.
-	// 1/2 = request that many reported hardware bursts after opening.
+	// 1/2/3/4 = request that many reported hardware bursts after opening.
 	int bufferBursts = RECOMMENDED_BUFFER_BURSTS;
 
 	bool fastEngine = true;
@@ -277,6 +277,8 @@ static bool parseBufferBursts(const std::string& value, int& out) {
 	if (value == "0") { out = 0; return true; }
 	if (value == "1") { out = 1; return true; }
 	if (value == "2") { out = 2; return true; }
+	if (value == "3") { out = 3; return true; }
+	if (value == "4") { out = 4; return true; }
 	return false;
 }
 

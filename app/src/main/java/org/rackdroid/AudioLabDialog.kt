@@ -31,7 +31,7 @@ class AudioLabDialog(private val activity: MainActivity) {
 		// 0 = pinned 48 kHz, -1 = native unspecified, 44100 = explicit.
 		val sampleRateMode: Int = 0,
 		// v09 recommended/default: 2 reported hardware bursts.
-		// 0 = system/default, 1 or 2 = hardware-burst multiples.
+		// 0 = system/default, 1/2/3/4 = hardware-burst multiples.
 		val bufferBursts: Int = 2,
 		val fastEngine: Boolean = true,
 		val inputEnabled: Boolean = true,
@@ -52,6 +52,8 @@ class AudioLabDialog(private val activity: MainActivity) {
 	private lateinit var bufferGroup: RadioGroup
 	private lateinit var bufferDefault: RadioButton
 	private lateinit var buffer2Bursts: RadioButton
+	private lateinit var buffer3Bursts: RadioButton
+	private lateinit var buffer4Bursts: RadioButton
 	private lateinit var buffer1Burst: RadioButton
 
 	private lateinit var fastEngineBox: CheckBox
@@ -74,7 +76,7 @@ class AudioLabDialog(private val activity: MainActivity) {
 			setTypeface(typeface, Typeface.BOLD)
 		})
 		root.addView(TextView(activity).apply {
-			text = "v09 low-latency audio lab. The tested recommended/default path is marked below; experimental controls remain available. Save + restart after changing a startup setting."
+			text = "v09.2 low-latency audio lab. The current recommended/default path is marked below; 3- and 4-burst buffer candidates are available for robustness testing. Save + restart after changing a startup setting."
 			textSize = 14f
 			setPadding(0, dp(8), 0, dp(14))
 		})
@@ -146,18 +148,22 @@ class AudioLabDialog(private val activity: MainActivity) {
 			tag = bursts
 		}
 		bufferDefault = bufferChoice("System/default size (experimental/control)", 0)
-		buffer2Bursts = bufferChoice("Request 2 × reported hardware burst — Recommended/default", 2)
+		buffer2Bursts = bufferChoice("Request 2 × reported hardware burst — current Recommended/default", 2)
+		buffer3Bursts = bufferChoice("Request 3 × reported hardware burst (robustness candidate)", 3)
+		buffer4Bursts = bufferChoice("Request 4 × reported hardware burst (safer robustness candidate)", 4)
 		buffer1Burst = bufferChoice("Request 1 × reported hardware burst (aggressive/experimental)", 1)
-		listOf(bufferDefault, buffer2Bursts, buffer1Burst).forEach { bufferGroup.addView(it) }
+		listOf(bufferDefault, buffer1Burst, buffer2Bursts, buffer3Bursts, buffer4Bursts).forEach { bufferGroup.addView(it) }
 		when (opts.bufferBursts) {
 			1 -> buffer1Burst.isChecked = true
 			2 -> buffer2Bursts.isChecked = true
+			3 -> buffer3Bursts.isChecked = true
+			4 -> buffer4Bursts.isChecked = true
 			else -> bufferDefault.isChecked = true
 		}
 		root.addView(bufferGroup)
 
 		root.addView(TextView(activity).apply {
-			text = "AAudio may clamp a buffer request. The diagnostics show the requested and granted frame counts; judge smaller buffers by latency and xruns, not by the request alone."
+			text = "AAudio may clamp a buffer request. Diagnostics show requested/granted frames. For this test, judge 3/4-burst candidates by audible clicks/pops, latency min/avg/max, xruns, and input shortfalls—not the request alone."
 			textSize = 12f
 			setPadding(dp(6), 0, 0, dp(8))
 		})
@@ -311,7 +317,7 @@ class AudioLabDialog(private val activity: MainActivity) {
 					}
 					"buffer_bursts" -> {
 						val bursts = value.toIntOrNull()
-						if (bursts != null && bursts in setOf(0, 1, 2))
+						if (bursts != null && bursts in setOf(0, 1, 2, 3, 4))
 							bufferBursts = bursts
 						return@forEachLine
 					}
@@ -337,7 +343,7 @@ class AudioLabDialog(private val activity: MainActivity) {
 		dir.mkdirs()
 		val tmp = File(dir, "audio-lab.cfg.tmp")
 		val text = buildString {
-			append("# RackDroid v09 Low-Latency Audio Lab; read once at native audio startup.\n")
+			append("# RackDroid v09.2 Low-Latency Audio Lab; read once at native audio startup.\n")
 			// Keep the v06 key so a downgrade can still interpret Oboe-managed mode.
 			append("native_callback=").append(if (options.callbackFrames < 0) 1 else 0).append('\n')
 			append("callback_frames=").append(options.callbackFrames).append('\n')
