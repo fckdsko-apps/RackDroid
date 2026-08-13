@@ -9,8 +9,15 @@
  * device degrades to output-only.
  *
  * v06 Audio Lab adds restart-only A/B switches and low-overhead diagnostics.
- * The default config is byte-for-byte behavioral intent of the pre-v06 path:
- * fixed Rack block callback, upstream Rack engine dispatch, input enabled.
+ * v07 separated Android callback size from Rack's saved block size.
+ * v08.1 adds low-latency-path experiments for output sample-rate selection and
+ * AAudio buffer depth while preserving the v07 48 kHz control path as the default.
+ *
+ * Rack autosaves its active patch periodically and on shutdown. Therefore this lab
+ * must not depend on .vcv/autosave sample-rate metadata remaining unchanged between
+ * experimental runs. The Android lab owns the output stream rate while enabled:
+ * control is pinned to the known v07 48 kHz request, and experimental modes override
+ * it. Rack still sees the actual opened stream rate for correct engine/device math.
  */
 #include "audio_oboe.hpp"
 
@@ -199,6 +206,17 @@ struct AudioLabConfig {
 	//    0 = legacy behavior: fixed callback follows Rack's saved block size
 	//   >0 = explicit fixed Android callback size for the latency experiment
 	int callbackFrames = 0;
+
+	// sampleRateMode controls only how the Android output stream is opened.
+	//    0 = v07 control: request Rack's sample rate, Oboe SRC quality Medium
+	//   -1 = native/unspecified output rate, Oboe SRC disabled
+	// 44100 = explicit 44.1 kHz output rate, Oboe SRC disabled
+	int sampleRateMode = 0;
+
+	// 0 = leave AAudio/Oboe buffer size alone (v07 control).
+	// 1/2 = request that many reported hardware bursts after opening.
+	int bufferBursts = 0;
+
 	bool fastEngine = false;
 	bool inputEnabled = true;
 };
@@ -226,6 +244,20 @@ static bool parseCallbackFrames(const std::string& value, int& out) {
 	if (value == "128") { out = 128; return true; }
 	if (value == "192") { out = 192; return true; }
 	if (value == "256") { out = 256; return true; }
+	return false;
+}
+
+static bool parseSampleRateMode(const std::string& value, int& out) {
+	if (value == "-1") { out = -1; return true; }
+	if (value == "0") { out = 0; return true; }
+	if (value == "44100") { out = 44100; return true; }
+	return false;
+}
+
+static bool parseBufferBursts(const std::string& value, int& out) {
+	if (value == "0") { out = 0; return true; }
+	if (value == "1") { out = 1; return true; }
+	if (value == "2") { out = 2; return true; }
 	return false;
 }
 
@@ -270,6 +302,16 @@ static void loadAudioLabConfig() {
 				callbackFramesSeen = true;
 			}
 		}
+		else if (key == "sample_rate_mode") {
+			int mode = 0;
+			if (parseSampleRateMode(value, mode))
+				gAudioLabConfig.sampleRateMode = mode;
+		}
+		else if (key == "buffer_bursts") {
+			int bursts = 0;
+			if (parseBufferBursts(value, bursts))
+				gAudioLabConfig.bufferBursts = bursts;
+		}
 		else if (key == "fast_engine") {
 			if (parseBool(value, parsed)) gAudioLabConfig.fastEngine = parsed;
 		}
@@ -284,8 +326,16 @@ static void loadAudioLabConfig() {
 	if (gAudioLabConfig.callbackFrames < 0) callbackLabel = "oboe-managed";
 	else if (gAudioLabConfig.callbackFrames == 0) callbackLabel = "rack-block";
 	else callbackLabel = "fixed-" + std::to_string(gAudioLabConfig.callbackFrames);
-	INFO("Audio Lab config: callback=%s engine=%s input=%s",
+
+	std::string rateLabel;
+	if (gAudioLabConfig.sampleRateMode < 0) rateLabel = "native-unspecified";
+	else if (gAudioLabConfig.sampleRateMode == 0) rateLabel = "rack-requested+src";
+	else rateLabel = std::to_string(gAudioLabConfig.sampleRateMode) + "-no-src";
+
+	INFO("Audio Lab config: callback=%s rate=%s bufferBursts=%d engine=%s input=%s",
 		callbackLabel.c_str(),
+		rateLabel.c_str(),
+		gAudioLabConfig.bufferBursts,
 		gAudioLabConfig.fastEngine ? "fast-single" : "upstream",
 		gAudioLabConfig.inputEnabled ? "on" : "off");
 }
@@ -388,6 +438,18 @@ static const char* sharingName(oboe::SharingMode mode) {
 	}
 }
 
+static const char* srcQualityName(oboe::SampleRateConversionQuality quality) {
+	switch (quality) {
+		case oboe::SampleRateConversionQuality::None: return "None";
+		case oboe::SampleRateConversionQuality::Fastest: return "Fastest";
+		case oboe::SampleRateConversionQuality::Low: return "Low";
+		case oboe::SampleRateConversionQuality::Medium: return "Medium";
+		case oboe::SampleRateConversionQuality::High: return "High";
+		case oboe::SampleRateConversionQuality::Best: return "Best";
+		default: return "Unknown";
+	}
+}
+
 struct OboeDevice;
 static std::mutex gActiveDeviceMutex;
 static OboeDevice* gActiveDevice = NULL;
@@ -396,9 +458,18 @@ static OboeDevice* gActiveDevice = NULL;
 struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::AudioStreamErrorCallback {
 	std::shared_ptr<oboe::AudioStream> outputStream;
 	std::shared_ptr<oboe::AudioStream> inputStream;
-	float sampleRate = DEFAULT_SAMPLE_RATE;
+	// The value Rack/.vcv/autosave last requested. It is diagnostic metadata only
+	// while Audio Lab is active; v08.1 deliberately decouples the Android stream
+	// experiment from Rack autosave so a 44.1 kHz experimental run cannot poison
+	// a later 48 kHz control run.
+	float rackRequestedSampleRate = DEFAULT_SAMPLE_RATE;
 	int blockSize = DEFAULT_BLOCK_SIZE;
 	std::vector<float> inputBuffer;
+	int effectiveSampleRateMode = 0;
+	bool sampleRateFallbackUsed = false;
+	std::string sampleRateFallbackReason;
+	int requestedBufferFrames = 0;
+	std::string bufferSetError;
 	uint64_t measurementStartWallNs = 0;
 	uint64_t measurementStartProcessNs = 0;
 	std::atomic<uint64_t> measurementStartCallbackCpuNs{0};
@@ -460,30 +531,78 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		// Force the first callback of this stream to publish its own CPU clock.
 		callbackClockIdRaw.store(0, std::memory_order_relaxed);
 		measurementStartCallbackCpuNs.store(0, std::memory_order_relaxed);
+		effectiveSampleRateMode = gAudioLabConfig.sampleRateMode;
+		sampleRateFallbackUsed = false;
+		sampleRateFallbackReason.clear();
+		requestedBufferFrames = 0;
+		bufferSetError.clear();
 
-		oboe::AudioStreamBuilder outBuilder;
-		outBuilder.setDirection(oboe::Direction::Output)
-			->setPerformanceMode(oboe::PerformanceMode::LowLatency)
-			->setSharingMode(oboe::SharingMode::Exclusive)
-			->setFormat(oboe::AudioFormat::Float)
-			->setChannelCount(NUM_OUTPUTS)
-			->setSampleRate((int) sampleRate)
-			->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium);
-		if (gAudioLabConfig.callbackFrames >= 0) {
-			const int callbackFrames = gAudioLabConfig.callbackFrames > 0
-				? gAudioLabConfig.callbackFrames : blockSize;
-			outBuilder.setFramesPerDataCallback(callbackFrames);
+		auto openOutputForMode = [&](int rateMode) -> oboe::Result {
+			oboe::AudioStreamBuilder outBuilder;
+			outBuilder.setDirection(oboe::Direction::Output)
+				->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+				->setSharingMode(oboe::SharingMode::Exclusive)
+				->setFormat(oboe::AudioFormat::Float)
+				->setChannelCount(NUM_OUTPUTS);
+
+			if (rateMode == 0) {
+				// v08.1 control is intentionally pinned to the known v07 baseline.
+				// Do NOT source this from Rack/.vcv: Rack periodically autosaves the
+				// actual device rate, so a 44.1 kHz experiment could otherwise turn a
+				// later "control" run into 44.1 kHz on restart.
+				outBuilder.setSampleRate(DEFAULT_SAMPLE_RATE)
+					->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium);
+			}
+			else {
+				// Low-latency experiments avoid Oboe SRC. A negative mode leaves
+				// sample rate unspecified so AAudio can choose the optimal rate.
+				outBuilder.setSampleRateConversionQuality(oboe::SampleRateConversionQuality::None);
+				if (rateMode > 0)
+					outBuilder.setSampleRate(rateMode);
+			}
+
+			if (gAudioLabConfig.callbackFrames >= 0) {
+				const int callbackFrames = gAudioLabConfig.callbackFrames > 0
+					? gAudioLabConfig.callbackFrames : blockSize;
+				outBuilder.setFramesPerDataCallback(callbackFrames);
+			}
+			outBuilder.setDataCallback(this)
+				->setErrorCallback(this);
+			return outBuilder.openStream(outputStream);
+		};
+
+		oboe::Result result = openOutputForMode(effectiveSampleRateMode);
+		if (result != oboe::Result::OK && effectiveSampleRateMode != 0) {
+			// A failed experiment must not strand the app without output. Record
+			// the failure and retry the known-working v07 stream configuration.
+			sampleRateFallbackUsed = true;
+			sampleRateFallbackReason = oboe::convertToText(result);
+			WARN("Oboe: sample-rate experiment failed (%s), retrying v07 control",
+				sampleRateFallbackReason.c_str());
+			outputStream.reset();
+			effectiveSampleRateMode = 0;
+			result = openOutputForMode(0);
 		}
-		outBuilder.setDataCallback(this)
-			->setErrorCallback(this);
-
-		oboe::Result result = outBuilder.openStream(outputStream);
 		if (result != oboe::Result::OK) {
 			WARN("Oboe: could not open output stream: %s", oboe::convertToText(result));
 			return;
 		}
-		// The stream may have been opened with a different rate than requested.
-		sampleRate = outputStream->getSampleRate();
+
+		// Tune the *active* output buffer after open. AAudio may clamp the request.
+		if (gAudioLabConfig.bufferBursts > 0) {
+			const int burst = outputStream->getFramesPerBurst();
+			const int capacity = outputStream->getBufferCapacityInFrames();
+			if (burst > 0 && capacity > 0) {
+				requestedBufferFrames = std::min(capacity,
+					burst * gAudioLabConfig.bufferBursts);
+				auto bufferResult = outputStream->setBufferSizeInFrames(requestedBufferFrames);
+				if (!bufferResult)
+					bufferSetError = oboe::convertToText(bufferResult.error());
+			}
+			else {
+				bufferSetError = "stream did not report usable burst/capacity";
+			}
+		}
 
 		if (gAudioLabConfig.inputEnabled) {
 			oboe::AudioStreamBuilder inBuilder;
@@ -515,8 +634,9 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		// it after the representative patch is loaded, which removes startup/load
 		// time from A/B CPU comparisons.
 		resetMeasurementsNoLock();
-		INFO("Oboe: stream started, sampleRate=%g burst=%d callback=%d buffer=%d/%d api=%s mode=%s sharing=%s",
-			sampleRate,
+		INFO("Oboe: stream started, sampleRate=%d hwRate=%d burst=%d callback=%d buffer=%d/%d api=%s mode=%s sharing=%s",
+			outputStream->getSampleRate(),
+			outputStream->getHardwareSampleRate(),
 			outputStream->getFramesPerBurst(),
 			outputStream->getFramesPerDataCallback(),
 			outputStream->getBufferSizeInFrames(),
@@ -558,14 +678,21 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		return {44100.f, 48000.f};
 	}
 	float getSampleRate() override {
-		return sampleRate;
+		// Rack's Core audio module must see the *actual stream rate* so its own
+		// engine/device resampler math stays correct in native-rate mode.
+		if (outputStream)
+			return (float) outputStream->getSampleRate();
+		return rackRequestedSampleRate;
 	}
 	void setSampleRate(float sr) override {
-		if (sr == sampleRate)
+		if (sr <= 0.f)
 			return;
-		closeStreams();
-		sampleRate = sr;
-		openStreams();
+		// Rack calls this while loading .vcv/autosave metadata. Keep the value
+		// for diagnostics, but do not let autosave reopen or retarget the Android
+		// stream during the v08.1 lab. The lab's sample-rate selector owns that
+		// variable, and getSampleRate() still reports the actual opened rate back
+		// to Rack so engine/device resampling remains correct.
+		rackRequestedSampleRate = sr;
 	}
 
 	std::set<int> getBlockSizes() override {
@@ -664,12 +791,33 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		else
 			s << "fixed " << gAudioLabConfig.callbackFrames << " frames (Android-only)";
 		s << "\n";
+		s << "  output sample-rate mode: ";
+		if (gAudioLabConfig.sampleRateMode < 0)
+			s << "native / unspecified, Oboe SRC off";
+		else if (gAudioLabConfig.sampleRateMode == 0)
+			s << "Rack-requested rate, Oboe SRC Medium (v07 control)";
+		else
+			s << gAudioLabConfig.sampleRateMode << " Hz explicit, Oboe SRC off";
+		s << "\n";
+		s << "  output buffer target: ";
+		if (gAudioLabConfig.bufferBursts == 0)
+			s << "system/default (v07 control)";
+		else
+			s << gAudioLabConfig.bufferBursts << " hardware burst"
+			  << (gAudioLabConfig.bufferBursts == 1 ? "" : "s");
+		s << "\n";
 		s << "  engine: " << (gAudioLabConfig.fastEngine ? "fast single-thread" : "upstream Rack") << "\n";
 		s << "  audio input requested: " << (gAudioLabConfig.inputEnabled ? "on" : "off") << "\n";
 		s << "  Rack engine threads: " << rack::settings::threadCount;
 		if (gAudioLabConfig.fastEngine && rack::settings::threadCount != 1)
 			s << " (fast path inactive: requires 1)";
 		s << "\n";
+		s << "  Rack/.vcv requested sample rate (diagnostic only in v08.1): "
+		  << rackRequestedSampleRate << " Hz\n";
+		if (gAudioLabConfig.sampleRateMode == 0)
+			s << "  v08.1 control output request: " << DEFAULT_SAMPLE_RATE << " Hz (pinned)\n";
+		if (APP && APP->engine)
+			s << "  Rack engine sample rate: " << APP->engine->getSampleRate() << " Hz\n";
 		s << "  saved Rack block size: " << blockSize << " frames\n\n";
 
 		if (!outputStream) {
@@ -686,8 +834,22 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 
 		s << "Oboe stream\n";
 		s << "  API: " << apiName(outputStream->getAudioApi()) << "\n";
-		s << "  performance: " << performanceName(outputStream->getPerformanceMode()) << "\n";
-		s << "  sharing: " << sharingName(outputStream->getSharingMode()) << "\n";
+		s << "  performance requested/granted: LowLatency / "
+		  << performanceName(outputStream->getPerformanceMode()) << "\n";
+		s << "  sharing requested/granted: Exclusive / "
+		  << sharingName(outputStream->getSharingMode()) << "\n";
+		s << "  sample-rate mode effective: ";
+		if (effectiveSampleRateMode < 0)
+			s << "native / unspecified";
+		else if (effectiveSampleRateMode == 0)
+			s << "v07 control";
+		else
+			s << effectiveSampleRateMode << " Hz explicit";
+		if (sampleRateFallbackUsed)
+			s << " (FELL BACK after " << sampleRateFallbackReason << ")";
+		s << "\n";
+		s << "  Oboe sample-rate conversion: "
+		  << srcQualityName(outputStream->getSampleRateConversionQuality()) << "\n";
 		s << "  sample rate: " << sr << " Hz\n";
 		s << "  hardware sample rate: " << (hwSr > 0 ? std::to_string(hwSr) + " Hz" : "unavailable (< API 34 or route did not report it)") << "\n";
 		s << "  frames/burst: " << burst << "\n";
@@ -696,6 +858,14 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		if (sr > 0 && buf > 0)
 			s << " (" << (1000.0 * buf / sr) << " ms configured)";
 		s << "\n";
+		if (gAudioLabConfig.bufferBursts > 0) {
+			s << "  buffer request: " << requestedBufferFrames << " frames";
+			if (!bufferSetError.empty())
+				s << " (FAILED: " << bufferSetError << ")";
+			else
+				s << " -> granted " << buf;
+			s << "\n";
+		}
 		s << "  input actually open: " << (inputStream ? "yes" : "no") << "\n";
 		s << "  master recorder active: " << (gRecorder.active.load(std::memory_order_relaxed) ? "yes" : "no") << "\n";
 
