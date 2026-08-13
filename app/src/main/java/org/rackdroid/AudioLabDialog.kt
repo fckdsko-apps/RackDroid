@@ -76,7 +76,7 @@ class AudioLabDialog(private val activity: MainActivity) {
 			setTypeface(typeface, Typeface.BOLD)
 		})
 		root.addView(TextView(activity).apply {
-			text = "v09.3 low-latency audio lab. The tested Recommended/default path is marked below. Three bursts is the balanced low-latency default; 4 bursts remains available for extra stability under heavier multitasking. Save + restart after changing a startup setting."
+			text = "v09.4 low-latency audio lab + module-thumbnail diagnostics. Audio behavior is unchanged from v09.3. The tested Recommended/default path is marked below. Three bursts is the balanced low-latency default; 4 bursts remains available for extra stability under heavier multitasking. Save + restart after changing a startup setting."
 			textSize = 14f
 			setPadding(0, dp(8), 0, dp(14))
 		})
@@ -264,8 +264,72 @@ class AudioLabDialog(private val activity: MainActivity) {
 	private fun dp(v: Int): Int = (v * activity.resources.displayMetrics.density).toInt()
 
 	private fun refreshStatus() {
-		statusView.text = runCatching { AudioLabActivity.nativeGetAudioStatus() }
+		val audio = runCatching { AudioLabActivity.nativeGetAudioStatus() }
 			.getOrElse { "Native diagnostics unavailable: ${it.javaClass.simpleName}: ${it.message}" }
+		statusView.text = audio + moduleThumbnailDiagnostics()
+	}
+
+	/**
+	 * Temporary v09.4 diagnostic for the side-loaded module thumbnail regression.
+	 *
+	 * Browser lookup checks filesDir/thumbnails/<plugin>/<model>.webp first
+	 * (bundled/stale shared cache), then user/plugins/<plugin>/thumbs/<model>.webp
+	 * (the .rdmod-installed copy). Report both locations so one paste tells us
+	 * whether known-good packs such as JW/Befaco are surviving only because an
+	 * older APK left shared thumbnails behind, and whether newly installed packs
+	 * actually contain the thumbs/ payload the current .rdmods are supposed to ship.
+	 */
+	private fun moduleThumbnailDiagnostics(): String = buildString {
+		append("\n\nModule thumbnail diagnostics (v09.4)\n")
+		append("lookup order: filesDir/thumbnails/<slug>/<model>.webp -> ")
+		append("user/plugins/<slug>/thumbs/<model>.webp\n")
+
+		val packs = runCatching { ModuleInstaller.installedPacks(activity) }
+			.getOrElse {
+				append("installed-pack scan failed: ${it.javaClass.simpleName}: ${it.message}\n")
+				return@buildString
+			}
+		if (packs.isEmpty()) {
+			append("no side-loaded packs installed\n")
+			return@buildString
+		}
+
+		for (pack in packs) {
+			val installedThumbs = File(pack.dir, "thumbs")
+			val sharedThumbs = File(activity.filesDir, "thumbnails/${pack.slug}")
+
+			fun directWebps(dir: File): List<File> =
+				dir.listFiles { f -> f.isFile && f.extension.equals("webp", ignoreCase = true) }
+					?.sortedBy { it.name.lowercase() } ?: emptyList()
+
+			fun recursiveWebpCount(dir: File): Int =
+				if (!dir.isDirectory) 0
+				else dir.walkTopDown().count {
+					it.isFile && it.extension.equals("webp", ignoreCase = true)
+				}
+
+			val installedDirect = directWebps(installedThumbs)
+			val installedRecursive = recursiveWebpCount(installedThumbs)
+			val sharedDirect = directWebps(sharedThumbs)
+			val sharedRecursive = recursiveWebpCount(sharedThumbs)
+			val nested = installedThumbs.listFiles { f -> f.isDirectory }
+				?.map { it.name }?.sorted() ?: emptyList()
+			val sample = installedDirect.take(4).joinToString(",") { it.name }
+
+			append(pack.slug)
+			append(": installedThumbDir=").append(if (installedThumbs.isDirectory) "yes" else "NO")
+			append(", installedWebp=").append(installedDirect.size)
+			if (installedRecursive != installedDirect.size)
+				append(" (recursive=").append(installedRecursive).append(")")
+			append(", sharedWebp=").append(sharedDirect.size)
+			if (sharedRecursive != sharedDirect.size)
+				append(" (recursive=").append(sharedRecursive).append(")")
+			if (nested.isNotEmpty())
+				append(", nestedDirs=").append(nested.joinToString(","))
+			if (sample.isNotEmpty())
+				append(", sample=").append(sample)
+			append('\n')
+		}
 	}
 
 	private fun checkedTag(group: RadioGroup, fallback: Int): Int {
@@ -343,7 +407,7 @@ class AudioLabDialog(private val activity: MainActivity) {
 		dir.mkdirs()
 		val tmp = File(dir, "audio-lab.cfg.tmp")
 		val text = buildString {
-			append("# RackDroid v09.3 Low-Latency Audio Lab; read once at native audio startup.\n")
+			append("# RackDroid v09.4 Low-Latency Audio Lab; read once at native audio startup.\n")
 			// Keep the v06 key so a downgrade can still interpret Oboe-managed mode.
 			append("native_callback=").append(if (options.callbackFrames < 0) 1 else 0).append('\n')
 			append("callback_frames=").append(options.callbackFrames).append('\n')
