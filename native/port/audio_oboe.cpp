@@ -575,11 +575,10 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 				auto stream = outputStream;
 				if (stream) {
 					uint64_t generation = latencyMeasurementGeneration.load(std::memory_order_acquire);
-					oboe::ResultWithValue<double> latency(oboe::Result::ErrorUnimplemented);
-					{
+					auto latency = [&] {
 						std::lock_guard<std::mutex> queryLock(latencyQueryMutex);
-						latency = stream->calculateLatencyMillis();
-					}
+						return stream->calculateLatencyMillis();
+					}();
 					if (latency &&
 							generation == latencyMeasurementGeneration.load(std::memory_order_acquire))
 						recordLatencySample(latency.value());
@@ -1006,11 +1005,10 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		else
 			s << "  xruns: unsupported (" << oboe::convertToText(xruns.error()) << ")\n";
 
-		oboe::ResultWithValue<double> latency(oboe::Result::ErrorUnimplemented);
-		{
+		auto latency = [&] {
 			std::lock_guard<std::mutex> queryLock(latencyQueryMutex);
-			latency = outputStream->calculateLatencyMillis();
-		}
+			return outputStream->calculateLatencyMillis();
+		}();
 		if (latency)
 			s << "  estimated output latency now: " << latency.value() << " ms\n";
 		else
