@@ -53,15 +53,16 @@
 			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
 			android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
-		<!-- Experimental controller/diagnostics for v06. It is reached from a
-		     static long-press app shortcut, not a second MAIN/LAUNCHER entry.
-		     Settings are startup-only; no live stream mutation. -->
+		<!-- v06.1 Audio Lab shortcut trampoline. It never owns the lab UI: it
+		     immediately returns to MainActivity, then the lab is shown there as
+		     an AlertDialog so RackDroid's NativeActivity/audio remain foreground. -->
 		<activity
 			android:name=".AudioLabActivity"
 			android:exported="true"
 			android:excludeFromRecents="true"
+			android:noHistory="true"
 			android:label="@string/audio_lab_short_label"
-			android:theme="@android:style/Theme.Material.NoActionBar" />
+			android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
 		<activity
 			android:name=".MainActivity"
