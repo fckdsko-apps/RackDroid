@@ -194,7 +194,11 @@ static uint64_t clockNanos(clockid_t id) {
 
 
 struct AudioLabConfig {
-	bool nativeCallback = false;
+	// callbackFrames is Android-runtime-only and is never written to Rack/.vcv.
+	//   -1 = let Oboe/AAudio choose the callback size
+	//    0 = legacy behavior: fixed callback follows Rack's saved block size
+	//   >0 = explicit fixed Android callback size for the latency experiment
+	int callbackFrames = 0;
 	bool fastEngine = false;
 	bool inputEnabled = true;
 };
@@ -213,6 +217,18 @@ static bool parseBool(const std::string& value, bool& out) {
 	return false;
 }
 
+static bool parseCallbackFrames(const std::string& value, int& out) {
+	// Deliberately whitelist only the experiment modes exposed by Audio Lab.
+	// A malformed/stale config therefore falls back to the legacy Rack block.
+	if (value == "-1") { out = -1; return true; }
+	if (value == "0") { out = 0; return true; }
+	if (value == "96") { out = 96; return true; }
+	if (value == "128") { out = 128; return true; }
+	if (value == "192") { out = 192; return true; }
+	if (value == "256") { out = 256; return true; }
+	return false;
+}
+
 static std::string trim(std::string s) {
 	const char* ws = " \t\r\n";
 	size_t first = s.find_first_not_of(ws);
@@ -227,6 +243,7 @@ static void loadAudioLabConfig() {
 	std::string path = rack::asset::user("audio-lab.cfg");
 	std::ifstream in(path.c_str());
 	std::string line;
+	bool callbackFramesSeen = false;
 	while (in && std::getline(in, line)) {
 		line = trim(line);
 		if (line.empty() || line[0] == '#')
@@ -241,7 +258,17 @@ static void loadAudioLabConfig() {
 		});
 		bool parsed = false;
 		if (key == "native_callback") {
-			if (parseBool(value, parsed)) gAudioLabConfig.nativeCallback = parsed;
+			// Backward compatibility with v06 configs. callback_frames, when
+			// present, is authoritative and is written after this legacy key.
+			if (!callbackFramesSeen && parseBool(value, parsed))
+				gAudioLabConfig.callbackFrames = parsed ? -1 : 0;
+		}
+		else if (key == "callback_frames") {
+			int frames = 0;
+			if (parseCallbackFrames(value, frames)) {
+				gAudioLabConfig.callbackFrames = frames;
+				callbackFramesSeen = true;
+			}
 		}
 		else if (key == "fast_engine") {
 			if (parseBool(value, parsed)) gAudioLabConfig.fastEngine = parsed;
@@ -253,8 +280,12 @@ static void loadAudioLabConfig() {
 
 	// The Engine flag is startup-only. Audio Lab never mutates it live.
 	rackdroid_audio_experiment_set_fast_engine(gAudioLabConfig.fastEngine ? 1 : 0);
+	std::string callbackLabel;
+	if (gAudioLabConfig.callbackFrames < 0) callbackLabel = "oboe-managed";
+	else if (gAudioLabConfig.callbackFrames == 0) callbackLabel = "rack-block";
+	else callbackLabel = "fixed-" + std::to_string(gAudioLabConfig.callbackFrames);
 	INFO("Audio Lab config: callback=%s engine=%s input=%s",
-		gAudioLabConfig.nativeCallback ? "oboe-managed" : "fixed",
+		callbackLabel.c_str(),
 		gAudioLabConfig.fastEngine ? "fast-single" : "upstream",
 		gAudioLabConfig.inputEnabled ? "on" : "off");
 }
@@ -438,8 +469,11 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 			->setChannelCount(NUM_OUTPUTS)
 			->setSampleRate((int) sampleRate)
 			->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium);
-		if (!gAudioLabConfig.nativeCallback)
-			outBuilder.setFramesPerDataCallback(blockSize);
+		if (gAudioLabConfig.callbackFrames >= 0) {
+			const int callbackFrames = gAudioLabConfig.callbackFrames > 0
+				? gAudioLabConfig.callbackFrames : blockSize;
+			outBuilder.setFramesPerDataCallback(callbackFrames);
+		}
 		outBuilder.setDataCallback(this)
 			->setErrorCallback(this);
 
@@ -544,9 +578,10 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		if (bs == blockSize)
 			return;
 		blockSize = bs;
-		// In native-callback mode this remains Rack/.vcv metadata only. Do not
-		// force a phone-specific callback size or reopen a stream unnecessarily.
-		if (gAudioLabConfig.nativeCallback)
+		// In Oboe-managed or explicit Android callback modes, Rack's block size
+		// remains portable .vcv metadata only. It must not overwrite the phone-
+		// specific experiment or force an unnecessary stream reopen.
+		if (gAudioLabConfig.callbackFrames != 0)
 			return;
 		closeStreams();
 		openStreams();
@@ -621,7 +656,14 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		std::ostringstream s;
 		s << std::fixed << std::setprecision(2);
 		s << "Running config\n";
-		s << "  callback: " << (gAudioLabConfig.nativeCallback ? "Oboe-managed / unspecified" : "fixed Rack block") << "\n";
+		s << "  callback: ";
+		if (gAudioLabConfig.callbackFrames < 0)
+			s << "Oboe-managed / unspecified";
+		else if (gAudioLabConfig.callbackFrames == 0)
+			s << "fixed Rack block";
+		else
+			s << "fixed " << gAudioLabConfig.callbackFrames << " frames (Android-only)";
+		s << "\n";
 		s << "  engine: " << (gAudioLabConfig.fastEngine ? "fast single-thread" : "upstream Rack") << "\n";
 		s << "  audio input requested: " << (gAudioLabConfig.inputEnabled ? "on" : "off") << "\n";
 		s << "  Rack engine threads: " << rack::settings::threadCount;
