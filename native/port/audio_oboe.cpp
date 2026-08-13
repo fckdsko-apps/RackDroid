@@ -10,14 +10,16 @@
  *
  * v06 Audio Lab adds restart-only A/B switches and low-overhead diagnostics.
  * v07 separated Android callback size from Rack's saved block size.
- * v08.1 adds low-latency-path experiments for output sample-rate selection and
- * AAudio buffer depth while preserving the v07 48 kHz control path as the default.
+ * v08.1 added low-latency-path experiments for output sample-rate selection and
+ * AAudio buffer depth. v09 promotes the tested stable path to an explicit
+ * recommended/default while retaining every experiment control:
+ *   192-frame Android callback, pinned 48 kHz + Medium SRC,
+ *   2 hardware bursts, fast single-thread engine, audio input on.
  *
- * Rack autosaves its active patch periodically and on shutdown. Therefore this lab
- * must not depend on .vcv/autosave sample-rate metadata remaining unchanged between
- * experimental runs. The Android lab owns the output stream rate while enabled:
- * control is pinned to the known v07 48 kHz request, and experimental modes override
- * it. Rack still sees the actual opened stream rate for correct engine/device math.
+ * Rack autosaves its active patch periodically and on shutdown. The Android-only
+ * callback remains independent of Core Audio-2's saved block size so the recommended
+ * 192-frame callback never writes a nonportable 192 value into .vcv metadata.
+ * Rack still sees the actual opened stream rate for correct engine/device math.
  */
 #include "audio_oboe.hpp"
 
@@ -25,6 +27,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cctype>
 #include <climits>
 #include <cstdint>
@@ -191,6 +194,12 @@ static const int DEFAULT_BLOCK_SIZE = 256;
 // smaller; keeping a fixed preallocated slab means the callback never resizes.
 static const int MAX_CALLBACK_FRAMES = 16384;
 
+// v09 tested recommended/default Android path. These are app/runtime settings;
+// Rack/Audio-2's portable .vcv block size remains independent.
+static const int RECOMMENDED_CALLBACK_FRAMES = 192;
+static const int RECOMMENDED_SAMPLE_RATE_MODE = 0;
+static const int RECOMMENDED_BUFFER_BURSTS = 2;
+
 
 static uint64_t clockNanos(clockid_t id) {
 	timespec ts{};
@@ -202,26 +211,36 @@ static uint64_t clockNanos(clockid_t id) {
 
 struct AudioLabConfig {
 	// callbackFrames is Android-runtime-only and is never written to Rack/.vcv.
+	// v09 recommended/default = 192.
 	//   -1 = let Oboe/AAudio choose the callback size
-	//    0 = legacy behavior: fixed callback follows Rack's saved block size
-	//   >0 = explicit fixed Android callback size for the latency experiment
-	int callbackFrames = 0;
+	//    0 = portable behavior: fixed callback follows Rack/Audio-2 block size
+	//   >0 = explicit fixed Android callback size
+	int callbackFrames = RECOMMENDED_CALLBACK_FRAMES;
 
 	// sampleRateMode controls only how the Android output stream is opened.
-	//    0 = v07 control: request Rack's sample rate, Oboe SRC quality Medium
+	// v09 recommended/default = 0: pinned 48 kHz + Oboe Medium SRC.
 	//   -1 = native/unspecified output rate, Oboe SRC disabled
 	// 44100 = explicit 44.1 kHz output rate, Oboe SRC disabled
-	int sampleRateMode = 0;
+	int sampleRateMode = RECOMMENDED_SAMPLE_RATE_MODE;
 
-	// 0 = leave AAudio/Oboe buffer size alone (v07 control).
+	// v09 recommended/default = 2 reported hardware bursts.
+	// 0 = leave AAudio/Oboe buffer size alone.
 	// 1/2 = request that many reported hardware bursts after opening.
-	int bufferBursts = 0;
+	int bufferBursts = RECOMMENDED_BUFFER_BURSTS;
 
-	bool fastEngine = false;
+	bool fastEngine = true;
 	bool inputEnabled = true;
 };
 
 static AudioLabConfig gAudioLabConfig;
+
+static bool isRecommendedConfig(const AudioLabConfig& c) {
+	return c.callbackFrames == RECOMMENDED_CALLBACK_FRAMES
+		&& c.sampleRateMode == RECOMMENDED_SAMPLE_RATE_MODE
+		&& c.bufferBursts == RECOMMENDED_BUFFER_BURSTS
+		&& c.fastEngine
+		&& c.inputEnabled;
+}
 
 static bool parseBool(const std::string& value, bool& out) {
 	if (value == "1" || value == "true" || value == "on" || value == "yes") {
@@ -237,7 +256,7 @@ static bool parseBool(const std::string& value, bool& out) {
 
 static bool parseCallbackFrames(const std::string& value, int& out) {
 	// Deliberately whitelist only the experiment modes exposed by Audio Lab.
-	// A malformed/stale config therefore falls back to the legacy Rack block.
+	// A malformed/stale callback_frames value therefore leaves the current default intact.
 	if (value == "-1") { out = -1; return true; }
 	if (value == "0") { out = 0; return true; }
 	if (value == "96") { out = 96; return true; }
@@ -271,7 +290,7 @@ static std::string trim(std::string s) {
 }
 
 static void loadAudioLabConfig() {
-	gAudioLabConfig = AudioLabConfig(); // baseline defaults if absent/malformed
+	gAudioLabConfig = AudioLabConfig(); // v09 recommended defaults if absent/malformed
 	std::string path = rack::asset::user("audio-lab.cfg");
 	std::ifstream in(path.c_str());
 	std::string line;
@@ -459,9 +478,9 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 	std::shared_ptr<oboe::AudioStream> outputStream;
 	std::shared_ptr<oboe::AudioStream> inputStream;
 	// The value Rack/.vcv/autosave last requested. It is diagnostic metadata only
-	// while Audio Lab is active; v08.1 deliberately decouples the Android stream
-	// experiment from Rack autosave so a 44.1 kHz experimental run cannot poison
-	// a later 48 kHz control run.
+	// while Audio Lab is active; v09 deliberately keeps the Android stream
+	// independent from Rack autosave so a 44.1 kHz experimental run cannot poison
+	// a later recommended 48 kHz run.
 	float rackRequestedSampleRate = DEFAULT_SAMPLE_RATE;
 	int blockSize = DEFAULT_BLOCK_SIZE;
 	std::vector<float> inputBuffer;
@@ -477,6 +496,22 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 	// thread, then queried only from Audio Lab so steady-state callbacks do not
 	// pay two timing calls each.
 	std::atomic<int64_t> callbackClockIdRaw{0};
+
+	// v09 latency-window sampler. Oboe recommends not calling latency/timestamp
+	// queries from the real-time data callback on older Android releases, so a
+	// separate low-frequency thread samples calculateLatencyMillis() once/sec.
+	std::thread latencySamplerThread;
+	std::atomic<bool> latencySamplerRunning{false};
+	std::mutex latencySamplerWaitMutex;
+	std::condition_variable latencySamplerCv;
+	std::mutex latencyQueryMutex;
+	std::mutex latencyStatsMutex;
+	std::atomic<uint64_t> latencyMeasurementGeneration{0};
+	uint64_t latencySampleCount = 0;
+	double latencyMinMs = 0.0;
+	double latencyMaxMs = 0.0;
+	double latencySumMs = 0.0;
+
 	int xrunBaseline = 0;
 	bool xrunBaselineValid = false;
 	/** Guards stream open/close and non-RT diagnostics queries. */
@@ -497,8 +532,73 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		closeStreams();
 	}
 
+	void resetLatencyStats() {
+		// Invalidate any query that started before this reset.
+		latencyMeasurementGeneration.fetch_add(1, std::memory_order_acq_rel);
+		std::lock_guard<std::mutex> lock(latencyStatsMutex);
+		latencySampleCount = 0;
+		latencyMinMs = 0.0;
+		latencyMaxMs = 0.0;
+		latencySumMs = 0.0;
+	}
+
+	void recordLatencySample(double latencyMs) {
+		if (!std::isfinite(latencyMs) || latencyMs < 0.0)
+			return;
+		std::lock_guard<std::mutex> lock(latencyStatsMutex);
+		if (latencySampleCount == 0) {
+			latencyMinMs = latencyMs;
+			latencyMaxMs = latencyMs;
+		}
+		else {
+			latencyMinMs = std::min(latencyMinMs, latencyMs);
+			latencyMaxMs = std::max(latencyMaxMs, latencyMs);
+		}
+		latencySumMs += latencyMs;
+		latencySampleCount++;
+	}
+
+	void startLatencySamplerNoLock() {
+		if (!outputStream || latencySamplerRunning.load(std::memory_order_relaxed))
+			return;
+		latencySamplerRunning.store(true, std::memory_order_release);
+		latencySamplerThread = std::thread([this] {
+			std::unique_lock<std::mutex> waitLock(latencySamplerWaitMutex);
+			while (latencySamplerRunning.load(std::memory_order_acquire)) {
+				if (latencySamplerCv.wait_for(waitLock, std::chrono::seconds(1), [this] {
+						return !latencySamplerRunning.load(std::memory_order_acquire);
+					}))
+					break;
+				waitLock.unlock();
+				// closeStreams() stops and joins this sampler before mutating
+				// outputStream, so this shared_ptr remains valid during the query.
+				auto stream = outputStream;
+				if (stream) {
+					uint64_t generation = latencyMeasurementGeneration.load(std::memory_order_acquire);
+					oboe::ResultWithValue<double> latency(oboe::Result::ErrorUnimplemented);
+					{
+						std::lock_guard<std::mutex> queryLock(latencyQueryMutex);
+						latency = stream->calculateLatencyMillis();
+					}
+					if (latency &&
+							generation == latencyMeasurementGeneration.load(std::memory_order_acquire))
+						recordLatencySample(latency.value());
+				}
+				waitLock.lock();
+			}
+		});
+	}
+
+	void stopLatencySamplerNoLock() {
+		latencySamplerRunning.store(false, std::memory_order_release);
+		latencySamplerCv.notify_all();
+		if (latencySamplerThread.joinable())
+			latencySamplerThread.join();
+	}
+
 	void resetMeasurementsNoLock() {
 		gAudioStats.reset();
+		resetLatencyStats();
 		measurementStartWallNs = clockNanos(CLOCK_MONOTONIC);
 		measurementStartProcessNs = clockNanos(CLOCK_PROCESS_CPUTIME_ID);
 
@@ -546,10 +646,10 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 				->setChannelCount(NUM_OUTPUTS);
 
 			if (rateMode == 0) {
-				// v08.1 control is intentionally pinned to the known v07 baseline.
+				// v09 recommended/default is pinned to the tested 48 kHz path.
 				// Do NOT source this from Rack/.vcv: Rack periodically autosaves the
-				// actual device rate, so a 44.1 kHz experiment could otherwise turn a
-				// later "control" run into 44.1 kHz on restart.
+				// actual device rate, so an experimental rate must not silently change
+				// the next recommended run on restart.
 				outBuilder.setSampleRate(DEFAULT_SAMPLE_RATE)
 					->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium);
 			}
@@ -574,10 +674,10 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		oboe::Result result = openOutputForMode(effectiveSampleRateMode);
 		if (result != oboe::Result::OK && effectiveSampleRateMode != 0) {
 			// A failed experiment must not strand the app without output. Record
-			// the failure and retry the known-working v07 stream configuration.
+			// the failure and retry the v09 recommended 48 kHz stream-rate path.
 			sampleRateFallbackUsed = true;
 			sampleRateFallbackReason = oboe::convertToText(result);
-			WARN("Oboe: sample-rate experiment failed (%s), retrying v07 control",
+			WARN("Oboe: sample-rate experiment failed (%s), retrying recommended 48 kHz path",
 				sampleRateFallbackReason.c_str());
 			outputStream.reset();
 			effectiveSampleRateMode = 0;
@@ -634,6 +734,7 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		// it after the representative patch is loaded, which removes startup/load
 		// time from A/B CPU comparisons.
 		resetMeasurementsNoLock();
+		startLatencySamplerNoLock();
 		INFO("Oboe: stream started, sampleRate=%d hwRate=%d burst=%d callback=%d buffer=%d/%d api=%s mode=%s sharing=%s",
 			outputStream->getSampleRate(),
 			outputStream->getHardwareSampleRate(),
@@ -649,6 +750,7 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 
 	void closeStreams() {
 		std::lock_guard<std::mutex> lock(streamMutex);
+		stopLatencySamplerNoLock();
 		if (outputStream) {
 			outputStream->stop();
 			outputStream->close();
@@ -689,7 +791,7 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 			return;
 		// Rack calls this while loading .vcv/autosave metadata. Keep the value
 		// for diagnostics, but do not let autosave reopen or retarget the Android
-		// stream during the v08.1 lab. The lab's sample-rate selector owns that
+		// stream during the v09 lab. The lab's sample-rate selector owns that
 		// variable, and getSampleRate() still reports the actual opened rate back
 		// to Rack so engine/device resampling remains correct.
 		rackRequestedSampleRate = sr;
@@ -705,9 +807,10 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		if (bs == blockSize)
 			return;
 		blockSize = bs;
-		// In Oboe-managed or explicit Android callback modes, Rack's block size
-		// remains portable .vcv metadata only. It must not overwrite the phone-
-		// specific experiment or force an unnecessary stream reopen.
+		// With an explicit Android callback, Rack/Audio-2's block size remains
+		// portable .vcv metadata only. It must not overwrite the phone-specific
+		// callback or force an unnecessary stream reopen. This is why v09 can use
+		// a 192-frame Android callback while Audio-2 still saves 128/256/etc.
 		if (gAudioLabConfig.callbackFrames != 0)
 			return;
 		closeStreams();
@@ -783,6 +886,7 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		std::ostringstream s;
 		s << std::fixed << std::setprecision(2);
 		s << "Running config\n";
+		s << "  configured Recommended/default match: " << (isRecommendedConfig(gAudioLabConfig) ? "yes" : "NO (experimental/custom)") << "\n";
 		s << "  callback: ";
 		if (gAudioLabConfig.callbackFrames < 0)
 			s << "Oboe-managed / unspecified";
@@ -795,13 +899,13 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		if (gAudioLabConfig.sampleRateMode < 0)
 			s << "native / unspecified, Oboe SRC off";
 		else if (gAudioLabConfig.sampleRateMode == 0)
-			s << "Rack-requested rate, Oboe SRC Medium (v07 control)";
+			s << "pinned 48 kHz, Oboe SRC Medium (Recommended/default)";
 		else
 			s << gAudioLabConfig.sampleRateMode << " Hz explicit, Oboe SRC off";
 		s << "\n";
 		s << "  output buffer target: ";
 		if (gAudioLabConfig.bufferBursts == 0)
-			s << "system/default (v07 control)";
+			s << "system/default (experimental/control)";
 		else
 			s << gAudioLabConfig.bufferBursts << " hardware burst"
 			  << (gAudioLabConfig.bufferBursts == 1 ? "" : "s");
@@ -812,13 +916,13 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		if (gAudioLabConfig.fastEngine && rack::settings::threadCount != 1)
 			s << " (fast path inactive: requires 1)";
 		s << "\n";
-		s << "  Rack/.vcv requested sample rate (diagnostic only in v08.1): "
+		s << "  Rack/.vcv requested sample rate (portable metadata; Android path independent): "
 		  << rackRequestedSampleRate << " Hz\n";
 		if (gAudioLabConfig.sampleRateMode == 0)
-			s << "  v08.1 control output request: " << DEFAULT_SAMPLE_RATE << " Hz (pinned)\n";
+			s << "  v09 Android output request: " << DEFAULT_SAMPLE_RATE << " Hz (pinned Recommended/default)\n";
 		if (APP && APP->engine)
 			s << "  Rack engine sample rate: " << APP->engine->getSampleRate() << " Hz\n";
-		s << "  saved Rack block size: " << blockSize << " frames\n\n";
+		s << "  saved Rack/Audio-2 block size (portable .vcv metadata): " << blockSize << " frames\n\n";
 
 		if (!outputStream) {
 			s << "Output stream is not open.\n";
@@ -842,7 +946,7 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		if (effectiveSampleRateMode < 0)
 			s << "native / unspecified";
 		else if (effectiveSampleRateMode == 0)
-			s << "v07 control";
+			s << "pinned 48 kHz Recommended/default";
 		else
 			s << effectiveSampleRateMode << " Hz explicit";
 		if (sampleRateFallbackUsed)
@@ -902,11 +1006,27 @@ struct OboeDevice : rack::audio::Device, oboe::AudioStreamDataCallback, oboe::Au
 		else
 			s << "  xruns: unsupported (" << oboe::convertToText(xruns.error()) << ")\n";
 
-		auto latency = outputStream->calculateLatencyMillis();
+		oboe::ResultWithValue<double> latency(oboe::Result::ErrorUnimplemented);
+		{
+			std::lock_guard<std::mutex> queryLock(latencyQueryMutex);
+			latency = outputStream->calculateLatencyMillis();
+		}
 		if (latency)
-			s << "  estimated output latency: " << latency.value() << " ms\n";
+			s << "  estimated output latency now: " << latency.value() << " ms\n";
 		else
-			s << "  estimated output latency: unavailable (" << oboe::convertToText(latency.error()) << ")\n";
+			s << "  estimated output latency now: unavailable (" << oboe::convertToText(latency.error()) << ")\n";
+
+		{
+			std::lock_guard<std::mutex> latencyLock(latencyStatsMutex);
+			s << "  latency samples in measurement window: " << latencySampleCount
+			  << " (background ~1 Hz; never sampled in audio callback)\n";
+			if (latencySampleCount > 0) {
+				s << "  estimated output latency min/avg/max: "
+				  << latencyMinMs << " / "
+				  << (latencySumMs / latencySampleCount) << " / "
+				  << latencyMaxMs << " ms\n";
+			}
+		}
 
 		AudioStatsSnapshot st = gAudioStats.snapshot();
 		s << "\nCallback measurements in current measurement window\n";

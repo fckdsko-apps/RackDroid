@@ -24,13 +24,16 @@ import java.nio.file.StandardCopyOption
 class AudioLabDialog(private val activity: MainActivity) {
 
 	private data class Options(
-		// -1 = Oboe-managed, 0 = Rack block, positive = explicit Android frames.
-		val callbackFrames: Int = 0,
-		// 0 = v07 Rack-requested + Medium SRC, -1 = native unspecified, 44100 = explicit.
+		// v09 recommended/default: explicit 192-frame Android callback.
+		// -1 = Oboe-managed, 0 = Rack/Audio-2 block, positive = explicit Android frames.
+		val callbackFrames: Int = 192,
+		// v09 recommended/default: pinned 48 kHz + Oboe Medium SRC.
+		// 0 = pinned 48 kHz, -1 = native unspecified, 44100 = explicit.
 		val sampleRateMode: Int = 0,
+		// v09 recommended/default: 2 reported hardware bursts.
 		// 0 = system/default, 1 or 2 = hardware-burst multiples.
-		val bufferBursts: Int = 0,
-		val fastEngine: Boolean = false,
+		val bufferBursts: Int = 2,
+		val fastEngine: Boolean = true,
 		val inputEnabled: Boolean = true,
 	)
 
@@ -71,9 +74,15 @@ class AudioLabDialog(private val activity: MainActivity) {
 			setTypeface(typeface, Typeface.BOLD)
 		})
 		root.addView(TextView(activity).apply {
-			text = "v08.1 low-latency-path lab. Keep callback, engine and input fixed while testing sample-rate and output-buffer modes one variable at a time. Save + restart after changing a startup setting."
+			text = "v09 low-latency audio lab. The tested recommended/default path is marked below; experimental controls remain available. Save + restart after changing a startup setting."
 			textSize = 14f
 			setPadding(0, dp(8), 0, dp(14))
+		})
+		root.addView(TextView(activity).apply {
+			text = "RECOMMENDED/DEFAULT\n192-frame Android callback • pinned 48 kHz + Medium SRC • 2 hardware bursts • Fast single-thread ON • Audio input ON"
+			textSize = 13f
+			setTypeface(typeface, Typeface.BOLD)
+			setPadding(dp(10), dp(8), dp(10), dp(12))
 		})
 
 		val opts = readOptions()
@@ -84,11 +93,11 @@ class AudioLabDialog(private val activity: MainActivity) {
 			text = label
 			tag = frames
 		}
-		callbackRack = callbackChoice("Rack block (v07 winner/control; 256 in current patch)", 0)
-		callback192 = callbackChoice("Fixed 192 frames (Android-only)", 192)
+		callbackRack = callbackChoice("Follow Rack/Audio-2 block size (portable .vcv behavior)", 0)
+		callback192 = callbackChoice("Fixed 192 frames (Android-only) — Recommended/default", 192)
 		callback128 = callbackChoice("Fixed 128 frames (Android-only)", 128)
 		callback96 = callbackChoice("Fixed 96 frames (Android-only)", 96)
-		callbackOboe = callbackChoice("Oboe-managed / unspecified", -1)
+		callbackOboe = callbackChoice("Oboe-managed / unspecified (experimental)", -1)
 		listOf(callbackRack, callback192, callback128, callback96, callbackOboe).forEach { callbackGroup.addView(it) }
 		when (opts.callbackFrames) {
 			192 -> callback192.isChecked = true
@@ -98,6 +107,11 @@ class AudioLabDialog(private val activity: MainActivity) {
 			else -> callbackRack.isChecked = true
 		}
 		root.addView(callbackGroup)
+		root.addView(TextView(activity).apply {
+			text = "The Android-only fixed callback is independent of the Core Audio-2 block-size menu. Audio-2's block size stays portable .vcv metadata and is shown separately in diagnostics; v09 never writes 192 into the patch."
+			textSize = 12f
+			setPadding(dp(6), 0, 0, dp(8))
+		})
 
 		addSectionLabel(root, "OUTPUT SAMPLE-RATE PATH")
 		sampleRateGroup = RadioGroup(activity).apply { orientation = RadioGroup.VERTICAL }
@@ -106,11 +120,11 @@ class AudioLabDialog(private val activity: MainActivity) {
 			tag = mode
 		}
 		sampleRateControl = sampleRateChoice(
-			"Pinned 48 kHz output + Oboe Medium SRC (v07 control)", 0)
+			"Pinned 48 kHz output + Oboe Medium SRC — Recommended/default", 0)
 		sampleRateNative = sampleRateChoice(
-			"Native / unspecified output rate + Oboe SRC off", -1)
+			"Native / unspecified output rate + Oboe SRC off (experimental)", -1)
 		sampleRate44100 = sampleRateChoice(
-			"Explicit 44.1 kHz output + Oboe SRC off", 44100)
+			"Explicit 44.1 kHz output + Oboe SRC off (experimental)", 44100)
 		listOf(sampleRateControl, sampleRateNative, sampleRate44100).forEach { sampleRateGroup.addView(it) }
 		when (opts.sampleRateMode) {
 			-1 -> sampleRateNative.isChecked = true
@@ -120,7 +134,7 @@ class AudioLabDialog(private val activity: MainActivity) {
 		root.addView(sampleRateGroup)
 
 		root.addView(TextView(activity).apply {
-			text = "Rack autosaves the active patch, so v08.1 deliberately ignores .vcv/autosave sample-rate requests when choosing the Android output stream. The control is pinned to 48 kHz; Native/44.1 modes override it. Rack still receives the actual opened stream rate for correct engine/device math. It is fine if this disposable test patch autosaves."
+			text = "Rack autosaves the active patch, so v09 keeps Android stream-rate selection independent of .vcv/autosave requests. The recommended path is pinned to 48 kHz; Native/44.1 modes override it only when selected. Rack still receives the actual opened stream rate for correct engine/device math."
 			textSize = 12f
 			setPadding(dp(6), 0, 0, dp(6))
 		})
@@ -131,9 +145,9 @@ class AudioLabDialog(private val activity: MainActivity) {
 			text = label
 			tag = bursts
 		}
-		bufferDefault = bufferChoice("System/default size (v07 control)", 0)
-		buffer2Bursts = bufferChoice("Request 2 × reported hardware burst", 2)
-		buffer1Burst = bufferChoice("Request 1 × reported hardware burst", 1)
+		bufferDefault = bufferChoice("System/default size (experimental/control)", 0)
+		buffer2Bursts = bufferChoice("Request 2 × reported hardware burst — Recommended/default", 2)
+		buffer1Burst = bufferChoice("Request 1 × reported hardware burst (aggressive/experimental)", 1)
 		listOf(bufferDefault, buffer2Bursts, buffer1Burst).forEach { bufferGroup.addView(it) }
 		when (opts.bufferBursts) {
 			1 -> buffer1Burst.isChecked = true
@@ -149,11 +163,11 @@ class AudioLabDialog(private val activity: MainActivity) {
 		})
 
 		fastEngineBox = CheckBox(activity).apply {
-			text = "Fast single-thread Rack engine\nOnly active when Rack Engine threads = 1; Off = upstream Rack dispatch"
+			text = "Fast single-thread Rack engine — Recommended/default\nOnly active when Rack Engine threads = 1; Off = upstream Rack dispatch"
 			isChecked = opts.fastEngine
 		}
 		inputBox = CheckBox(activity).apply {
-			text = "Enable audio input stream\nOff = output-only; do not use when the patch needs live audio input"
+			text = "Enable audio input stream — Recommended/default ON\nOff = output-only experimental mode; do not use when the patch needs live audio input"
 			isChecked = opts.inputEnabled
 		}
 		root.addView(fastEngineBox)
@@ -207,11 +221,11 @@ class AudioLabDialog(private val activity: MainActivity) {
 			}
 		}, fullWidthParams())
 		buttons.addView(Button(activity).apply {
-			text = "Restore v08 control + restart"
+			text = "Restore Recommended Settings + restart"
 			setOnClickListener {
-				callbackRack.isChecked = true
+				callback192.isChecked = true
 				sampleRateControl.isChecked = true
-				bufferDefault.isChecked = true
+				buffer2Bursts.isChecked = true
 				fastEngineBox.isChecked = true
 				inputBox.isChecked = true
 				if (writeOptions(currentOptions())) restartRackDroid()
@@ -254,9 +268,9 @@ class AudioLabDialog(private val activity: MainActivity) {
 	}
 
 	private fun currentOptions() = Options(
-		callbackFrames = checkedTag(callbackGroup, 0),
+		callbackFrames = checkedTag(callbackGroup, 192),
 		sampleRateMode = checkedTag(sampleRateGroup, 0),
-		bufferBursts = checkedTag(bufferGroup, 0),
+		bufferBursts = checkedTag(bufferGroup, 2),
 		fastEngine = fastEngineBox.isChecked,
 		inputEnabled = inputBox.isChecked,
 	)
@@ -264,11 +278,11 @@ class AudioLabDialog(private val activity: MainActivity) {
 	private fun readOptions(): Options {
 		val file = configFile
 		if (!file.isFile) return Options()
-		var callbackFrames = 0
+		var callbackFrames = 192
 		var callbackFramesSeen = false
 		var sampleRateMode = 0
-		var bufferBursts = 0
-		var fastEngine = false
+		var bufferBursts = 2
+		var fastEngine = true
 		var inputEnabled = true
 
 		runCatching {
@@ -323,7 +337,7 @@ class AudioLabDialog(private val activity: MainActivity) {
 		dir.mkdirs()
 		val tmp = File(dir, "audio-lab.cfg.tmp")
 		val text = buildString {
-			append("# RackDroid v08.1 Low-Latency-Path Lab; read once at native audio startup.\n")
+			append("# RackDroid v09 Low-Latency Audio Lab; read once at native audio startup.\n")
 			// Keep the v06 key so a downgrade can still interpret Oboe-managed mode.
 			append("native_callback=").append(if (options.callbackFrames < 0) 1 else 0).append('\n')
 			append("callback_frames=").append(options.callbackFrames).append('\n')
