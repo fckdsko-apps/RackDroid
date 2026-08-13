@@ -29,10 +29,40 @@
 		android:label="@string/app_name"
 		android:icon="@mipmap/ic_launcher"
 		android:hasCode="true"
-		android:allowBackup="false"
+		android:allowBackup="true"
 		android:fullBackupContent="@xml/backup_rules"
 		android:dataExtractionRules="@xml/data_extraction_rules"
 		android:usesCleartextTraffic="false">
+
+		<!-- Transparent helper that immediately delegates patch Save As to
+		     Android's Storage Access Framework picker. Not exported and not a
+		     launcher/recents entry. -->
+		<activity
+			android:name=".DocumentSaveActivity"
+			android:exported="false"
+			android:excludeFromRecents="true"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
+			android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+		<!-- Matching helper for patch Open. It owns ACTION_OPEN_DOCUMENT so an
+		     external .vcv can keep a persistent URI link for later File > Save. -->
+		<activity
+			android:name=".DocumentOpenActivity"
+			android:exported="false"
+			android:excludeFromRecents="true"
+			android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
+			android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+		<!-- v06.1 Audio Lab shortcut trampoline. It never owns the lab UI: it
+		     immediately returns to MainActivity, then the lab is shown there as
+		     an AlertDialog so RackDroid's NativeActivity/audio remain foreground. -->
+		<activity
+			android:name=".AudioLabActivity"
+			android:exported="true"
+			android:excludeFromRecents="true"
+			android:noHistory="true"
+			android:label="@string/audio_lab_short_label"
+			android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
 		<activity
 			android:name=".MainActivity"
@@ -44,6 +74,12 @@
 			<meta-data
 				android:name="android.app.lib_name"
 				android:value="rackdroid" />
+
+			<!-- v06 experiment only: long-press the normal RackDroid launcher
+			     icon to open Audio Lab without adding a second launcher activity. -->
+			<meta-data
+				android:name="android.app.shortcuts"
+				android:resource="@xml/shortcuts" />
 
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
