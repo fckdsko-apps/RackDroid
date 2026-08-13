@@ -632,6 +632,11 @@ class MainActivity : NativeActivity() {
 		val midiButton = iconButton(R.drawable.ic_tb_midi, getString(R.string.toolbar_midi)) { showBleMidiScanner() }
 		val keyboardButton = iconButton(R.drawable.ic_tb_keyboard, getString(R.string.toolbar_keyboard)) { toggleVirtualKeyboard() }
 		val creditsButton = iconButton(R.drawable.ic_tb_info, getString(R.string.toolbar_info)) { showCredits() }
+		// v06.2 Audio Lab stays inside the already-running NativeActivity.
+		// A launcher shortcut necessarily starts/delivers an Activity intent,
+		// which disturbed the native surface/audio lifecycle on real hardware.
+		// Long-press Info instead: no Activity transition, no audio interruption.
+		creditsButton.setOnLongClickListener { AudioLabDialog(this).show(); true }
 		val recordButton = iconButton(R.drawable.ic_tb_record, getString(R.string.toolbar_record)) { toggleRecording(it) }
 		recordButton.imageTintList = android.content.res.ColorStateList.valueOf(AppTheme.current.danger)
 		// Patch padlocks. Outline lock freezes the layout (module positions +
