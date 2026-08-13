@@ -11,10 +11,11 @@
  * v06 Audio Lab adds restart-only A/B switches and low-overhead diagnostics.
  * v07 separated Android callback size from Rack's saved block size.
  * v08.1 added low-latency-path experiments for output sample-rate selection and
- * AAudio buffer depth. v09 promotes the tested stable path to an explicit
+ * AAudio buffer depth. v09.3 promotes the tested balanced path to an explicit
  * recommended/default while retaining every experiment control:
  *   192-frame Android callback, pinned 48 kHz + Medium SRC,
- *   2 hardware bursts, fast single-thread engine, audio input on.
+ *   3 hardware bursts, fast single-thread engine, audio input on.
+ * Four bursts remains available as an increased-stability option for heavier multitasking.
  *
  * Rack autosaves its active patch periodically and on shutdown. The Android-only
  * callback remains independent of Core Audio-2's saved block size so the recommended
@@ -194,11 +195,11 @@ static const int DEFAULT_BLOCK_SIZE = 256;
 // smaller; keeping a fixed preallocated slab means the callback never resizes.
 static const int MAX_CALLBACK_FRAMES = 16384;
 
-// v09 tested recommended/default Android path. These are app/runtime settings;
+// v09.3 tested recommended/default Android path. These are app/runtime settings;
 // Rack/Audio-2's portable .vcv block size remains independent.
 static const int RECOMMENDED_CALLBACK_FRAMES = 192;
 static const int RECOMMENDED_SAMPLE_RATE_MODE = 0;
-static const int RECOMMENDED_BUFFER_BURSTS = 2;
+static const int RECOMMENDED_BUFFER_BURSTS = 3;
 
 
 static uint64_t clockNanos(clockid_t id) {
@@ -211,19 +212,19 @@ static uint64_t clockNanos(clockid_t id) {
 
 struct AudioLabConfig {
 	// callbackFrames is Android-runtime-only and is never written to Rack/.vcv.
-	// v09 recommended/default = 192.
+	// v09.3 recommended/default = 192.
 	//   -1 = let Oboe/AAudio choose the callback size
 	//    0 = portable behavior: fixed callback follows Rack/Audio-2 block size
 	//   >0 = explicit fixed Android callback size
 	int callbackFrames = RECOMMENDED_CALLBACK_FRAMES;
 
 	// sampleRateMode controls only how the Android output stream is opened.
-	// v09 recommended/default = 0: pinned 48 kHz + Oboe Medium SRC.
+	// v09.3 recommended/default = 0: pinned 48 kHz + Oboe Medium SRC.
 	//   -1 = native/unspecified output rate, Oboe SRC disabled
 	// 44100 = explicit 44.1 kHz output rate, Oboe SRC disabled
 	int sampleRateMode = RECOMMENDED_SAMPLE_RATE_MODE;
 
-	// v09 recommended/default = 2 reported hardware bursts.
+	// v09.3 recommended/default = 3 reported hardware bursts.
 	// 0 = leave AAudio/Oboe buffer size alone.
 	// 1/2/3/4 = request that many reported hardware bursts after opening.
 	int bufferBursts = RECOMMENDED_BUFFER_BURSTS;
@@ -292,7 +293,7 @@ static std::string trim(std::string s) {
 }
 
 static void loadAudioLabConfig() {
-	gAudioLabConfig = AudioLabConfig(); // v09 recommended defaults if absent/malformed
+	gAudioLabConfig = AudioLabConfig(); // v09.3 recommended defaults if absent/malformed
 	std::string path = rack::asset::user("audio-lab.cfg");
 	std::ifstream in(path.c_str());
 	std::string line;
