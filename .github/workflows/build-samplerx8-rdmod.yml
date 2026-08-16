@@ -1,0 +1,435 @@
+name: Build SamplerX8 RDMod
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
+    paths:
+      - ".github/workflows/build-samplerx8-rdmod.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-samplerx8-arm64:
+    name: Build Voxglitch SamplerX8 arm64 RDMod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out current RackDroid branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Install lightweight packaging dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends librsvg2-bin zip
+          python3 -m pip install --disable-pip-version-check --no-cache-dir "Pillow==11.3.0"
+
+      - name: Fetch pinned Voxglitch 2.41.1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          VOX_SHA="530c2f5173d331936c74f3c6c18df1f0820896f7"
+
+          rm -rf third_party/voxglitch /tmp/voxglitch-src
+          mkdir -p /tmp/voxglitch-src third_party
+
+          curl --fail --location --retry 3 \
+            "https://github.com/clone45/voxglitch/archive/${VOX_SHA}.tar.gz" \
+            -o /tmp/voxglitch.tar.gz
+
+          tar -xzf /tmp/voxglitch.tar.gz -C /tmp/voxglitch-src
+          mv "/tmp/voxglitch-src/voxglitch-${VOX_SHA}" third_party/voxglitch
+
+          test -s third_party/voxglitch/plugin.json
+          test -s third_party/voxglitch/src/plugin.cpp
+          test -s third_party/voxglitch/src/plugin.hpp
+          test -s third_party/voxglitch/src/modules/SamplerX8.cpp
+          test -s third_party/voxglitch/src/modules/SamplerX8/SamplerX8.hpp
+          test -s third_party/voxglitch/src/modules/SamplerX8/SamplerX8Widget.hpp
+          test -s third_party/voxglitch/src/modules/SamplerX8/SamplerX8LoadSample.hpp
+          test -s third_party/voxglitch/src/modules/SamplerX8/SamplerX8LoadFolder.hpp
+          test -s third_party/voxglitch/src/vgLib-2.0/SamplePlayer.hpp
+          test -s third_party/voxglitch/src/vgLib-2.0/sample.hpp
+          test -s third_party/voxglitch/src/vgLib-2.0/dr_mp3.h
+          test -s third_party/voxglitch/res/modules/samplerx8/samplerx8_panel.svg
+          test -s third_party/voxglitch/res/modules/samplerx8/samplerx8_panel-dark.svg
+          test -d third_party/voxglitch/res/components
+          test -s third_party/voxglitch/LICENSE
+
+      - name: Prepare isolated stock SamplerX8 port in CI workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+
+          root = Path.cwd()
+          vox = root / "third_party" / "voxglitch"
+
+          # Preserve the canonical desktop VCV identity, but expose only the
+          # one model whose native code is being built in this RDMod.
+          manifest_path = vox / "plugin.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+          if manifest.get("slug") != "voxglitch":
+              raise RuntimeError(f"Unexpected upstream plugin slug: {manifest.get('slug')!r}")
+          if manifest.get("version") != "2.41.1":
+              raise RuntimeError(f"Unexpected pinned Voxglitch version: {manifest.get('version')!r}")
+
+          sampler = next(
+              (m for m in manifest.get("modules", []) if m.get("slug") == "samplerx8"),
+              None,
+          )
+          if sampler is None:
+              raise RuntimeError("Pinned upstream manifest does not contain samplerx8")
+
+          keep_top = [
+              "slug", "name", "version", "license", "brand", "author",
+              "authorEmail", "authorUrl", "pluginUrl", "manualUrl",
+              "sourceUrl", "donateUrl", "changelogUrl"
+          ]
+          trimmed = {k: manifest[k] for k in keep_top if k in manifest}
+          trimmed["slug"] = "voxglitch"
+          trimmed["sourceUrl"] = "https://github.com/clone45/voxglitch"
+          trimmed["modules"] = [sampler]
+          manifest_path.write_text(
+              json.dumps(trimmed, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+
+          # The normal full plugin init also owns DR_MP3_IMPLEMENTATION and
+          # vgLib constants. Keep both, but register only stock SamplerX8.
+          # SamplerX8.cpp itself is not edited: its params/ports/DSP remain
+          # exactly upstream, including fixed pitch=0.0 (no V/Oct input).
+          (vox / "src" / "plugin.cpp").write_text(
+              '#define DR_MP3_IMPLEMENTATION\n'
+              '#include "vgLib-2.0/dr_mp3.h"\n'
+              '#include "plugin.hpp"\n'
+              '#include "vgLib-2.0/constants.cpp"\n\n'
+              'Plugin* pluginInstance;\n\n'
+              'void init(Plugin* p) {\n'
+              '    pluginInstance = p;\n'
+              '    p->addModel(modelSamplerX8);\n'
+              '}\n',
+              encoding="utf-8",
+          )
+
+          # Add a CI-only native target. No committed RackDroid audio/UI/app
+          # source is modified by this workflow.
+          cmake_path = root / "native" / "CMakeLists.txt"
+          cmake = cmake_path.read_text(encoding="utf-8")
+          cmake_anchor = "\t# Frozen Wasteland (49 modules): code GPLv3, but everything under res/\n"
+          cmake_block = """\t# Voxglitch SamplerX8: isolated optional RackDroid plugin.
+          \tset(VOXGLITCH_DIR ${THIRD_PARTY}/voxglitch)
+          \tif(NOT EXISTS ${VOXGLITCH_DIR}/plugin.json)
+          \t\tmessage(FATAL_ERROR "Voxglitch SamplerX8 sources not found")
+          \tendif()
+          \tadd_library(plugin_voxglitch SHARED
+          \t\t${VOXGLITCH_DIR}/src/plugin.cpp
+          \t\t${VOXGLITCH_DIR}/src/modules/SamplerX8.cpp)
+          \ttarget_link_libraries(plugin_voxglitch PUBLIC rack_engine)
+          \ttarget_compile_features(plugin_voxglitch PRIVATE cxx_std_17)
+          \ttarget_compile_options(plugin_voxglitch PRIVATE
+          \t\t-I${VOXGLITCH_DIR}/src -O3 -funsafe-math-optimizations -w)
+
+          """
+          if "add_library(plugin_voxglitch SHARED" not in cmake:
+              if cmake.count(cmake_anchor) != 1:
+                  raise RuntimeError("Could not find RackDroid CMake insertion anchor")
+              cmake = cmake.replace(cmake_anchor, cmake_block + cmake_anchor, 1)
+              cmake_path.write_text(cmake, encoding="utf-8")
+
+          # Build plugin_voxglitch only for this workflow, and keep the .so
+          # out of the APK because it belongs inside the RDMod.
+          gradle_path = root / "app" / "build.gradle.kts"
+          gradle = gradle_path.read_text(encoding="utf-8")
+
+          target_old = """\t\t\t\ttargets += if (project.hasProperty("allPlugins"))
+          \t\t\t\t\tbaseTargets + optionalTargets
+          \t\t\t\telse
+          \t\t\t\t\tbaseTargets
+          """
+          target_new = """\t\t\t\ttargets += when {
+          \t\t\t\t\tproject.hasProperty("samplerX8Plugin") -> baseTargets + listOf("plugin_voxglitch")
+          \t\t\t\t\tproject.hasProperty("allPlugins") -> baseTargets + optionalTargets
+          \t\t\t\t\telse -> baseTargets
+          \t\t\t\t}
+          """
+          if 'project.hasProperty("samplerX8Plugin")' not in gradle:
+              if gradle.count(target_old) != 1:
+                  raise RuntimeError("Could not find RackDroid Gradle target-selection block")
+              gradle = gradle.replace(target_old, target_new, 1)
+
+          exclude_anchor = '\t\t\t\t"**/libplugin_ml.so",\n'
+          exclude_line = '\t\t\t\t"**/libplugin_voxglitch.so",\n'
+          if exclude_line not in gradle:
+              if gradle.count(exclude_anchor) != 1:
+                  raise RuntimeError("Could not find RackDroid Gradle JNI exclusion anchor")
+              gradle = gradle.replace(exclude_anchor, exclude_anchor + exclude_line, 1)
+          gradle_path.write_text(gradle, encoding="utf-8")
+
+          # Assertions: stock identity, stock one-model manifest, and all
+          # resources needed by SamplerX8 are present before compiling.
+          check = json.loads(manifest_path.read_text(encoding="utf-8"))
+          assert check["slug"] == "voxglitch"
+          assert check["version"] == "2.41.1"
+          assert [m["slug"] for m in check["modules"]] == ["samplerx8"]
+
+          sampler_cpp = (vox / "src" / "modules" / "SamplerX8" / "SamplerX8.hpp").read_text(encoding="utf-8")
+          required_stock_markers = [
+              "ENUMS(TRIGGER_INPUTS, NUMBER_OF_SAMPLES)",
+              "ENUMS(POSITION_INPUTS, NUMBER_OF_SAMPLES)",
+              "ENUMS(AUDIO_LEFT_OUTPUTS, NUMBER_OF_SAMPLES)",
+              "ENUMS(AUDIO_RIGHT_OUTPUTS, NUMBER_OF_SAMPLES)",
+              "sample_players[i].step(0.0,",
+          ]
+          for marker in required_stock_markers:
+              if marker not in sampler_cpp:
+                  raise RuntimeError(f"Pinned SamplerX8 source changed unexpectedly: missing {marker!r}")
+          if "VOCT" in sampler_cpp.upper() or "V/OCT" in sampler_cpp.upper():
+              raise RuntimeError("Unexpected V/Oct marker found in pinned SamplerX8 source")
+
+          required = [
+              vox / "src" / "modules" / "SamplerX8.cpp",
+              vox / "src" / "modules" / "SamplerX8" / "SamplerX8.hpp",
+              vox / "src" / "modules" / "SamplerX8" / "SamplerX8Widget.hpp",
+              vox / "src" / "modules" / "SamplerX8" / "SamplerX8LoadSample.hpp",
+              vox / "src" / "vgLib-2.0" / "SamplePlayer.hpp",
+              vox / "src" / "vgLib-2.0" / "sample.hpp",
+              vox / "res" / "modules" / "samplerx8" / "samplerx8_panel.svg",
+              vox / "res" / "modules" / "samplerx8" / "samplerx8_panel-dark.svg",
+              vox / "res" / "components" / "voxglitch_input_port.svg",
+              vox / "res" / "components" / "voxglitch_output_port.svg",
+              vox / "res" / "components" / "square_light_off.svg",
+              vox / "res" / "components" / "square_light_on.svg",
+              vox / "LICENSE",
+          ]
+          missing = [str(p) for p in required if not p.exists()]
+          if missing:
+              raise RuntimeError("Missing SamplerX8 build/resource inputs: " + ", ".join(missing))
+
+          print("Prepared isolated stock Voxglitch/samplerx8 CI port.")
+          print("Plugin/model identity remains voxglitch/samplerx8.")
+          print("SamplerX8 DSP/params/ports are unmodified; no V/Oct was added.")
+          print("RackDroid committed audio/touch/file-picker/app source remains unchanged.")
+          PY
+
+      - name: Build arm64 SamplerX8 shared library
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew assembleSideloadRelease \
+            -PdevKeystore \
+            -PtargetAbis=arm64-v8a \
+            -PsamplerX8Plugin \
+            --no-daemon
+
+      - name: Render lightweight SamplerX8 browser thumbnail
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Deliberately do not build a second host Rack just for thumbnail art.
+          THUMB_DIR="${RUNNER_TEMP}/samplerx8-thumbnails/voxglitch"
+          rm -rf "${RUNNER_TEMP}/samplerx8-thumbnails"
+          mkdir -p "${THUMB_DIR}"
+
+          rsvg-convert \
+            third_party/voxglitch/res/modules/samplerx8/samplerx8_panel.svg \
+            -o "${THUMB_DIR}/samplerx8.png"
+
+          python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          # The shell does not expand inside this quoted heredoc, so resolve
+          # RUNNER_TEMP explicitly from the environment.
+          import os
+          src = Path(os.environ["RUNNER_TEMP"]) / "samplerx8-thumbnails" / "voxglitch" / "samplerx8.png"
+          dst = src.with_suffix(".webp")
+          with Image.open(src) as im:
+              im.save(dst, "WEBP", quality=92, method=6)
+          if not dst.is_file() or dst.stat().st_size == 0:
+              raise RuntimeError("SamplerX8 WebP thumbnail was not created")
+          print(f"Thumbnail: {dst} ({dst.stat().st_size} bytes)")
+          PY
+
+      - name: Package Voxglitch SamplerX8 RDMod
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SO="$(find app/.cxx app/build/intermediates/cxx \
+            -type f -name 'libplugin_voxglitch.so' \
+            -print 2>/dev/null \
+            | xargs -r ls -1t \
+            | head -n 1 || true)"
+
+          if [ -z "${SO}" ] || [ ! -s "${SO}" ]; then
+            echo "ERROR: libplugin_voxglitch.so was not found after the Gradle build." >&2
+            echo "Native plugin libraries that DO exist:" >&2
+            find app/.cxx app/build/intermediates/cxx \
+              -type f -name 'libplugin_*.so' -print 2>/dev/null \
+              | sort >&2 || true
+            exit 1
+          fi
+
+          echo "Using SamplerX8 Android library: ${SO}"
+          file "${SO}"
+
+          STRIP="$(ls "${ANDROID_HOME}"/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
+            2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "${STRIP}" ] || [ ! -e "${STRIP}" ]; then
+            echo "ERROR: llvm-strip was not found under ${ANDROID_HOME}/ndk." >&2
+            exit 1
+          fi
+
+          OUT="${GITHUB_WORKSPACE}/samplerx8-rdmod"
+          PACK="${OUT}/pack"
+          RDMOD="${OUT}/Voxglitch-SamplerX8-2.41.1-arm64.rdmod"
+          rm -rf "${OUT}"
+          mkdir -p \
+            "${PACK}/res/modules/samplerx8" \
+            "${PACK}/res/components" \
+            "${PACK}/thumbs"
+
+          cp third_party/voxglitch/plugin.json "${PACK}/plugin.json"
+          cp "${SO}" "${PACK}/libplugin_voxglitch.so"
+          "${STRIP}" --strip-unneeded "${PACK}/libplugin_voxglitch.so"
+
+          # Keep both real upstream light/dark panel art and the complete
+          # upstream component asset directory so controls never disappear
+          # because a transitive widget dependency was overlooked.
+          cp third_party/voxglitch/res/modules/samplerx8/samplerx8_panel.svg \
+            "${PACK}/res/modules/samplerx8/samplerx8_panel.svg"
+          cp third_party/voxglitch/res/modules/samplerx8/samplerx8_panel-dark.svg \
+            "${PACK}/res/modules/samplerx8/samplerx8_panel-dark.svg"
+          cp -a third_party/voxglitch/res/components/. "${PACK}/res/components/"
+
+          cp "${RUNNER_TEMP}/samplerx8-thumbnails/voxglitch/samplerx8.webp" \
+            "${PACK}/thumbs/samplerx8.webp"
+          cp third_party/voxglitch/LICENSE "${PACK}/LICENSE"
+          cp third_party/voxglitch/README.md "${PACK}/README.md"
+
+          # Build the RDMod with plugin.json and exactly one native .so at root.
+          (
+            cd "${PACK}"
+            zip -q -r -9 "${RDMOD}" .
+          )
+
+          # GPL corresponding source: archive the exact CI-modified upstream
+          # tree used for this binary (trimmed manifest + one-model init).
+          (
+            cd third_party
+            zip -q -r -9 "${OUT}/Voxglitch-SamplerX8-2.41.1-source.zip" voxglitch
+          )
+
+          cat > "${OUT}/BUILD-INFO.txt" <<EOF
+          RackDroid branch: ${GITHUB_REF_NAME}
+          RackDroid commit: ${GITHUB_SHA}
+          Upstream: https://github.com/clone45/voxglitch
+          Upstream version: 2.41.1
+          Upstream commit: 530c2f5173d331936c74f3c6c18df1f0820896f7
+          Plugin slug: voxglitch
+          Model slug: samplerx8
+          Android ABI: arm64-v8a
+          Module DSP/params/ports: stock upstream
+          V/Oct modification: none
+          Android individual sample loading: RackDroid OSDIALOG_OPEN bridge
+          Android folder loading: not supported by RackDroid SAF bridge
+          EOF
+
+          (
+            cd "${OUT}"
+            sha256sum \
+              Voxglitch-SamplerX8-2.41.1-arm64.rdmod \
+              Voxglitch-SamplerX8-2.41.1-source.zip \
+              > SHA256.txt
+          )
+
+          ls -lh "${OUT}"
+
+      - name: Validate RDMod contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          RDMOD="${GITHUB_WORKSPACE}/samplerx8-rdmod/Voxglitch-SamplerX8-2.41.1-arm64.rdmod"
+          CHECK="${RUNNER_TEMP}/samplerx8-rdmod-check"
+          rm -rf "${CHECK}"
+          mkdir -p "${CHECK}"
+          unzip -q "${RDMOD}" -d "${CHECK}"
+
+          test -s "${CHECK}/plugin.json"
+          test -s "${CHECK}/libplugin_voxglitch.so"
+          test -s "${CHECK}/res/modules/samplerx8/samplerx8_panel.svg"
+          test -s "${CHECK}/res/modules/samplerx8/samplerx8_panel-dark.svg"
+          test -s "${CHECK}/res/components/voxglitch_input_port.svg"
+          test -s "${CHECK}/res/components/voxglitch_output_port.svg"
+          test -s "${CHECK}/res/components/square_light_off.svg"
+          test -s "${CHECK}/res/components/square_light_on.svg"
+          test -s "${CHECK}/thumbs/samplerx8.webp"
+          test -s "${CHECK}/LICENSE"
+
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+          import os
+          from PIL import Image
+
+          check = Path(os.environ["RUNNER_TEMP"]) / "samplerx8-rdmod-check"
+          manifest = json.loads((check / "plugin.json").read_text(encoding="utf-8"))
+          assert manifest["slug"] == "voxglitch", manifest["slug"]
+          assert manifest["version"] == "2.41.1", manifest["version"]
+          assert [m["slug"] for m in manifest["modules"]] == ["samplerx8"], manifest["modules"]
+
+          root_sos = sorted(p.name for p in check.glob("*.so"))
+          assert root_sos == ["libplugin_voxglitch.so"], root_sos
+          nested_sos = [str(p.relative_to(check)) for p in check.rglob("*.so") if p.parent != check]
+          assert not nested_sos, nested_sos
+
+          thumb = check / "thumbs" / "samplerx8.webp"
+          with Image.open(thumb) as im:
+              assert im.format == "WEBP", im.format
+              assert im.width > 0 and im.height > 0, im.size
+              thumb_size = im.size
+
+          print("Manifest identity: voxglitch/samplerx8 2.41.1")
+          print("Exactly one root native library: libplugin_voxglitch.so")
+          print(f"Thumbnail: WEBP {thumb_size[0]}x{thumb_size[1]}")
+          PY
+
+          file "${CHECK}/libplugin_voxglitch.so"
+          readelf -h "${CHECK}/libplugin_voxglitch.so" | tee "${CHECK}/elf-header.txt"
+          readelf -h "${CHECK}/libplugin_voxglitch.so" | grep -Eq 'Machine:[[:space:]]+AArch64'
+
+          # Ensure the ZIP itself has no accidental second native library.
+          SO_COUNT="$(zipinfo -1 "${RDMOD}" | grep -E '(^|/)[^/]+\.so$' | wc -l | tr -d ' ')"
+          test "${SO_COUNT}" = "1"
+
+          echo "SamplerX8 RDMod validation passed."
+
+      - name: Upload SamplerX8 RDMod
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: Voxglitch-SamplerX8-2.41.1-arm64-rdmod
+          path: |
+            samplerx8-rdmod/Voxglitch-SamplerX8-2.41.1-arm64.rdmod
+            samplerx8-rdmod/Voxglitch-SamplerX8-2.41.1-source.zip
+            samplerx8-rdmod/SHA256.txt
+            samplerx8-rdmod/BUILD-INFO.txt
+          if-no-files-found: error
+          compression-level: 0
