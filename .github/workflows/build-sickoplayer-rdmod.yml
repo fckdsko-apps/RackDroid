@@ -1,0 +1,573 @@
+name: Build SickoPlayer RDMod
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
+    paths:
+      - ".github/workflows/build-sickoplayer-rdmod.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-sickoplayer-arm64:
+    name: Build SickoCV SickoPlayer arm64 RDMod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out current RackDroid branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Install host-render and thumbnail dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build \
+            libegl1-mesa-dev libgles-dev libgl1-mesa-dri
+          python3 -m pip install --disable-pip-version-check --no-cache-dir "Pillow==11.3.0"
+
+      - name: Fetch pinned SickoCV 2.7.10 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          SICKO_SHA="b3504b2c41f22454379823faa980606d35d83f70"
+
+          rm -rf third_party/SickoCV /tmp/sickocv-src
+          mkdir -p /tmp/sickocv-src third_party
+
+          curl --fail --location --retry 3 \
+            "https://github.com/sickozell/SickoCV/archive/${SICKO_SHA}.tar.gz" \
+            -o /tmp/sickocv.tar.gz
+
+          tar -xzf /tmp/sickocv.tar.gz -C /tmp/sickocv-src
+          mv "/tmp/sickocv-src/SickoCV-${SICKO_SHA}" third_party/SickoCV
+
+          test -s third_party/SickoCV/plugin.json
+          test -s third_party/SickoCV/src/SickoPlayer.cpp
+          test -s third_party/SickoCV/src/plugin.hpp
+          test -s third_party/SickoCV/src/Controls.hpp
+          test -s third_party/SickoCV/src/dr_wav.h
+          test -s third_party/SickoCV/res/SickoPlayer.svg
+          test -s third_party/SickoCV/LICENSE
+          test -s third_party/SickoCV/CREDITS
+
+      - name: Prepare isolated SickoPlayer port in CI workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+
+          root = Path.cwd()
+          sicko = root / "third_party" / "SickoCV"
+
+          # 1. Preserve canonical SickoCV/SickoPlayer identity and trim the
+          # manifest to the one model being built.
+          manifest_path = sicko / "plugin.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+          if manifest.get("slug") != "SickoCV":
+              raise RuntimeError(f"Unexpected upstream plugin slug: {manifest.get('slug')!r}")
+          if manifest.get("version") != "2.7.10":
+              raise RuntimeError(f"Unexpected pinned SickoCV version: {manifest.get('version')!r}")
+
+          player = next(
+              (m for m in manifest.get("modules", []) if m.get("slug") == "SickoPlayer"),
+              None,
+          )
+          if player is None:
+              raise RuntimeError("Pinned upstream manifest does not contain SickoPlayer")
+
+          keep_top = [
+              "slug", "name", "version", "license", "brand", "author",
+              "authorEmail", "authorUrl", "pluginUrl", "manualUrl",
+              "sourceUrl", "donateUrl", "changelogUrl"
+          ]
+          trimmed = {k: manifest[k] for k in keep_top if k in manifest}
+          trimmed["slug"] = "SickoCV"
+          trimmed["sourceUrl"] = "https://github.com/sickozell/SickoCV"
+          trimmed["modules"] = [player]
+          manifest_path.write_text(
+              json.dumps(trimmed, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+
+          # 2. Register only SickoPlayer.
+          (sicko / "src" / "plugin.cpp").write_text(
+              '#include "plugin.hpp"\n\n'
+              'Plugin* pluginInstance;\n\n'
+              'void init(Plugin* p) {\n'
+              '    pluginInstance = p;\n'
+              '    p->addModel(modelSickoPlayer);\n'
+              '}\n',
+              encoding="utf-8",
+          )
+
+          # 3. Do not ship SickoCV's VCV Component Library graphics, which
+          # SickoCV credits as CC BY-NC 4.0. Keep the same control classes,
+          # sizes, and RoundKnob behavior, but load RackDroid's regenerated
+          # system component art instead.
+          controls = r"""#pragma once
+
+          struct SickoScrewBlack1 : app::SvgScrew {
+              SickoScrewBlack1() {
+                  setSvg(Svg::load(asset::system("res/ComponentLibrary/ScrewBlack.svg")));
+              }
+          };
+
+          struct SickoScrewBlack2 : app::SvgScrew {
+              SickoScrewBlack2() {
+                  setSvg(Svg::load(asset::system("res/ComponentLibrary/ScrewBlack.svg")));
+              }
+          };
+
+          struct SickoInPort : app::SvgPort {
+              SickoInPort() {
+                  setSvg(Svg::load(asset::system("res/ComponentLibrary/PJ301M.svg")));
+              }
+          };
+
+          struct SickoOutPort : app::SvgPort {
+              SickoOutPort() {
+                  setSvg(Svg::load(asset::system("res/ComponentLibrary/PJ301M.svg")));
+              }
+          };
+
+          struct SickoTrimpot : RoundKnob {
+              SickoTrimpot() {
+                  setSvg(APP->window->loadSvg(asset::system("res/ComponentLibrary/Trimpot.svg")));
+                  bg->setSvg(APP->window->loadSvg(asset::system("res/ComponentLibrary/Trimpot_bg.svg")));
+              }
+          };
+
+          struct SickoKnob : RoundKnob {
+              SickoKnob() {
+                  setSvg(APP->window->loadSvg(asset::system("res/ComponentLibrary/RoundBlackKnob.svg")));
+                  bg->setSvg(APP->window->loadSvg(asset::system("res/ComponentLibrary/RoundBlackKnob_bg.svg")));
+              }
+          };
+
+          struct SickoSmallKnob : RoundKnob {
+              SickoSmallKnob() {
+                  setSvg(APP->window->loadSvg(asset::system("res/ComponentLibrary/RoundSmallBlackKnob.svg")));
+                  bg->setSvg(APP->window->loadSvg(asset::system("res/ComponentLibrary/RoundSmallBlackKnob_bg.svg")));
+              }
+          };
+          """
+          (sicko / "src" / "Controls.hpp").write_text(controls, encoding="utf-8")
+
+          # 4. In the full SickoCV build Clocker.cpp supplies the dr_wav
+          # implementation. This isolated build supplies it explicitly.
+          (sicko / "src" / "dr_wav_impl.cpp").write_text(
+              '#define DR_WAV_IMPLEMENTATION\n'
+              '#include "dr_wav.h"\n',
+              encoding="utf-8",
+          )
+
+          # 5. Add a CI-only shared-library target.
+          cmake_path = root / "native" / "CMakeLists.txt"
+          cmake = cmake_path.read_text(encoding="utf-8")
+          cmake_anchor = "\t# Frozen Wasteland (49 modules): code GPLv3, but everything under res/\n"
+          cmake_block = """\t# SickoCV SickoPlayer: isolated optional RackDroid plugin.
+          \tset(SICKOCV_DIR ${THIRD_PARTY}/SickoCV)
+          \tif(NOT EXISTS ${SICKOCV_DIR}/plugin.json)
+          \t\tmessage(FATAL_ERROR "SickoCV SickoPlayer sources not found")
+          \tendif()
+          \tadd_library(plugin_sickocv SHARED
+          \t\t${SICKOCV_DIR}/src/plugin.cpp
+          \t\t${SICKOCV_DIR}/src/SickoPlayer.cpp
+          \t\t${SICKOCV_DIR}/src/dr_wav_impl.cpp)
+          \ttarget_link_libraries(plugin_sickocv PUBLIC rack_engine)
+          \ttarget_compile_features(plugin_sickocv PRIVATE cxx_std_17)
+          \t# Put the plugin src include path after Rack's normal include dirs.
+          \ttarget_compile_options(plugin_sickocv PRIVATE
+          \t\t-I${SICKOCV_DIR}/src -O3 -funsafe-math-optimizations -w)
+
+          """
+          if "add_library(plugin_sickocv SHARED" not in cmake:
+              if cmake.count(cmake_anchor) != 1:
+                  raise RuntimeError("Could not find RackDroid CMake insertion anchor")
+              cmake = cmake.replace(cmake_anchor, cmake_block + cmake_anchor, 1)
+              cmake_path.write_text(cmake, encoding="utf-8")
+
+          # 6. Ask Gradle to build plugin_sickocv only for this workflow and
+          # keep it excluded from the APK.
+          gradle_path = root / "app" / "build.gradle.kts"
+          gradle = gradle_path.read_text(encoding="utf-8")
+
+          target_old = """\t\t\t\ttargets += if (project.hasProperty("allPlugins"))
+          \t\t\t\t\tbaseTargets + optionalTargets
+          \t\t\t\telse
+          \t\t\t\t\tbaseTargets
+          """
+          target_new = """\t\t\t\ttargets += when {
+          \t\t\t\t\tproject.hasProperty("sickoPlayerPlugin") -> baseTargets + listOf("plugin_sickocv")
+          \t\t\t\t\tproject.hasProperty("allPlugins") -> baseTargets + optionalTargets
+          \t\t\t\t\telse -> baseTargets
+          \t\t\t\t}
+          """
+          if 'project.hasProperty("sickoPlayerPlugin")' not in gradle:
+              if gradle.count(target_old) != 1:
+                  raise RuntimeError("Could not find RackDroid Gradle target-selection block")
+              gradle = gradle.replace(target_old, target_new, 1)
+
+          exclude_anchor = '\t\t\t\t"**/libplugin_ml.so",\n'
+          exclude_line = '\t\t\t\t"**/libplugin_sickocv.so",\n'
+          if exclude_line not in gradle:
+              if gradle.count(exclude_anchor) != 1:
+                  raise RuntimeError("Could not find RackDroid Gradle JNI exclusion anchor")
+              gradle = gradle.replace(exclude_anchor, exclude_anchor + exclude_line, 1)
+          gradle_path.write_text(gradle, encoding="utf-8")
+
+          # 7. Assertions.
+          check = json.loads(manifest_path.read_text(encoding="utf-8"))
+          assert check["slug"] == "SickoCV"
+          assert check["version"] == "2.7.10"
+          assert [m["slug"] for m in check["modules"]] == ["SickoPlayer"]
+
+          required = [
+              sicko / "src" / "SickoPlayer.cpp",
+              sicko / "src" / "plugin.hpp",
+              sicko / "src" / "Controls.hpp",
+              sicko / "src" / "dr_wav.h",
+              sicko / "src" / "dr_wav_impl.cpp",
+              sicko / "res" / "SickoPlayer.svg",
+              sicko / "LICENSE",
+              sicko / "CREDITS",
+              root / "graphics" / "system-res" / "ComponentLibrary" / "PJ301M.svg",
+              root / "graphics" / "system-res" / "ComponentLibrary" / "RoundBlackKnob.svg",
+              root / "graphics" / "system-res" / "ComponentLibrary" / "RoundSmallBlackKnob.svg",
+              root / "graphics" / "system-res" / "ComponentLibrary" / "Trimpot.svg",
+              root / "graphics" / "system-res" / "ComponentLibrary" / "ScrewBlack.svg",
+          ]
+          missing = [str(p) for p in required if not p.exists()]
+          if missing:
+              raise RuntimeError("Missing SickoPlayer build inputs: " + ", ".join(missing))
+
+          controls_text = (sicko / "src" / "Controls.hpp").read_text(encoding="utf-8")
+          if 'asset::plugin(pluginInstance, "res/component/' in controls_text:
+              raise RuntimeError("Patched Controls.hpp still references upstream component art")
+
+          print("Prepared isolated SickoCV/SickoPlayer CI port.")
+          print("Plugin/model identity remains SickoCV/SickoPlayer.")
+          print("RackDroid committed audio/touch/file-picker/host source remains unchanged.")
+          PY
+
+      - name: Build arm64 SickoPlayer shared library
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew assembleSideloadRelease \
+            -PdevKeystore \
+            -PtargetAbis=arm64-v8a \
+            -PsickoPlayerPlugin \
+            --no-daemon
+
+      - name: Render RackDroid-native SickoPlayer browser thumbnail
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HOST_BUILD="${GITHUB_WORKSPACE}/build-sickoplayer-host"
+          HOST_STAGE="${RUNNER_TEMP}/sickoplayer-host-system"
+          THUMB_OUT="${RUNNER_TEMP}/sickoplayer-thumbnails"
+
+          rm -rf "${HOST_BUILD}" "${HOST_STAGE}" "${THUMB_OUT}"
+          mkdir -p "${HOST_STAGE}/plugins" "${THUMB_OUT}"
+
+          cmake -S native -B "${HOST_BUILD}" -G Ninja -DRACKDROID_HOST_UI=ON
+          cmake --build "${HOST_BUILD}" \
+            --target rack_ui_smoke plugin_fundamental plugin_drums plugin_sickocv
+
+          # Use RackDroid's regenerated ComponentLibrary for the rendered tile.
+          cp -a third_party/Rack/res "${HOST_STAGE}/res"
+          rm -rf "${HOST_STAGE}/res/ComponentLibrary"
+          cp -a graphics/system-res/ComponentLibrary "${HOST_STAGE}/res/ComponentLibrary"
+
+          for item in translations Core.json template.vcv LICENSE-GPLv3.txt; do
+            if [ -e "third_party/Rack/${item}" ]; then
+              cp -a "third_party/Rack/${item}" "${HOST_STAGE}/${item}"
+            fi
+          done
+
+          ln -s "${GITHUB_WORKSPACE}/third_party/Fundamental" "${HOST_STAGE}/plugins/Fundamental"
+          ln -s "${GITHUB_WORKSPACE}/drums" "${HOST_STAGE}/plugins/RackDroidDrums"
+          ln -s "${GITHUB_WORKSPACE}/third_party/SickoCV" "${HOST_STAGE}/plugins/SickoCV"
+
+          RACKDROID_SYSTEM_DIR="${HOST_STAGE}" \
+          RACKDROID_EXTRA_PLUGINS="SickoCV=libplugin_sickocv.so" \
+          LD_LIBRARY_PATH="${HOST_BUILD}:${LD_LIBRARY_PATH:-}" \
+          EGL_PLATFORM=surfaceless \
+          LIBGL_ALWAYS_SOFTWARE=1 \
+            "${HOST_BUILD}/rack_ui_smoke" 5 --export-thumbnails "${THUMB_OUT}"
+
+          test -s "${THUMB_OUT}/SickoCV/SickoPlayer.png"
+          file "${THUMB_OUT}/SickoCV/SickoPlayer.png"
+
+      - name: Package SickoCV SickoPlayer RDMod
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SO="$(find app/.cxx app/build/intermediates/cxx \
+            -type f -name 'libplugin_sickocv.so' \
+            -print 2>/dev/null \
+            | xargs -r ls -1t \
+            | head -n 1 || true)"
+
+          if [ -z "${SO}" ] || [ ! -s "${SO}" ]; then
+            echo "ERROR: libplugin_sickocv.so was not found after the Gradle build." >&2
+            echo "Native plugin libraries that DO exist:" >&2
+            find app/.cxx app/build/intermediates/cxx \
+              -type f -name 'libplugin_*.so' -print 2>/dev/null \
+              | sort >&2 || true
+            exit 1
+          fi
+
+          echo "Using SickoPlayer Android library: ${SO}"
+          file "${SO}"
+
+          STRIP="$(ls "${ANDROID_HOME}"/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
+            2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "${STRIP}" ] || [ ! -e "${STRIP}" ]; then
+            echo "ERROR: llvm-strip was not found under ${ANDROID_HOME}/ndk." >&2
+            exit 1
+          fi
+
+          OUT="${GITHUB_WORKSPACE}/sickoplayer-rdmod"
+          PACK="${OUT}/pack"
+          SOURCE_ROOT="${OUT}/source/SickoCV-SickoPlayer-2.7.10"
+          THUMB_PNG="${RUNNER_TEMP}/sickoplayer-thumbnails/SickoCV/SickoPlayer.png"
+
+          rm -rf "${OUT}"
+          mkdir -p "${PACK}/res" "${PACK}/thumbs" "${SOURCE_ROOT}/src" "${SOURCE_ROOT}/res"
+
+          "${STRIP}" --strip-unneeded -o "${PACK}/libplugin_sickocv.so" "${SO}"
+          test -s "${PACK}/libplugin_sickocv.so"
+
+          cp third_party/SickoCV/plugin.json "${PACK}/plugin.json"
+          cp third_party/SickoCV/LICENSE "${PACK}/LICENSE"
+          cp third_party/SickoCV/CREDITS "${PACK}/CREDITS"
+          cp third_party/SickoCV/res/SickoPlayer.svg "${PACK}/res/SickoPlayer.svg"
+
+          THUMB_PNG="${THUMB_PNG}" THUMB_WEBP="${PACK}/thumbs/SickoPlayer.webp" python3 <<'PYTHUMB'
+          import os
+          from PIL import Image
+
+          src = os.environ["THUMB_PNG"]
+          dst = os.environ["THUMB_WEBP"]
+
+          with Image.open(src) as im:
+              im.load()
+              if im.format != "PNG":
+                  raise SystemExit(f"Expected PNG thumbnail source, got {im.format!r}")
+              if im.width < 100 or im.height < 200:
+                  raise SystemExit(f"Rendered thumbnail is unexpectedly small: {im.width}x{im.height}")
+              if im.mode not in ("RGB", "RGBA"):
+                  im = im.convert("RGBA")
+              im.save(dst, "WEBP", quality=92, method=6)
+
+          with Image.open(dst) as check:
+              check.load()
+              if check.format != "WEBP":
+                  raise SystemExit(f"Thumbnail conversion failed: {check.format!r}")
+              print(f"Thumbnail ready: {dst} ({check.width}x{check.height})")
+          PYTHUMB
+          test -s "${PACK}/thumbs/SickoPlayer.webp"
+
+          # Corresponding source for the distributed GPL binary.
+          cp third_party/SickoCV/plugin.json "${SOURCE_ROOT}/plugin.json"
+          cp third_party/SickoCV/LICENSE "${SOURCE_ROOT}/LICENSE"
+          cp third_party/SickoCV/CREDITS "${SOURCE_ROOT}/CREDITS"
+          cp third_party/SickoCV/res/SickoPlayer.svg "${SOURCE_ROOT}/res/SickoPlayer.svg"
+          cp third_party/SickoCV/src/SickoPlayer.cpp "${SOURCE_ROOT}/src/SickoPlayer.cpp"
+          cp third_party/SickoCV/src/plugin.hpp "${SOURCE_ROOT}/src/plugin.hpp"
+          cp third_party/SickoCV/src/Controls.hpp "${SOURCE_ROOT}/src/Controls.hpp"
+          cp third_party/SickoCV/src/plugin.cpp "${SOURCE_ROOT}/src/plugin.cpp"
+          cp third_party/SickoCV/src/dr_wav.h "${SOURCE_ROOT}/src/dr_wav.h"
+          cp third_party/SickoCV/src/dr_wav_impl.cpp "${SOURCE_ROOT}/src/dr_wav_impl.cpp"
+
+          cat > "${SOURCE_ROOT}/RACKDROID-PORT-NOTES.txt" <<EOF
+          SickoCV SickoPlayer 2.7.10 - RackDroid isolated RDMod source
+
+          Upstream source:
+            https://github.com/sickozell/SickoCV
+            commit b3504b2c41f22454379823faa980606d35d83f70
+
+          CI-only modifications:
+            - plugin.json trimmed to SickoPlayer only; canonical plugin/model slugs unchanged.
+            - plugin.cpp registers only modelSickoPlayer.
+            - Controls.hpp loads RackDroid regenerated system component art instead of
+              SickoCV's VCV Component Library graphics credited as CC BY-NC 4.0.
+            - dr_wav_impl.cpp supplies DR_WAV_IMPLEMENTATION because unrelated Clocker.cpp
+              is intentionally not compiled.
+            - RackDroid CMake/Gradle files are patched only in CI to add plugin_sickocv;
+              committed app/audio/engine/file-picker source is untouched.
+
+          Build recipe:
+            .github/workflows/build-sickoplayer-rdmod.yml
+            RackDroid commit ${GITHUB_SHA}
+          EOF
+
+          (
+            cd "${OUT}/source"
+            zip -qr "${OUT}/SickoCV-SickoPlayer-2.7.10-source.zip" \
+              "SickoCV-SickoPlayer-2.7.10"
+          )
+
+          (
+            cd "${PACK}"
+            zip -qr "${OUT}/SickoCV-SickoPlayer-2.7.10-arm64.rdmod" .
+          )
+
+          test -s "${OUT}/SickoCV-SickoPlayer-2.7.10-arm64.rdmod"
+          test -s "${OUT}/SickoCV-SickoPlayer-2.7.10-source.zip"
+          unzip -t "${OUT}/SickoCV-SickoPlayer-2.7.10-arm64.rdmod" >/dev/null
+          unzip -t "${OUT}/SickoCV-SickoPlayer-2.7.10-source.zip" >/dev/null
+
+      - name: Validate RDMod contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import json
+          import struct
+
+          out = Path("sickoplayer-rdmod")
+          pack = out / "SickoCV-SickoPlayer-2.7.10-arm64.rdmod"
+          source = out / "SickoCV-SickoPlayer-2.7.10-source.zip"
+
+          if not pack.is_file() or pack.stat().st_size == 0:
+              raise SystemExit("RDMod was not produced")
+          if not source.is_file() or source.stat().st_size == 0:
+              raise SystemExit("GPL corresponding-source archive was not produced")
+
+          with ZipFile(pack) as z:
+              names = z.namelist()
+              if names.count("plugin.json") != 1:
+                  raise SystemExit("RDMod must contain exactly one root plugin.json")
+
+              root_sos = [
+                  n for n in names
+                  if "/" not in n and n.startswith("libplugin_") and n.endswith(".so")
+              ]
+              all_sos = [n for n in names if n.endswith(".so")]
+              if root_sos != ["libplugin_sickocv.so"] or len(all_sos) != 1:
+                  raise SystemExit(f"Bad native library layout: {all_sos}")
+
+              manifest = json.loads(z.read("plugin.json"))
+              if manifest.get("slug") != "SickoCV":
+                  raise SystemExit("Wrong plugin slug")
+              if manifest.get("version") != "2.7.10":
+                  raise SystemExit("Wrong SickoCV version")
+              if [m.get("slug") for m in manifest.get("modules", [])] != ["SickoPlayer"]:
+                  raise SystemExit("Manifest is not SickoPlayer-only")
+
+              required = [
+                  "res/SickoPlayer.svg",
+                  "thumbs/SickoPlayer.webp",
+                  "LICENSE",
+                  "CREDITS",
+              ]
+              missing = [n for n in required if n not in names]
+              if missing:
+                  raise SystemExit("Missing required resources: " + ", ".join(missing))
+
+              forbidden = [n for n in names if n.startswith("res/component/")]
+              if forbidden:
+                  raise SystemExit("RDMod unexpectedly contains SickoCV component art")
+
+              thumb = z.read("thumbs/SickoPlayer.webp")
+              if len(thumb) < 12 or thumb[:4] != b"RIFF" or thumb[8:12] != b"WEBP":
+                  raise SystemExit("thumbs/SickoPlayer.webp is not a real WebP file")
+
+              so = z.read("libplugin_sickocv.so")
+              if len(so) < 20 or so[:4] != b"\x7fELF":
+                  raise SystemExit("Native library is not ELF")
+              if so[4] != 2 or so[5] != 1:
+                  raise SystemExit("Native library is not 64-bit little-endian ELF")
+              machine = struct.unpack_from("<H", so, 18)[0]
+              if machine != 183:
+                  raise SystemExit(f"Expected ARM64 ELF machine 183, got {machine}")
+
+          with ZipFile(source) as z:
+              names = z.namelist()
+              prefix = "SickoCV-SickoPlayer-2.7.10/"
+              required_source = [
+                  prefix + "plugin.json",
+                  prefix + "LICENSE",
+                  prefix + "CREDITS",
+                  prefix + "res/SickoPlayer.svg",
+                  prefix + "src/SickoPlayer.cpp",
+                  prefix + "src/plugin.hpp",
+                  prefix + "src/Controls.hpp",
+                  prefix + "src/plugin.cpp",
+                  prefix + "src/dr_wav.h",
+                  prefix + "src/dr_wav_impl.cpp",
+                  prefix + "RACKDROID-PORT-NOTES.txt",
+              ]
+              missing = [n for n in required_source if n not in names]
+              if missing:
+                  raise SystemExit("Source archive is incomplete: " + ", ".join(missing))
+              if any("/res/component/" in n for n in names):
+                  raise SystemExit("Source archive contains unused CC-BY-NC component art")
+
+          print("RDMod validation passed:")
+          print("  plugin: SickoCV")
+          print("  model: SickoPlayer")
+          print("  version: 2.7.10")
+          print("  ABI: arm64-v8a")
+          print("  exactly one root native library")
+          print("  original SickoPlayer panel present")
+          print("  no SickoCV CC-BY-NC component art packaged")
+          print("  RackDroid-rendered browser thumbnail present")
+          print("  GPL corresponding-source archive present")
+          PY
+
+          sha256sum \
+            sickoplayer-rdmod/SickoCV-SickoPlayer-2.7.10-arm64.rdmod \
+            sickoplayer-rdmod/SickoCV-SickoPlayer-2.7.10-source.zip \
+            | tee sickoplayer-rdmod/SHA256.txt
+
+          {
+            echo "RackDroid branch: ${GITHUB_REF_NAME}"
+            echo "RackDroid commit: ${GITHUB_SHA}"
+            echo "RackDroid version: 0.1.2.1"
+            echo "SickoCV upstream commit: b3504b2c41f22454379823faa980606d35d83f70"
+            echo "SickoCV version: 2.7.10"
+            echo "Plugin slug: SickoCV"
+            echo "Model slug: SickoPlayer"
+            echo "ABI: arm64-v8a"
+            echo "Normal Load Sample: uses RackDroid existing Android osdialog/SAF file picker"
+            echo "Samples Root/folder browser: desktop-oriented; Android SAF tree emulation is not added"
+            echo "Component art: RackDroid regenerated system controls; SickoCV CC-BY-NC component files are not packaged"
+            echo "Browser thumbnail: rendered by RackDroid host UI with RackDroid system controls"
+            echo "RackDroid host/audio/touch/file-picker source: not committed or replaced"
+          } > sickoplayer-rdmod/BUILD-INFO.txt
+
+      - name: Upload SickoPlayer RDMod
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: SickoCV-SickoPlayer-2.7.10-arm64-rdmod
+          path: |
+            sickoplayer-rdmod/SickoCV-SickoPlayer-2.7.10-arm64.rdmod
+            sickoplayer-rdmod/SickoCV-SickoPlayer-2.7.10-source.zip
+            sickoplayer-rdmod/SHA256.txt
+            sickoplayer-rdmod/BUILD-INFO.txt
+          if-no-files-found: error
