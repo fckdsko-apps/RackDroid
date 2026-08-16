@@ -1,0 +1,105 @@
+name: Integrate Performance Touch Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
+    paths:
+      - ".github/workflows/integrate-performance-touch-source.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  integrate:
+    name: Commit tested Performance Touch source
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify branch and tested baseline ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          TESTED_COMMIT="cac5db6b7a243593e3f6158b7950932d026de4a4"
+          test "${GITHUB_REF_NAME}" = "android-file-picker"
+          git merge-base --is-ancestor "${TESTED_COMMIT}" HEAD
+
+      - name: Download exact tested Performance Touch patch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/performance-touch
+          gh run download 31916247973 \
+            --repo fckdsko-apps/RackDroid \
+            --name RackDroid-performance-touch-v2-cac5db6b7a243593e3f6158b7950932d026de4a4 \
+            --dir /tmp/performance-touch
+          test -s /tmp/performance-touch/RackDroid-Performance-Touch.patch
+          echo "e9ae55765b25c59c18ec81bc50bea5ed0d8981fcd497332c7b60d68859e3d801  /tmp/performance-touch/RackDroid-Performance-Touch.patch" | sha256sum -c -
+
+      - name: Apply and validate exact tested patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH=/tmp/performance-touch/RackDroid-Performance-Touch.patch
+
+          git apply --check "${PATCH}"
+          git apply "${PATCH}"
+
+          # Make the newly-created icon visible to git diff without staging it yet.
+          git add -N app/src/main/res/drawable/ic_tb_performance_touch.xml
+
+          python3 <<'PY'
+          import subprocess
+
+          allowed = {
+              "native/port/touch_input.cpp",
+              "app/src/main/java/org/rackdroid/MainActivity.kt",
+              "app/src/main/res/values/strings.xml",
+              "app/src/main/res/drawable/ic_tb_performance_touch.xml",
+          }
+
+          changed = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only"],
+                  text=True,
+              ).splitlines()
+          )
+
+          if changed != allowed:
+              print("ERROR: unexpected changed-file set")
+              print("Expected:", sorted(allowed))
+              print("Actual:", sorted(changed))
+              raise SystemExit(1)
+
+          print("Exact four-file Performance Touch patch validated.")
+          PY
+
+          git diff --check
+
+      - name: Commit Performance Touch to android-file-picker
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            native/port/touch_input.cpp \
+            app/src/main/java/org/rackdroid/MainActivity.kt \
+            app/src/main/res/values/strings.xml \
+            app/src/main/res/drawable/ic_tb_performance_touch.xml
+
+          test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = "4"
+          git diff --cached --check
+
+          git commit -m "Integrate Performance Touch into android-file-picker"
+          git push origin HEAD:android-file-picker
