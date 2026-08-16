@@ -29,14 +29,12 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
 
-      - name: Install host-render and thumbnail dependencies
+      - name: Install lightweight thumbnail dependencies
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build \
-            libegl1-mesa-dev libgles-dev libgl1-mesa-dri
+          sudo apt-get install -y --no-install-recommends librsvg2-bin
           python3 -m pip install --disable-pip-version-check --no-cache-dir "Pillow==11.3.0"
 
       - name: Fetch pinned SickoCV 2.7.10 source
@@ -277,46 +275,25 @@ jobs:
             -PsickoPlayerPlugin \
             --no-daemon
 
-      - name: Render RackDroid-native SickoPlayer browser thumbnail
+      - name: Render lightweight SickoPlayer browser thumbnail
         shell: bash
         run: |
           set -euo pipefail
 
-          HOST_BUILD="${GITHUB_WORKSPACE}/build-sickoplayer-host"
-          HOST_STAGE="${RUNNER_TEMP}/sickoplayer-host-system"
-          THUMB_OUT="${RUNNER_TEMP}/sickoplayer-thumbnails"
+          # Do NOT build RackDroid's host UI just to make a browser tile.
+          # Render the real SickoPlayer panel SVG directly. This avoids a
+          # second full Rack/CMake build and also avoids the upstream VCV
+          # Component Library artwork that SickoCV credits as CC BY-NC 4.0.
+          THUMB_DIR="${RUNNER_TEMP}/sickoplayer-thumbnails/SickoCV"
+          rm -rf "${RUNNER_TEMP}/sickoplayer-thumbnails"
+          mkdir -p "${THUMB_DIR}"
 
-          rm -rf "${HOST_BUILD}" "${HOST_STAGE}" "${THUMB_OUT}"
-          mkdir -p "${HOST_STAGE}/plugins" "${THUMB_OUT}"
+          rsvg-convert \
+            third_party/SickoCV/res/SickoPlayer.svg \
+            -o "${THUMB_DIR}/SickoPlayer.png"
 
-          cmake -S native -B "${HOST_BUILD}" -G Ninja -DRACKDROID_HOST_UI=ON
-          cmake --build "${HOST_BUILD}" \
-            --target rack_ui_smoke plugin_fundamental plugin_drums plugin_sickocv
-
-          # Use RackDroid's regenerated ComponentLibrary for the rendered tile.
-          cp -a third_party/Rack/res "${HOST_STAGE}/res"
-          rm -rf "${HOST_STAGE}/res/ComponentLibrary"
-          cp -a graphics/system-res/ComponentLibrary "${HOST_STAGE}/res/ComponentLibrary"
-
-          for item in translations Core.json template.vcv LICENSE-GPLv3.txt; do
-            if [ -e "third_party/Rack/${item}" ]; then
-              cp -a "third_party/Rack/${item}" "${HOST_STAGE}/${item}"
-            fi
-          done
-
-          ln -s "${GITHUB_WORKSPACE}/third_party/Fundamental" "${HOST_STAGE}/plugins/Fundamental"
-          ln -s "${GITHUB_WORKSPACE}/drums" "${HOST_STAGE}/plugins/RackDroidDrums"
-          ln -s "${GITHUB_WORKSPACE}/third_party/SickoCV" "${HOST_STAGE}/plugins/SickoCV"
-
-          RACKDROID_SYSTEM_DIR="${HOST_STAGE}" \
-          RACKDROID_EXTRA_PLUGINS="SickoCV=libplugin_sickocv.so" \
-          LD_LIBRARY_PATH="${HOST_BUILD}:${LD_LIBRARY_PATH:-}" \
-          EGL_PLATFORM=surfaceless \
-          LIBGL_ALWAYS_SOFTWARE=1 \
-            "${HOST_BUILD}/rack_ui_smoke" 5 --export-thumbnails "${THUMB_OUT}"
-
-          test -s "${THUMB_OUT}/SickoCV/SickoPlayer.png"
-          file "${THUMB_OUT}/SickoCV/SickoPlayer.png"
+          test -s "${THUMB_DIR}/SickoPlayer.png"
+          file "${THUMB_DIR}/SickoPlayer.png"
 
       - name: Package SickoCV SickoPlayer RDMod
         shell: bash
@@ -417,6 +394,8 @@ jobs:
               is intentionally not compiled.
             - RackDroid CMake/Gradle files are patched only in CI to add plugin_sickocv;
               committed app/audio/engine/file-picker source is untouched.
+            - Browser thumbnail is rendered directly from res/SickoPlayer.svg; the workflow
+              does not compile a second host Rack build.
 
           Build recipe:
             .github/workflows/build-sickoplayer-rdmod.yml
@@ -536,7 +515,7 @@ jobs:
           print("  exactly one root native library")
           print("  original SickoPlayer panel present")
           print("  no SickoCV CC-BY-NC component art packaged")
-          print("  RackDroid-rendered browser thumbnail present")
+          print("  lightweight panel-derived browser thumbnail present")
           print("  GPL corresponding-source archive present")
           PY
 
@@ -557,7 +536,7 @@ jobs:
             echo "Normal Load Sample: uses RackDroid existing Android osdialog/SAF file picker"
             echo "Samples Root/folder browser: desktop-oriented; Android SAF tree emulation is not added"
             echo "Component art: RackDroid regenerated system controls; SickoCV CC-BY-NC component files are not packaged"
-            echo "Browser thumbnail: rendered by RackDroid host UI with RackDroid system controls"
+            echo "Browser thumbnail: rendered directly from SickoPlayer.svg; no second host/Rack build"
             echo "RackDroid host/audio/touch/file-picker source: not committed or replaced"
           } > sickoplayer-rdmod/BUILD-INFO.txt
 
