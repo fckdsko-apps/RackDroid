@@ -24,6 +24,8 @@
 #include <window/Window.hpp>
 #include <ui/TextField.hpp>
 #include <app/ModuleWidget.hpp>
+#include <app/Knob.hpp>
+#include <app/Switch.hpp>
 #include <app/PortWidget.hpp>
 #include <system.hpp>
 
@@ -39,6 +41,8 @@
 #include "jni_bridge.hpp"
 #include "menu_native.hpp"
 #include <logger.hpp>
+#include <history.hpp>
+#include <settings.hpp>
 
 
 namespace rackdroid {
@@ -258,6 +262,423 @@ static rack::math::Vec snapCableRelease(rack::math::Vec pos) {
 }
 
 
+// ------------------------------------------------------------------
+// Performance Touch
+//
+// Rack's EventState owns one mouse drag. Normal RackDroid therefore
+// converts a second finger into pan/zoom and ends the first drag.
+// This mode captures Android pointer IDs directly so several fingers
+// can own several performance controls simultaneously. Background
+// pointers remain navigation. Editing gestures stay on the original
+// single-pointer path when they begin on modules, ports or cables.
+//
+// This is UI-only. It does not touch Oboe, callback sizing, buffering,
+// sample rate or any other validated audio-path code.
+// ------------------------------------------------------------------
+
+static std::atomic<bool> performanceTouch{false};
+
+enum class PerfKind {
+    NONE,
+    KNOB,
+    SWITCH,
+    PAN
+};
+
+struct PerfPointer {
+    bool active = false;
+    int32_t id = -1;
+    PerfKind kind = PerfKind::NONE;
+    rack::app::Knob* knob = NULL;
+    rack::app::Switch* sw = NULL;
+    rack::engine::ParamQuantity* quantity = NULL;
+    rack::math::Vec lastPos;
+    float oldValue = NAN;
+    float snapDelta = 0.f;
+};
+
+static PerfPointer perfPointers[32];
+static bool perfSession = false;
+static bool perfPanGeometryValid = false;
+static rack::math::Vec perfPanCentroid;
+static float perfPanDistance = 0.f;
+
+static PerfPointer* perfFind(int32_t id) {
+    for (PerfPointer& p : perfPointers) {
+        if (p.active && p.id == id)
+            return &p;
+    }
+    return NULL;
+}
+
+static PerfPointer* perfAlloc(int32_t id) {
+    if (PerfPointer* existing = perfFind(id))
+        return existing;
+    for (PerfPointer& p : perfPointers) {
+        if (!p.active) {
+            p = PerfPointer();
+            p.active = true;
+            p.id = id;
+            return &p;
+        }
+    }
+    return NULL;
+}
+
+static rack::app::Knob* perfHoveredKnob() {
+    for (rack::widget::Widget* w = APP->event->hoveredWidget; w; w = w->parent) {
+        if (auto* knob = dynamic_cast<rack::app::Knob*>(w))
+            return knob;
+    }
+    return NULL;
+}
+
+static rack::app::Switch* perfHoveredSwitch() {
+    for (rack::widget::Widget* w = APP->event->hoveredWidget; w; w = w->parent) {
+        if (auto* sw = dynamic_cast<rack::app::Switch*>(w))
+            return sw;
+    }
+    return NULL;
+}
+
+static void perfPushHistory(rack::app::ParamWidget* widget,
+        rack::engine::ParamQuantity* quantity, float oldValue) {
+    if (!widget || !quantity || !APP->history || !widget->module ||
+            !std::isfinite(oldValue))
+        return;
+    float newValue = quantity->getValue();
+    if (oldValue == newValue)
+        return;
+
+    rack::history::ParamChange* h = new rack::history::ParamChange;
+    h->name = "Performance touch";
+    h->moduleId = widget->module->id;
+    h->paramId = widget->paramId;
+    h->oldValue = oldValue;
+    h->newValue = newValue;
+    APP->history->push(h);
+}
+
+static void perfFinishPointer(PerfPointer& p, bool pushHistory) {
+    if (p.kind == PerfKind::KNOB && p.knob && p.quantity) {
+        if (pushHistory)
+            perfPushHistory(p.knob, p.quantity, p.oldValue);
+    }
+    else if (p.kind == PerfKind::SWITCH && p.sw && p.quantity) {
+        if (p.sw->momentary) {
+            // A held performance button must never stick high if the
+            // finger lifts, the gesture is cancelled, or the mode is
+            // toggled off from the Android toolbar.
+            p.quantity->setMin();
+        }
+        else if (pushHistory) {
+            perfPushHistory(p.sw, p.quantity, p.oldValue);
+        }
+    }
+    p = PerfPointer();
+}
+
+static void perfFinishAll(bool pushHistory) {
+    for (PerfPointer& p : perfPointers) {
+        if (p.active)
+            perfFinishPointer(p, pushHistory);
+    }
+    perfSession = false;
+    perfPanGeometryValid = false;
+}
+
+static bool perfEventPos(AInputEvent* event, int32_t id, rack::math::Vec& out) {
+    const size_t n = AMotionEvent_getPointerCount(event);
+    for (size_t i = 0; i < n; i++) {
+        if (AMotionEvent_getPointerId(event, i) == id) {
+            out = scenePos(AMotionEvent_getX(event, i), AMotionEvent_getY(event, i));
+            return true;
+        }
+    }
+    return false;
+}
+
+static void perfPrimePanGeometry(AInputEvent* event) {
+    rack::math::Vec a;
+    rack::math::Vec b;
+    int found = 0;
+
+    for (PerfPointer& p : perfPointers) {
+        if (!p.active || p.kind != PerfKind::PAN)
+            continue;
+        rack::math::Vec pos;
+        if (!perfEventPos(event, p.id, pos))
+            continue;
+        p.lastPos = pos;
+        if (found == 0)
+            a = pos;
+        else if (found == 1)
+            b = pos;
+        found++;
+    }
+
+    if (found >= 2) {
+        perfPanCentroid = a.plus(b).mult(0.5f);
+        perfPanDistance = a.minus(b).norm();
+        perfPanGeometryValid = true;
+    }
+    else {
+        perfPanGeometryValid = false;
+        perfPanDistance = 0.f;
+    }
+}
+
+static bool perfBeginPointer(AInputEvent* event, size_t index) {
+    if (index >= AMotionEvent_getPointerCount(event))
+        return false;
+
+    const int32_t id = AMotionEvent_getPointerId(event, index);
+    PerfPointer* p = perfAlloc(id);
+    if (!p)
+        return false;
+
+    rack::math::Vec pos = scenePos(
+        AMotionEvent_getX(event, index),
+        AMotionEvent_getY(event, index));
+
+    APP->event->handleHover(pos, rack::math::Vec());
+
+    if (lockMode.load(std::memory_order_relaxed) < 2) {
+        if (rack::app::Knob* knob = perfHoveredKnob()) {
+            if (rack::engine::ParamQuantity* q = knob->getParamQuantity()) {
+                p->kind = PerfKind::KNOB;
+                p->knob = knob;
+                p->quantity = q;
+                p->lastPos = pos;
+                p->oldValue = q->getValue();
+                p->snapDelta = 0.f;
+                if (APP->scene && APP->scene->rack)
+                    APP->scene->rack->touchedParam = knob;
+                APP->event->handleLeave();
+                return true;
+            }
+        }
+
+        if (rack::app::Switch* sw = perfHoveredSwitch()) {
+            if (rack::engine::ParamQuantity* q = sw->getParamQuantity()) {
+                p->kind = PerfKind::SWITCH;
+                p->sw = sw;
+                p->quantity = q;
+                p->lastPos = pos;
+                p->oldValue = q->getValue();
+
+                if (sw->momentary) {
+                    q->setMax();
+                }
+                else if (q->isMax()) {
+                    q->setMin();
+                }
+                else {
+                    q->setValue(std::round(q->getValue()) + 1.f);
+                }
+
+                if (APP->scene && APP->scene->rack)
+                    APP->scene->rack->touchedParam = sw;
+                APP->event->handleLeave();
+                return true;
+            }
+        }
+    }
+
+    if (!overInteractive()) {
+        p->kind = PerfKind::PAN;
+        p->lastPos = pos;
+        APP->event->handleLeave();
+        return true;
+    }
+
+    if (PerfPointer* unused = perfFind(id))
+        perfFinishPointer(*unused, false);
+    APP->event->handleLeave();
+    return false;
+}
+
+static void perfMoveKnob(PerfPointer& p, rack::math::Vec pos) {
+    if (!p.knob || !p.quantity)
+        return;
+
+    rack::math::Vec motion = pos.minus(p.lastPos);
+    p.lastPos = pos;
+    if (motion.norm() <= 0.f)
+        return;
+
+    // Rack's rotary modes depend on one global mouse position. For
+    // independent fingers use Rack's linear drag sensitivity instead.
+    float delta = p.knob->horizontal ? motion.x : -motion.y;
+    delta *= rack::settings::knobLinearSensitivity;
+    delta *= p.knob->speed;
+
+    float rangeRatio = 1.f;
+    if (p.quantity->isBounded()) {
+        float angularTurns =
+            (p.knob->maxAngle - p.knob->minAngle) / float(2.0 * M_PI);
+        if (std::fabs(angularTurns) > 1e-6f)
+            rangeRatio = p.quantity->getRange() / angularTurns;
+    }
+    delta *= rangeRatio;
+
+    if (p.quantity->snapEnabled) {
+        p.snapDelta += delta;
+        delta = std::trunc(p.snapDelta);
+        p.snapDelta -= delta;
+    }
+
+    p.quantity->setValue(p.quantity->getValue() + delta);
+}
+
+static bool handlePerformanceTouch(AInputEvent* event,
+        int32_t action, int32_t actionMasked, size_t pointerCount) {
+    if (!performanceTouch.load(std::memory_order_relaxed))
+        return false;
+
+    // These modes deliberately own the whole canvas. Do not blend
+    // them with Performance Touch.
+    if (multiSelect.load(std::memory_order_relaxed) ||
+            lockMode.load(std::memory_order_relaxed) >= 2) {
+        if (perfSession)
+            perfFinishAll(true);
+        return false;
+    }
+
+    size_t actionIndex = 0;
+    if (actionMasked == AMOTION_EVENT_ACTION_POINTER_DOWN ||
+            actionMasked == AMOTION_EVENT_ACTION_POINTER_UP) {
+        actionIndex =
+            (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >>
+            AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
+        if (actionIndex >= pointerCount)
+            actionIndex = 0;
+    }
+
+    if (actionMasked == AMOTION_EVENT_ACTION_DOWN) {
+        if (perfSession)
+            perfFinishAll(true);
+        if (perfBeginPointer(event, 0)) {
+            perfSession = true;
+            perfPrimePanGeometry(event);
+            return true;
+        }
+        return false;
+    }
+
+    if (!perfSession)
+        return false;
+
+    if (actionMasked == AMOTION_EVENT_ACTION_POINTER_DOWN) {
+        // If a performance gesture already exists, the new pointer
+        // may add another control or background navigation. A touch
+        // on a cable/module is ignored rather than creating a second
+        // global Rack mouse drag.
+        perfBeginPointer(event, actionIndex);
+        perfPrimePanGeometry(event);
+        return true;
+    }
+
+    if (actionMasked == AMOTION_EVENT_ACTION_MOVE) {
+        PerfPointer* panPtrs[2] = {NULL, NULL};
+        rack::math::Vec panPos[2];
+        int panCount = 0;
+
+        for (size_t i = 0; i < pointerCount; i++) {
+            int32_t id = AMotionEvent_getPointerId(event, i);
+            PerfPointer* p = perfFind(id);
+            if (!p)
+                continue;
+            rack::math::Vec current = scenePos(
+                AMotionEvent_getX(event, i),
+                AMotionEvent_getY(event, i));
+
+            if (p->kind == PerfKind::KNOB) {
+                perfMoveKnob(*p, current);
+            }
+            else if (p->kind == PerfKind::PAN) {
+                if (panCount < 2) {
+                    panPtrs[panCount] = p;
+                    panPos[panCount] = current;
+                }
+                panCount++;
+            }
+        }
+
+        if (panCount == 1 && panPtrs[0]) {
+            rack::math::Vec delta = panPos[0].minus(panPtrs[0]->lastPos);
+            if (delta.norm() > 0.f)
+                APP->event->handleScroll(panPos[0], delta);
+            perfPanGeometryValid = false;
+        }
+        else if (panCount >= 2 && panPtrs[0] && panPtrs[1]) {
+            rack::math::Vec centroid = panPos[0].plus(panPos[1]).mult(0.5f);
+            float distance = panPos[0].minus(panPos[1]).norm();
+
+            if (perfPanGeometryValid) {
+                if (perfPanDistance > 0.f) {
+                    float ratio = distance / perfPanDistance - 1.f;
+                    if (std::fabs(ratio) > PINCH_DETECT_RATIO) {
+                        windowSetMods(GLFW_MOD_CONTROL);
+                        APP->event->handleScroll(
+                            centroid,
+                            rack::math::Vec(
+                                0.f,
+                                ratio * PINCH_ZOOM_SPEED * 50.f));
+                        windowSetMods(0);
+                    }
+                }
+
+                rack::math::Vec delta = centroid.minus(perfPanCentroid);
+                if (delta.norm() > 0.f)
+                    APP->event->handleScroll(centroid, delta);
+            }
+
+            perfPanCentroid = centroid;
+            perfPanDistance = distance;
+            perfPanGeometryValid = true;
+        }
+
+        // Update pan baselines after calculating this frame's motion.
+        for (size_t i = 0; i < pointerCount; i++) {
+            int32_t id = AMotionEvent_getPointerId(event, i);
+            PerfPointer* p = perfFind(id);
+            if (!p || p->kind != PerfKind::PAN)
+                continue;
+            p->lastPos = scenePos(
+                AMotionEvent_getX(event, i),
+                AMotionEvent_getY(event, i));
+        }
+        return true;
+    }
+
+    if (actionMasked == AMOTION_EVENT_ACTION_POINTER_UP) {
+        int32_t id = AMotionEvent_getPointerId(event, actionIndex);
+        if (PerfPointer* p = perfFind(id))
+            perfFinishPointer(*p, true);
+        perfPrimePanGeometry(event);
+        return true;
+    }
+
+    if (actionMasked == AMOTION_EVENT_ACTION_UP) {
+        int32_t id = AMotionEvent_getPointerId(event, 0);
+        if (PerfPointer* p = perfFind(id))
+            perfFinishPointer(*p, true);
+        perfFinishAll(true);
+        APP->event->handleLeave();
+        return true;
+    }
+
+    if (actionMasked == AMOTION_EVENT_ACTION_CANCEL) {
+        perfFinishAll(true);
+        APP->event->handleLeave();
+        return true;
+    }
+
+    return true;
+}
+
+
 int touchHandleEvent(AInputEvent* event) {
 	if (AInputEvent_getType(event) != AINPUT_EVENT_TYPE_MOTION)
 		return 0;
@@ -269,6 +690,9 @@ int touchHandleEvent(AInputEvent* event) {
 	int32_t action = AMotionEvent_getAction(event);
 	int32_t actionMasked = action & AMOTION_EVENT_ACTION_MASK;
 	size_t pointerCount = AMotionEvent_getPointerCount(event);
+
+	if (handlePerformanceTouch(event, action, actionMasked, pointerCount))
+		return 1;
 
 	rack::math::Vec pos = scenePos(AMotionEvent_getX(event, 0), AMotionEvent_getY(event, 0));
 
@@ -588,6 +1012,12 @@ void touchStep() {
 	if (!APP->event || !APP->window)
 		return;
 
+	if (perfSession && (!performanceTouch.load(std::memory_order_relaxed) ||
+			multiSelect.load(std::memory_order_relaxed) ||
+			lockMode.load(std::memory_order_relaxed) >= 2)) {
+		perfFinishAll(true);
+	}
+
 	// Pan inertia: coast the rack after a two-finger flick.
 	if (st.inertiaActive) {
 		double now = rack::system::getTime();
@@ -658,6 +1088,12 @@ Java_org_rackdroid_MainActivity_nativeSetLockMode(JNIEnv*, jobject, jint mode) {
 extern "C" JNIEXPORT void JNICALL
 Java_org_rackdroid_MainActivity_nativeSetMultiSelect(JNIEnv*, jobject, jboolean on) {
 	multiSelect.store(on, std::memory_order_relaxed);
+}
+
+// Performance Touch: independent Android pointers can own independent controls.
+extern "C" JNIEXPORT void JNICALL
+Java_org_rackdroid_MainActivity_nativeSetPerformanceTouch(JNIEnv*, jobject, jboolean on) {
+	performanceTouch.store(on, std::memory_order_relaxed);
 }
 
 

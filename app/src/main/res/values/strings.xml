@@ -49,6 +49,8 @@
 	<!-- File > New loads the template patch, not an empty rack; say so. -->
 	<string name="patch_new_confirm">The current patch is unsaved. Replace it with a new one built from your template?</string>
 	<string name="toolbar_lock_all">Lock all controls</string>
+	<string name="toolbar_performance_touch">Performance touch</string>
+	<string name="toolbar_performance_touch_hint">Move multiple knobs, sliders, or switches at once; drag empty rack space to scroll.</string>
 	<string name="toolbar_collapse">Collapse toolbar</string>
 	<string name="toolbar_expand">Expand toolbar</string>
 

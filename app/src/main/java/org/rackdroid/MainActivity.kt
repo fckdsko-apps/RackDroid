@@ -719,6 +719,7 @@ class MainActivity : NativeActivity() {
 			setStroke(dp(1), AppTheme.withAlpha(Color.WHITE, 15))
 		}
 		lateinit var collapseButton: ImageButton
+		lateinit var performanceButton: ImageButton
 		lateinit var card: LinearLayout
 		var collapsed = false
 		// Apply a collapse state (shared by the handle tap and the
@@ -735,6 +736,7 @@ class MainActivity : NativeActivity() {
 			// glass card, arrow flat inside it.
 			card.background = if (collapsed) null else cardBg
 			collapseButton.background = if (collapsed) glassPill() else amberRippleRounded()
+			performanceButton.background = if (collapsed) glassPill() else amberRippleRounded()
 			collapseButton.contentDescription = getString(
 				if (collapsed) R.string.toolbar_expand else R.string.toolbar_collapse)
 			collapseButton.animate().rotation(if (collapsed) 180f else 0f).setDuration(240L).start()
@@ -755,10 +757,30 @@ class MainActivity : NativeActivity() {
 				applyCollapsed(toolbarUserCollapsed)
 			}
 		}
+		// Performance Touch lives beside the fold handle instead of taking a
+		// seventeenth grid slot. It stays reachable with the toolbar folded.
+		var performanceTouchOn = false
+		nativeSetPerformanceTouch(false)
+		performanceButton = iconButton(
+			R.drawable.ic_tb_performance_touch,
+			getString(R.string.toolbar_performance_touch)) { button ->
+			performanceTouchOn = !performanceTouchOn
+			nativeSetPerformanceTouch(performanceTouchOn)
+			button.imageTintList = if (performanceTouchOn) amberTint else iconTint
+			button.alpha = if (performanceTouchOn) 1f else 0.6f
+		}
+		performanceButton.alpha = 0.6f
+		ViewCompat.setTooltipText(
+			performanceButton,
+			getString(R.string.toolbar_performance_touch_hint))
+
 		val handleRow = LinearLayout(this).apply {
 			orientation = LinearLayout.HORIZONTAL
 			gravity = Gravity.CENTER_HORIZONTAL
-			addView(collapseButton, LinearLayout.LayoutParams(dp(64), dp(26)))
+			addView(performanceButton, LinearLayout.LayoutParams(dp(44), dp(30)).apply {
+				setMargins(0, 0, dp(4), 0)
+			})
+			addView(collapseButton, LinearLayout.LayoutParams(dp(64), dp(30)))
 		}
 		toolbarCard = null
 		card = LinearLayout(this).apply {
@@ -2447,6 +2469,7 @@ class MainActivity : NativeActivity() {
 	private external fun nativeHistoryAction(action: Int)
 	private external fun nativeSetLockMode(mode: Int)
 	private external fun nativeSetMultiSelect(on: Boolean)
+	private external fun nativeSetPerformanceTouch(on: Boolean)
 	private external fun nativeCopySelection()
 	private external fun nativePasteSelection()
 	private external fun nativeDeleteSelection()
