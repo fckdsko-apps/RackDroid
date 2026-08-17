@@ -1,0 +1,429 @@
+name: Build Chinenual MIDIRecorder RDMod
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
+    paths:
+      - ".github/workflows/build-chinenual-midirecorder-rdmod.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-chinenual-midirecorder-arm64:
+    name: Build Chinenual MIDIRecorder arm64 RDMod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out current RackDroid branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Install lightweight packaging dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends librsvg2-bin zip
+          python3 -m pip install --disable-pip-version-check --no-cache-dir "Pillow==11.3.0"
+
+      - name: Fetch pinned Chinenual 2.7.5 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHIN_SHA="257aba08502184c3e34adf036ebc90c1f76b4b67"
+
+          rm -rf third_party/Chinenual-VCV /tmp/chinenual-src
+          mkdir -p /tmp/chinenual-src third_party
+
+          curl --fail --location --retry 3 \
+            "https://github.com/chinenual/Chinenual-VCV/archive/${CHIN_SHA}.tar.gz" \
+            -o /tmp/chinenual.tar.gz
+
+          tar -xzf /tmp/chinenual.tar.gz -C /tmp/chinenual-src
+          mv "/tmp/chinenual-src/Chinenual-VCV-${CHIN_SHA}" third_party/Chinenual-VCV
+
+          test -s third_party/Chinenual-VCV/plugin.json
+          test -s third_party/Chinenual-VCV/src/plugin.cpp
+          test -s third_party/Chinenual-VCV/src/plugin.hpp
+          test -s third_party/Chinenual-VCV/src/MIDIRecorder.cpp
+          test -s third_party/Chinenual-VCV/src/MIDIRecorderBase.hpp
+          test -s third_party/Chinenual-VCV/src/MIDIBuffer.hpp
+          test -s third_party/Chinenual-VCV/src/CVRange.hpp
+          test -s third_party/Chinenual-VCV/src/Style.cpp
+          test -s third_party/Chinenual-VCV/src/Style.hpp
+          test -s third_party/Chinenual-VCV/3rdparty/midifile/include/MidiFile.h
+          test -s third_party/Chinenual-VCV/3rdparty/midifile/src/MidiFile.cpp
+          test -s third_party/Chinenual-VCV/res/MIDIRecorder.svg
+          test -s third_party/Chinenual-VCV/res/rec_button.svg
+          test -s third_party/Chinenual-VCV/res/fonts/DSEG14Modern-BoldItalic.ttf
+          test -s third_party/Chinenual-VCV/res/fonts/DSEG-LICENSE.txt
+          test -s third_party/Chinenual-VCV/LICENSE
+
+      - name: Prepare isolated MIDIRecorder Android port in CI workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+
+          root = Path.cwd()
+          chin = root / "third_party" / "Chinenual-VCV"
+
+          # Keep the official desktop plugin/model identity but expose only
+          # MIDIRecorder in this Android RDMod.
+          manifest_path = chin / "plugin.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if manifest.get("slug") != "Chinenual-VCV":
+              raise RuntimeError(f"Unexpected upstream plugin slug: {manifest.get('slug')!r}")
+          if manifest.get("version") != "2.7.5":
+              raise RuntimeError(f"Unexpected pinned Chinenual version: {manifest.get('version')!r}")
+
+          recorder = next(
+              (m for m in manifest.get("modules", []) if m.get("slug") == "MIDIRecorder"),
+              None,
+          )
+          if recorder is None:
+              raise RuntimeError("Pinned upstream manifest does not contain MIDIRecorder")
+
+          keep_top = [
+              "slug", "name", "version", "license", "brand", "author",
+              "authorEmail", "authorUrl", "pluginUrl", "manualUrl",
+              "sourceUrl", "donateUrl", "changelogUrl"
+          ]
+          trimmed = {k: manifest[k] for k in keep_top if k in manifest}
+          trimmed["modules"] = [recorder]
+          manifest_path.write_text(
+              json.dumps(trimmed, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+
+          # Register only MIDIRecorder. The recorder source checks the optional
+          # MIDIRecorderCC expander by comparing model pointers, so provide a
+          # null model symbol when that expander is not part of this RDMod.
+          (chin / "src" / "plugin.cpp").write_text(
+              '#include "plugin.hpp"\n\n'
+              'Plugin* pluginInstance;\n'
+              'Model* modelMIDIRecorderCC = nullptr;\n\n'
+              'void init(Plugin* p) {\n'
+              '    pluginInstance = p;\n'
+              '    p->addModel(modelMIDIRecorder);\n'
+              '}\n',
+              encoding="utf-8",
+          )
+
+          # Android-only addition to the otherwise stock MIDIRecorder:
+          # remember the file actually written (important when -001 incrementing
+          # is enabled), then expose it through RackDroid's existing share sheet.
+          # Desktop source behavior remains untouched because every addition is
+          # behind __ANDROID__.
+          cpp_path = chin / "src" / "MIDIRecorder.cpp"
+          cpp = cpp_path.read_text(encoding="utf-8")
+
+          include_anchor = '#include "plugin.hpp"\n'
+          include_patch = '''#include "plugin.hpp"\n\n#ifdef __ANDROID__\nnamespace rackdroid {\nvoid nativeSharePatch(const std::string& path);\n}\n#endif\n'''
+          if cpp.count(include_anchor) != 1:
+              raise RuntimeError("Could not find MIDIRecorder plugin.hpp include anchor")
+          cpp = cpp.replace(include_anchor, include_patch, 1)
+
+          member_anchor = '        std::string pathExt;\n'
+          member_patch = '''        std::string pathExt;\n#ifdef __ANDROID__\n        std::string latestWrittenPath;\n#endif\n'''
+          if cpp.count(member_anchor) != 1:
+              raise RuntimeError("Could not find MIDIRecorder path member anchor")
+          cpp = cpp.replace(member_anchor, member_patch, 1)
+
+          reset_anchor = '            pathBasename = "";\n            incrementPath = true;\n'
+          reset_patch = '''            pathBasename = "";\n#ifdef __ANDROID__\n            latestWrittenPath = "";\n#endif\n            incrementPath = true;\n'''
+          if cpp.count(reset_anchor) != 1:
+              raise RuntimeError("Could not find MIDIRecorder reset anchor")
+          cpp = cpp.replace(reset_anchor, reset_patch, 1)
+
+          write_anchor = '            midiFile.write(newPath);\n\n#ifdef SDTDEBUG\n'
+          write_patch = '''            midiFile.write(newPath);\n#ifdef __ANDROID__\n            if (system::isFile(newPath))\n                latestWrittenPath = newPath;\n#endif\n\n#ifdef SDTDEBUG\n'''
+          if cpp.count(write_anchor) != 1:
+              raise RuntimeError("Could not find MIDIRecorder MIDI write anchor")
+          cpp = cpp.replace(write_anchor, write_patch, 1)
+
+          menu_anchor = '''            menu->addChild(createBoolPtrMenuItem("Start at first note gate", "",\n                &module->alignToFirstNote));\n\n'''
+          menu_patch = '''            menu->addChild(createBoolPtrMenuItem("Start at first note gate", "",\n                &module->alignToFirstNote));\n\n#ifdef __ANDROID__\n            if (!module->latestWrittenPath.empty() && system::isFile(module->latestWrittenPath)) {\n                menu->addChild(createMenuItem("Share latest MIDI file...", "", [=]() {\n                    if (!module->latestWrittenPath.empty() && system::isFile(module->latestWrittenPath))\n                        rackdroid::nativeSharePatch(module->latestWrittenPath);\n                }));\n            }\n#endif\n\n'''
+          if cpp.count(menu_anchor) != 1:
+              raise RuntimeError("Could not find MIDIRecorder context-menu anchor")
+          cpp = cpp.replace(menu_anchor, menu_patch, 1)
+          cpp_path.write_text(cpp, encoding="utf-8")
+
+          # Add the isolated shared library to RackDroid's CI build only.
+          cmake_path = root / "native" / "CMakeLists.txt"
+          cmake = cmake_path.read_text(encoding="utf-8")
+          cmake_anchor = "\t# Frozen Wasteland (49 modules): code GPLv3, but everything under res/\n"
+          cmake_block = """\t# Chinenual MIDIRecorder: isolated optional RackDroid plugin.\n\tset(CHINENUAL_DIR ${THIRD_PARTY}/Chinenual-VCV)\n\tif(NOT EXISTS ${CHINENUAL_DIR}/plugin.json)\n\t\tmessage(FATAL_ERROR \"Chinenual MIDIRecorder sources not found\")\n\tendif()\n\tfile(GLOB CHINENUAL_MIDIFILE_SOURCES ${CHINENUAL_DIR}/3rdparty/midifile/src/*.cpp)\n\tadd_library(plugin_chinenual SHARED\n\t\t${CHINENUAL_DIR}/src/plugin.cpp\n\t\t${CHINENUAL_DIR}/src/MIDIRecorder.cpp\n\t\t${CHINENUAL_DIR}/src/Style.cpp\n\t\t${CHINENUAL_MIDIFILE_SOURCES})\n\ttarget_include_directories(plugin_chinenual PRIVATE\n\t\t${CHINENUAL_DIR}/3rdparty/midifile/include)\n\ttarget_link_libraries(plugin_chinenual PUBLIC rack_engine)\n\ttarget_compile_features(plugin_chinenual PRIVATE cxx_std_17)\n\ttarget_compile_options(plugin_chinenual PRIVATE -O3 -funsafe-math-optimizations -w)\n\n"""
+          if "add_library(plugin_chinenual SHARED" not in cmake:
+              if cmake.count(cmake_anchor) != 1:
+                  raise RuntimeError("Could not find RackDroid CMake insertion anchor")
+              cmake = cmake.replace(cmake_anchor, cmake_block + cmake_anchor, 1)
+              cmake_path.write_text(cmake, encoding="utf-8")
+
+          # Build this optional target only for this workflow and keep its .so
+          # out of the APK; the .so belongs at the root of the RDMod instead.
+          gradle_path = root / "app" / "build.gradle.kts"
+          gradle = gradle_path.read_text(encoding="utf-8")
+          target_old = """\t\t\t\ttargets += if (project.hasProperty(\"allPlugins\"))\n\t\t\t\t\tbaseTargets + optionalTargets\n\t\t\t\telse\n\t\t\t\t\tbaseTargets\n"""
+          target_new = """\t\t\t\ttargets += when {\n\t\t\t\t\tproject.hasProperty(\"midiRecorderPlugin\") -> baseTargets + listOf(\"plugin_chinenual\")\n\t\t\t\t\tproject.hasProperty(\"allPlugins\") -> baseTargets + optionalTargets\n\t\t\t\t\telse -> baseTargets\n\t\t\t\t}\n"""
+          if 'project.hasProperty("midiRecorderPlugin")' not in gradle:
+              if gradle.count(target_old) != 1:
+                  raise RuntimeError("Could not find RackDroid Gradle target-selection block")
+              gradle = gradle.replace(target_old, target_new, 1)
+
+          exclude_anchor = '\t\t\t\t"**/libplugin_ml.so",\n'
+          exclude_line = '\t\t\t\t"**/libplugin_chinenual.so",\n'
+          if exclude_line not in gradle:
+              if gradle.count(exclude_anchor) != 1:
+                  raise RuntimeError("Could not find RackDroid Gradle JNI exclusion anchor")
+              gradle = gradle.replace(exclude_anchor, exclude_anchor + exclude_line, 1)
+          gradle_path.write_text(gradle, encoding="utf-8")
+
+          # CI assertions: exact official identity plus our narrowly-scoped
+          # Android share hook. No params/inputs/outputs or JSON keys are altered.
+          check = json.loads(manifest_path.read_text(encoding="utf-8"))
+          assert check["slug"] == "Chinenual-VCV"
+          assert check["version"] == "2.7.5"
+          assert [m["slug"] for m in check["modules"]] == ["MIDIRecorder"]
+
+          patched = cpp_path.read_text(encoding="utf-8")
+          required_markers = [
+              'Model* modelMIDIRecorder = createModel<',
+              'midiFile.write(newPath);',
+              'Share latest MIDI file...',
+              'rackdroid::nativeSharePatch(module->latestWrittenPath);',
+              '#ifdef __ANDROID__',
+          ]
+          for marker in required_markers:
+              if marker not in patched:
+                  raise RuntimeError(f"Missing expected MIDIRecorder marker: {marker!r}")
+
+          required = [
+              chin / "src" / "MIDIRecorder.cpp",
+              chin / "src" / "MIDIRecorderBase.hpp",
+              chin / "src" / "MIDIBuffer.hpp",
+              chin / "src" / "CVRange.hpp",
+              chin / "src" / "Style.cpp",
+              chin / "src" / "Style.hpp",
+              chin / "3rdparty" / "midifile" / "include" / "MidiFile.h",
+              chin / "3rdparty" / "midifile" / "src" / "MidiFile.cpp",
+              chin / "res" / "MIDIRecorder.svg",
+              chin / "res" / "rec_button.svg",
+              chin / "res" / "fonts" / "DSEG14Modern-BoldItalic.ttf",
+              chin / "res" / "fonts" / "DSEG-LICENSE.txt",
+              chin / "LICENSE",
+          ]
+          missing = [str(x) for x in required if not x.exists()]
+          if missing:
+              raise RuntimeError("Missing MIDIRecorder inputs: " + ", ".join(missing))
+
+          print("Prepared Chinenual-VCV/MIDIRecorder 2.7.5 Android RDMod source.")
+          print("MIDI recording engine/ports/params/model slug are upstream-compatible.")
+          print("Android-only addition: Share latest MIDI file via RackDroid existing share sheet.")
+          print("No RackDroid APK/audio/touch/file-picker source was modified.")
+          PY
+
+      - name: Build arm64 Chinenual MIDIRecorder shared library
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew assembleSideloadRelease \
+            -PdevKeystore \
+            -PtargetAbis=arm64-v8a \
+            -PmidiRecorderPlugin \
+            --no-daemon
+
+      - name: Render lightweight MIDIRecorder browser thumbnail
+        shell: bash
+        run: |
+          set -euo pipefail
+          THUMB_DIR="${RUNNER_TEMP}/chinenual-thumbnails/Chinenual-VCV"
+          rm -rf "${RUNNER_TEMP}/chinenual-thumbnails"
+          mkdir -p "${THUMB_DIR}"
+
+          rsvg-convert third_party/Chinenual-VCV/res/MIDIRecorder.svg \
+            -o "${THUMB_DIR}/MIDIRecorder.png"
+
+          python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import os
+
+          src = Path(os.environ["RUNNER_TEMP"]) / "chinenual-thumbnails" / "Chinenual-VCV" / "MIDIRecorder.png"
+          dst = src.with_suffix(".webp")
+          with Image.open(src) as im:
+              im.save(dst, "WEBP", quality=92, method=6)
+          if not dst.is_file() or dst.stat().st_size == 0:
+              raise RuntimeError("MIDIRecorder WebP thumbnail was not created")
+          print(f"Thumbnail: {dst} ({dst.stat().st_size} bytes)")
+          PY
+
+      - name: Package Chinenual MIDIRecorder RDMod
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SO="$(find app/.cxx app/build/intermediates/cxx \
+            -type f -name 'libplugin_chinenual.so' \
+            -print 2>/dev/null \
+            | xargs -r ls -1t \
+            | head -n 1 || true)"
+
+          if [ -z "${SO}" ] || [ ! -s "${SO}" ]; then
+            echo "ERROR: libplugin_chinenual.so was not found after the Gradle build." >&2
+            echo "Native plugin libraries that DO exist:" >&2
+            find app/.cxx app/build/intermediates/cxx \
+              -type f -name 'libplugin_*.so' -print 2>/dev/null \
+              | sort >&2 || true
+            exit 1
+          fi
+
+          echo "Using Chinenual MIDIRecorder Android library: ${SO}"
+          file "${SO}"
+
+          STRIP="$(ls "${ANDROID_HOME}"/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
+            2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "${STRIP}" ] || [ ! -e "${STRIP}" ]; then
+            echo "ERROR: llvm-strip was not found under ${ANDROID_HOME}/ndk." >&2
+            exit 1
+          fi
+
+          OUT="${GITHUB_WORKSPACE}/chinenual-midirecorder-rdmod"
+          PACK="${OUT}/pack"
+          RDMOD="${OUT}/Chinenual-MIDIRecorder-2.7.5-arm64.rdmod"
+          rm -rf "${OUT}"
+          mkdir -p "${PACK}/res/fonts" "${PACK}/thumbs"
+
+          cp third_party/Chinenual-VCV/plugin.json "${PACK}/plugin.json"
+          cp "${SO}" "${PACK}/libplugin_chinenual.so"
+          "${STRIP}" --strip-unneeded "${PACK}/libplugin_chinenual.so"
+
+          cp third_party/Chinenual-VCV/res/MIDIRecorder.svg "${PACK}/res/MIDIRecorder.svg"
+          cp third_party/Chinenual-VCV/res/rec_button.svg "${PACK}/res/rec_button.svg"
+          cp third_party/Chinenual-VCV/res/fonts/DSEG14Modern-BoldItalic.ttf \
+            "${PACK}/res/fonts/DSEG14Modern-BoldItalic.ttf"
+          cp third_party/Chinenual-VCV/res/fonts/DSEG-LICENSE.txt \
+            "${PACK}/res/fonts/DSEG-LICENSE.txt"
+          cp "${RUNNER_TEMP}/chinenual-thumbnails/Chinenual-VCV/MIDIRecorder.webp" \
+            "${PACK}/thumbs/MIDIRecorder.webp"
+          cp third_party/Chinenual-VCV/LICENSE "${PACK}/LICENSE"
+          cp third_party/Chinenual-VCV/README.md "${PACK}/README.md"
+
+          (
+            cd "${PACK}"
+            zip -q -r -9 "${RDMOD}" .
+          )
+
+          # GPL corresponding source: exact CI-modified upstream tree used for
+          # this binary, including the Android-only share hook.
+          (
+            cd third_party
+            zip -q -r -9 "${OUT}/Chinenual-MIDIRecorder-2.7.5-source.zip" Chinenual-VCV
+          )
+
+          cat > "${OUT}/BUILD-INFO.txt" <<EOF
+          RackDroid branch: ${GITHUB_REF_NAME}
+          RackDroid commit: ${GITHUB_SHA}
+          Upstream: https://github.com/chinenual/Chinenual-VCV
+          Upstream version: 2.7.5
+          Upstream commit: 257aba08502184c3e34adf036ebc90c1f76b4b67
+          Plugin slug: Chinenual-VCV
+          Model slug: MIDIRecorder
+          Android ABI: arm64-v8a
+          MIDI engine/ports/params/model identity: upstream-compatible
+          Android-only addition: Share latest MIDI file...
+          Share implementation: existing rackdroid::nativeSharePatch/FileProvider path
+          APK modification required: no
+          MIDIRecorderCC expander included: no
+          EOF
+
+          (
+            cd "${OUT}"
+            sha256sum \
+              Chinenual-MIDIRecorder-2.7.5-arm64.rdmod \
+              Chinenual-MIDIRecorder-2.7.5-source.zip \
+              > SHA256.txt
+          )
+
+          ls -lh "${OUT}"
+
+      - name: Validate RDMod contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          RDMOD="${GITHUB_WORKSPACE}/chinenual-midirecorder-rdmod/Chinenual-MIDIRecorder-2.7.5-arm64.rdmod"
+          CHECK="${RUNNER_TEMP}/chinenual-midirecorder-rdmod-check"
+          rm -rf "${CHECK}"
+          mkdir -p "${CHECK}"
+          unzip -q "${RDMOD}" -d "${CHECK}"
+
+          test -s "${CHECK}/plugin.json"
+          test -s "${CHECK}/libplugin_chinenual.so"
+          test -s "${CHECK}/res/MIDIRecorder.svg"
+          test -s "${CHECK}/res/rec_button.svg"
+          test -s "${CHECK}/res/fonts/DSEG14Modern-BoldItalic.ttf"
+          test -s "${CHECK}/res/fonts/DSEG-LICENSE.txt"
+          test -s "${CHECK}/thumbs/MIDIRecorder.webp"
+          test -s "${CHECK}/LICENSE"
+
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+          import os
+          from PIL import Image
+
+          check = Path(os.environ["RUNNER_TEMP"]) / "chinenual-midirecorder-rdmod-check"
+          manifest = json.loads((check / "plugin.json").read_text(encoding="utf-8"))
+          assert manifest["slug"] == "Chinenual-VCV", manifest["slug"]
+          assert manifest["version"] == "2.7.5", manifest["version"]
+          assert [m["slug"] for m in manifest["modules"]] == ["MIDIRecorder"], manifest["modules"]
+
+          root_sos = sorted(x.name for x in check.glob("*.so"))
+          assert root_sos == ["libplugin_chinenual.so"], root_sos
+          nested_sos = [str(x.relative_to(check)) for x in check.rglob("*.so") if x.parent != check]
+          assert not nested_sos, nested_sos
+
+          thumb = check / "thumbs" / "MIDIRecorder.webp"
+          with Image.open(thumb) as im:
+              assert im.format == "WEBP", im.format
+              assert im.width > 0 and im.height > 0, im.size
+              thumb_size = im.size
+
+          print("Manifest identity: Chinenual-VCV/MIDIRecorder 2.7.5")
+          print("Exactly one root native library: libplugin_chinenual.so")
+          print(f"Thumbnail: WEBP {thumb_size[0]}x{thumb_size[1]}")
+          PY
+
+          file "${CHECK}/libplugin_chinenual.so"
+          readelf -h "${CHECK}/libplugin_chinenual.so" | tee "${CHECK}/elf-header.txt"
+          readelf -h "${CHECK}/libplugin_chinenual.so" | grep -Eq 'Machine:[[:space:]]+AArch64'
+
+          SO_COUNT="$(zipinfo -1 "${RDMOD}" | grep -E '(^|/)[^/]+\.so$' | wc -l | tr -d ' ')"
+          test "${SO_COUNT}" = "1"
+
+          echo "Chinenual MIDIRecorder RDMod validation passed."
+
+      - name: Upload Chinenual MIDIRecorder RDMod
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: Chinenual-MIDIRecorder-2.7.5-arm64-rdmod
+          path: |
+            chinenual-midirecorder-rdmod/Chinenual-MIDIRecorder-2.7.5-arm64.rdmod
+            chinenual-midirecorder-rdmod/Chinenual-MIDIRecorder-2.7.5-source.zip
+            chinenual-midirecorder-rdmod/SHA256.txt
+            chinenual-midirecorder-rdmod/BUILD-INFO.txt
+          if-no-files-found: error
+          compression-level: 0
