@@ -116,6 +116,7 @@ jobs:
               '#pragma once\n'
               '#include "rack.hpp"\n'
               '#define _SEQ\n'
+              '#define _XFORM\n'
               'using namespace ::rack;\n'
               'extern plugin::Plugin* pluginInstance;\n'
               'extern Model* modelSequencerModule;\n',
@@ -206,7 +207,7 @@ jobs:
           \t\t${SQUINKY_DIR}/src/ctrl
           \t\t${SQUINKY_DIR}/src/kbd)
           \ttarget_compile_definitions(plugin_squinky_seq PRIVATE
-          \t\t__V1x _SEQ __PLUGIN NDEBUG
+          \t\t__V1x _SEQ _XFORM __PLUGIN NDEBUG
           \t\tFLAC__NO_DLL HAVE_FSEEKO HAVE_LROUND HAVE_STDINT_H)
           \ttarget_link_libraries(plugin_squinky_seq PUBLIC rack_engine)
           \ttarget_compile_features(plugin_squinky_seq PRIVATE cxx_std_17)
@@ -246,6 +247,18 @@ jobs:
                   raise RuntimeError("Could not find RackDroid Gradle JNI exclusion anchor")
               gradle = gradle.replace(exclude_anchor, exclude_anchor + exclude_line, 1)
           gradle_path.write_text(gradle, encoding="utf-8")
+
+          # Seq++'s NoteDisplay.cpp uses transform UI members in normal event
+          # handlers, while NoteDisplay.h declares them only under _XFORM.
+          # Upstream Squinky.hpp always defines _XFORM, so the isolated header
+          # must preserve that compile-time contract.
+          isolated_header = (squinky / "src" / "Squinky.hpp").read_text(encoding="utf-8")
+          if "#define _XFORM" not in isolated_header:
+              raise RuntimeError("Seq++ isolated header must define _XFORM")
+          note_header = (squinky / "src" / "seq" / "NoteDisplay.h").read_text(encoding="utf-8")
+          for marker in ["#ifdef _XFORM", "InputScreenManagerPtr ism;", "bool enabled = true;"]:
+              if marker not in note_header:
+                  raise RuntimeError(f"Pinned NoteDisplay.h changed unexpectedly: missing {marker!r}")
 
           # Guard the assumptions that matter for the Android port. The actual
           # Seq++ module source remains stock.
