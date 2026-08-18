@@ -1,0 +1,494 @@
+name: Build Seq++ RDMod
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
+    paths:
+      - ".github/workflows/build-seqpp-rdmod.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-seqpp-arm64:
+    name: Build Squinky Labs Seq++ arm64 RDMod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out current RackDroid branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Install lightweight packaging dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends zip
+          python3 -m pip install --disable-pip-version-check --no-cache-dir "Pillow==11.3.0"
+
+      - name: Fetch pinned Squinky Labs 2.1.10 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          SQUINKY_SHA="3701a8c8931e5e8073e00cd5632db3966befe54f"
+
+          rm -rf third_party/SquinkyVCV-main /tmp/squinky-src
+          mkdir -p /tmp/squinky-src third_party
+
+          curl --fail --location --retry 3 \
+            "https://github.com/kockie69/SquinkyVCV-main/archive/${SQUINKY_SHA}.tar.gz" \
+            -o /tmp/squinky.tar.gz
+
+          tar -xzf /tmp/squinky.tar.gz -C /tmp/squinky-src
+          mv "/tmp/squinky-src/SquinkyVCV-main-${SQUINKY_SHA}" third_party/SquinkyVCV-main
+
+          test -s third_party/SquinkyVCV-main/plugin.json
+          test -s third_party/SquinkyVCV-main/src/Squinky.cpp
+          test -s third_party/SquinkyVCV-main/src/Squinky.hpp
+          test -s third_party/SquinkyVCV-main/src/SequencerModule.cpp
+          test -s third_party/SquinkyVCV-main/src/SequencerModule.h
+          test -s third_party/SquinkyVCV-main/composites/Seq.h
+          test -s third_party/SquinkyVCV-main/midi/controller/MidiFileProxy.cpp
+          test -s third_party/SquinkyVCV-main/dsp/third-party/midifile/MidiFile.cpp
+          test -s third_party/SquinkyVCV-main/res/seq_panel.svg
+          test -s third_party/SquinkyVCV-main/res/square-button-01.svg
+          test -s third_party/SquinkyVCV-main/res/square-button-02.svg
+          test -s third_party/SquinkyVCV-main/docs/seq.png
+          test -s third_party/SquinkyVCV-main/LICENSE
+
+      - name: Prepare isolated stock Seq++ port in CI workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+
+          root = Path.cwd()
+          squinky = root / "third_party" / "SquinkyVCV-main"
+
+          # Preserve the official desktop plugin/model identity, but expose only
+          # Seq++ in this RackDroid RDMod.
+          manifest_path = squinky / "plugin.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+          if manifest.get("slug") != "squinkylabs-plug1":
+              raise RuntimeError(f"Unexpected upstream plugin slug: {manifest.get('slug')!r}")
+          if manifest.get("version") != "2.1.10":
+              raise RuntimeError(f"Unexpected pinned Squinky version: {manifest.get('version')!r}")
+
+          seqpp = next(
+              (m for m in manifest.get("modules", []) if m.get("slug") == "squinkylabs-sequencer"),
+              None,
+          )
+          if seqpp is None:
+              raise RuntimeError("Pinned upstream manifest does not contain Seq++")
+
+          keep_top = [
+              "slug", "name", "version", "license", "brand", "author",
+              "authorEmail", "authorUrl", "pluginUrl", "manualUrl",
+              "sourceUrl", "donateUrl", "changelogUrl"
+          ]
+          trimmed = {k: manifest[k] for k in keep_top if k in manifest}
+          trimmed["modules"] = [seqpp]
+          manifest_path.write_text(
+              json.dumps(trimmed, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+
+          # Upstream Squinky.hpp enables many modules with #defines even when
+          # the Makefile only asks for _SEQ. For an isolated RDMod, replace that
+          # plugin-wide header in the CI workspace with the minimum declarations
+          # Seq++ needs. Seq++ itself is not edited: MIDI import/playback, ports,
+          # parameters, serializer, piano roll, and model identity stay upstream.
+          (squinky / "src" / "Squinky.hpp").write_text(
+              '#pragma once\n'
+              '#include "rack.hpp"\n'
+              '#define _SEQ\n'
+              'using namespace ::rack;\n'
+              'extern plugin::Plugin* pluginInstance;\n'
+              'extern Model* modelSequencerModule;\n',
+              encoding="utf-8",
+          )
+
+          # Register only Seq++. Keep the SqHelper color definitions that the
+          # upstream UI uses.
+          (squinky / "src" / "Squinky.cpp").write_text(
+              '#include "Squinky.hpp"\n'
+              '#include "ctrl/SqHelper.h"\n\n'
+              'Plugin* pluginInstance = nullptr;\n\n'
+              'void init(Plugin* p) {\n'
+              '    pluginInstance = p;\n'
+              '    p->addModel(modelSequencerModule);\n'
+              '}\n\n'
+              'const NVGcolor SqHelper::COLOR_GREY = nvgRGB(0x80, 0x80, 0x80);\n'
+              'const NVGcolor SqHelper::COLOR_WHITE = nvgRGB(0xff, 0xff, 0xff);\n'
+              'const NVGcolor SqHelper::COLOR_BLACK = nvgRGB(0, 0, 0);\n'
+              'const NVGcolor SqHelper::COLOR_SQUINKY = nvgRGB(0x30, 0x7d, 0xee);\n'
+              'int soloStateCount = 0;\n',
+              encoding="utf-8",
+          )
+
+          # Add an isolated Seq++ target. The selected source groups mirror the
+          # upstream sequencer/model/UI build without dragging in unrelated synth,
+          # mixer, sampler, FLAC, or FFT modules.
+          cmake_path = root / "native" / "CMakeLists.txt"
+          cmake = cmake_path.read_text(encoding="utf-8")
+          cmake_anchor = "\t# Frozen Wasteland (49 modules): code GPLv3, but everything under res/\n"
+          cmake_block = '''\t# Squinky Labs Seq++: isolated optional RackDroid plugin.
+          \tset(SQUINKY_DIR ${THIRD_PARTY}/SquinkyVCV-main)
+          \tif(NOT EXISTS ${SQUINKY_DIR}/plugin.json)
+          \t\tmessage(FATAL_ERROR "Squinky Labs Seq++ sources not found")
+          \tendif()
+          \tfile(GLOB_RECURSE SQUINKY_MIDI_SOURCES CONFIGURE_DEPENDS
+          \t\t${SQUINKY_DIR}/midi/*.cpp)
+          \tfile(GLOB_RECURSE SQUINKY_SQSRC_SOURCES CONFIGURE_DEPENDS
+          \t\t${SQUINKY_DIR}/sqsrc/*.cpp)
+          \tfile(GLOB SQUINKY_SEQ_UI_SOURCES CONFIGURE_DEPENDS
+          \t\t${SQUINKY_DIR}/src/seq/*.cpp)
+          \tfile(GLOB SQUINKY_KBD_SOURCES CONFIGURE_DEPENDS
+          \t\t${SQUINKY_DIR}/src/kbd/*.cpp)
+          \tfile(GLOB SQUINKY_GRAMMAR_SOURCES CONFIGURE_DEPENDS
+          \t\t${SQUINKY_DIR}/src/grammar/*.cpp)
+          \tfile(GLOB SQUINKY_THIRD_PARTY_SOURCES CONFIGURE_DEPENDS
+          \t\t${SQUINKY_DIR}/src/third-party/*.cpp)
+          \tfile(GLOB SQUINKY_MIDIFILE_SOURCES CONFIGURE_DEPENDS
+          \t\t${SQUINKY_DIR}/dsp/third-party/midifile/*.cpp)
+          \tadd_library(plugin_squinky_seq SHARED
+          \t\t${SQUINKY_DIR}/src/Squinky.cpp
+          \t\t${SQUINKY_DIR}/src/SequencerModule.cpp
+          \t\t${SQUINKY_MIDI_SOURCES}
+          \t\t${SQUINKY_SQSRC_SOURCES}
+          \t\t${SQUINKY_SEQ_UI_SOURCES}
+          \t\t${SQUINKY_KBD_SOURCES}
+          \t\t${SQUINKY_GRAMMAR_SOURCES}
+          \t\t${SQUINKY_THIRD_PARTY_SOURCES}
+          \t\t${SQUINKY_MIDIFILE_SOURCES})
+          \ttarget_include_directories(plugin_squinky_seq BEFORE PRIVATE
+          \t\t${SQUINKY_DIR}
+          \t\t${SQUINKY_DIR}/src
+          \t\t${SQUINKY_DIR}/dsp/generators
+          \t\t${SQUINKY_DIR}/dsp/utils
+          \t\t${SQUINKY_DIR}/dsp/filters
+          \t\t${SQUINKY_DIR}/dsp/third-party/falco
+          \t\t${SQUINKY_DIR}/dsp/third-party/kiss_fft130
+          \t\t${SQUINKY_DIR}/dsp/third-party/kiss_fft130/tools
+          \t\t${SQUINKY_DIR}/dsp/third-party/src
+          \t\t${SQUINKY_DIR}/dsp/third-party/midifile
+          \t\t${SQUINKY_DIR}/dsp/third-party/flac/include
+          \t\t${SQUINKY_DIR}/dsp
+          \t\t${SQUINKY_DIR}/dsp/samp
+          \t\t${SQUINKY_DIR}/dsp/third-party/pugixml
+          \t\t${SQUINKY_DIR}/sqsrc/thread
+          \t\t${SQUINKY_DIR}/dsp/fft
+          \t\t${SQUINKY_DIR}/composites
+          \t\t${SQUINKY_DIR}/sqsrc/noise
+          \t\t${SQUINKY_DIR}/sqsrc/util
+          \t\t${SQUINKY_DIR}/sqsrc/clock
+          \t\t${SQUINKY_DIR}/sqsrc/grammar
+          \t\t${SQUINKY_DIR}/sqsrc/delay
+          \t\t${SQUINKY_DIR}/midi/model
+          \t\t${SQUINKY_DIR}/midi/view
+          \t\t${SQUINKY_DIR}/midi/controller
+          \t\t${SQUINKY_DIR}/util
+          \t\t${SQUINKY_DIR}/src/third-party
+          \t\t${SQUINKY_DIR}/src/ctrl
+          \t\t${SQUINKY_DIR}/src/kbd)
+          \ttarget_compile_definitions(plugin_squinky_seq PRIVATE
+          \t\t__V1x _SEQ __PLUGIN NDEBUG
+          \t\tFLAC__NO_DLL HAVE_FSEEKO HAVE_LROUND HAVE_STDINT_H)
+          \ttarget_link_libraries(plugin_squinky_seq PUBLIC rack_engine)
+          \ttarget_compile_features(plugin_squinky_seq PRIVATE cxx_std_17)
+          \ttarget_compile_options(plugin_squinky_seq PRIVATE -O3 -w)
+
+          '''
+          if "add_library(plugin_squinky_seq SHARED" not in cmake:
+              if cmake.count(cmake_anchor) != 1:
+                  raise RuntimeError("Could not find RackDroid CMake insertion anchor")
+              cmake = cmake.replace(cmake_anchor, cmake_block + cmake_anchor, 1)
+              cmake_path.write_text(cmake, encoding="utf-8")
+
+          # Build this optional target only for this workflow and keep its .so
+          # out of the APK because it belongs inside the RDMod.
+          gradle_path = root / "app" / "build.gradle.kts"
+          gradle = gradle_path.read_text(encoding="utf-8")
+          target_old = """\t\t\t\ttargets += if (project.hasProperty(\"allPlugins\"))
+          \t\t\t\t\tbaseTargets + optionalTargets
+          \t\t\t\telse
+          \t\t\t\t\tbaseTargets
+          """
+          target_new = """\t\t\t\ttargets += when {
+          \t\t\t\t\tproject.hasProperty(\"seqppPlugin\") -> baseTargets + listOf(\"plugin_squinky_seq\")
+          \t\t\t\t\tproject.hasProperty(\"allPlugins\") -> baseTargets + optionalTargets
+          \t\t\t\t\telse -> baseTargets
+          \t\t\t\t}
+          """
+          if 'project.hasProperty("seqppPlugin")' not in gradle:
+              if gradle.count(target_old) != 1:
+                  raise RuntimeError("Could not find RackDroid Gradle target-selection block")
+              gradle = gradle.replace(target_old, target_new, 1)
+
+          exclude_anchor = '\t\t\t\t"**/libplugin_ml.so",\n'
+          exclude_line = '\t\t\t\t"**/libplugin_squinky_seq.so",\n'
+          if exclude_line not in gradle:
+              if gradle.count(exclude_anchor) != 1:
+                  raise RuntimeError("Could not find RackDroid Gradle JNI exclusion anchor")
+              gradle = gradle.replace(exclude_anchor, exclude_anchor + exclude_line, 1)
+          gradle_path.write_text(gradle, encoding="utf-8")
+
+          # Guard the assumptions that matter for the Android port. The actual
+          # Seq++ module source remains stock.
+          check = json.loads(manifest_path.read_text(encoding="utf-8"))
+          assert check["slug"] == "squinkylabs-plug1"
+          assert check["version"] == "2.1.10"
+          assert [m["slug"] for m in check["modules"]] == ["squinkylabs-sequencer"]
+
+          module_cpp = (squinky / "src" / "SequencerModule.cpp").read_text(encoding="utf-8")
+          required_module_markers = [
+              'midifile->text = "Load midi file";',
+              'osdialog_file(OSDIALOG_OPEN,',
+              'MidiFileProxy::load(pathC)',
+              'configOutput(Seq<WidgetComposite>::CV_OUTPUT,"CV")',
+              'configOutput(Seq<WidgetComposite>::GATE_OUTPUT,"Gate")',
+              'createModel<SequencerModule, SequencerWidget>("squinkylabs-sequencer")',
+          ]
+          for marker in required_module_markers:
+              if marker not in module_cpp:
+                  raise RuntimeError(f"Pinned Seq++ source changed unexpectedly: missing {marker!r}")
+
+          midi_proxy = (squinky / "midi" / "controller" / "MidiFileProxy.cpp").read_text(encoding="utf-8")
+          required_midi_markers = [
+              'bool b = midiFile.read(filename);',
+              'if (evt.isNoteOn())',
+              'MidiTrackPtr MidiFileProxy::getFirst',
+          ]
+          for marker in required_midi_markers:
+              if marker not in midi_proxy:
+                  raise RuntimeError(f"Pinned MIDI importer changed unexpectedly: missing {marker!r}")
+
+          required = [
+              squinky / "src" / "SequencerModule.cpp",
+              squinky / "src" / "SequencerModule.h",
+              squinky / "composites" / "Seq.h",
+              squinky / "midi" / "controller" / "MidiFileProxy.cpp",
+              squinky / "dsp" / "third-party" / "midifile" / "MidiFile.cpp",
+              squinky / "res" / "seq_panel.svg",
+              squinky / "res" / "square-button-01.svg",
+              squinky / "res" / "square-button-02.svg",
+              squinky / "docs" / "seq.png",
+              squinky / "LICENSE",
+          ]
+          missing = [str(p) for p in required if not p.exists()]
+          if missing:
+              raise RuntimeError("Missing Seq++ build/resource inputs: " + ", ".join(missing))
+
+          print("Prepared isolated Squinky Labs Seq++ 2.1.10 CI port.")
+          print("Plugin/model identity remains squinkylabs-plug1/squinkylabs-sequencer.")
+          print("Stock .mid OPEN path is preserved for RackDroid Android SAF.")
+          print("Seq++ playback/CV/Gate/serializer/piano-roll source is unmodified.")
+          print("No RackDroid APK/audio/touch/file-picker source was modified.")
+          PY
+
+      - name: Build arm64 Seq++ shared library
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew assembleSideloadRelease \
+            -PdevKeystore \
+            -PtargetAbis=arm64-v8a \
+            -PseqppPlugin \
+            --no-daemon
+
+      - name: Create Seq++ browser thumbnail
+        shell: bash
+        run: |
+          set -euo pipefail
+          THUMB_DIR="${RUNNER_TEMP}/seqpp-thumbnails/squinkylabs-plug1"
+          rm -rf "${RUNNER_TEMP}/seqpp-thumbnails"
+          mkdir -p "${THUMB_DIR}"
+
+          # Seq++ has a large dynamically drawn piano-roll area, so its 8HP panel
+          # SVG alone is not representative. Use the upstream documentation image
+          # of the complete module as the lightweight browser thumbnail source.
+          python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import os
+
+          src = Path("third_party/SquinkyVCV-main/docs/seq.png")
+          dst = Path(os.environ["RUNNER_TEMP"]) / "seqpp-thumbnails" / "squinkylabs-plug1" / "squinkylabs-sequencer.webp"
+          with Image.open(src) as im:
+              im.convert("RGB").save(dst, "WEBP", quality=92, method=6)
+          if not dst.is_file() or dst.stat().st_size == 0:
+              raise RuntimeError("Seq++ WebP thumbnail was not created")
+          print(f"Thumbnail: {dst} ({dst.stat().st_size} bytes)")
+          PY
+
+      - name: Package Squinky Labs Seq++ RDMod
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SO="$(find app/.cxx app/build/intermediates/cxx \
+            -type f -name 'libplugin_squinky_seq.so' \
+            -print 2>/dev/null \
+            | xargs -r ls -1t \
+            | head -n 1 || true)"
+
+          if [ -z "${SO}" ] || [ ! -s "${SO}" ]; then
+            echo "ERROR: libplugin_squinky_seq.so was not found after the Gradle build." >&2
+            echo "Native plugin libraries that DO exist:" >&2
+            find app/.cxx app/build/intermediates/cxx \
+              -type f -name 'libplugin_*.so' -print 2>/dev/null \
+              | sort >&2 || true
+            exit 1
+          fi
+
+          echo "Using Seq++ Android library: ${SO}"
+          file "${SO}"
+
+          STRIP="$(ls "${ANDROID_HOME}"/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
+            2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "${STRIP}" ] || [ ! -e "${STRIP}" ]; then
+            echo "ERROR: llvm-strip was not found under ${ANDROID_HOME}/ndk." >&2
+            exit 1
+          fi
+
+          OUT="${GITHUB_WORKSPACE}/seqpp-rdmod"
+          PACK="${OUT}/pack"
+          RDMOD="${OUT}/SquinkyLabs-SeqPP-2.1.10-arm64.rdmod"
+          rm -rf "${OUT}"
+          mkdir -p "${PACK}/thumbs"
+
+          cp third_party/SquinkyVCV-main/plugin.json "${PACK}/plugin.json"
+          cp "${SO}" "${PACK}/libplugin_squinky_seq.so"
+          "${STRIP}" --strip-unneeded "${PACK}/libplugin_squinky_seq.so"
+
+          # Keep the complete upstream res tree. Seq++ mixes an SVG control panel
+          # with dynamically drawn piano-roll widgets and shared Squinky controls;
+          # copying all resources avoids missing transitive UI assets.
+          cp -a third_party/SquinkyVCV-main/res "${PACK}/res"
+          cp "${RUNNER_TEMP}/seqpp-thumbnails/squinkylabs-plug1/squinkylabs-sequencer.webp" \
+            "${PACK}/thumbs/squinkylabs-sequencer.webp"
+          cp third_party/SquinkyVCV-main/LICENSE "${PACK}/LICENSE"
+          cp third_party/SquinkyVCV-main/LICENSE-dist.txt "${PACK}/LICENSE-dist.txt"
+          cp third_party/SquinkyVCV-main/LICENSE.md "${PACK}/LICENSE.md"
+          cp third_party/SquinkyVCV-main/README.md "${PACK}/README.md"
+
+          (
+            cd "${PACK}"
+            zip -q -r -9 "${RDMOD}" .
+          )
+
+          # GPL corresponding source: exact CI-modified upstream tree used for
+          # this binary, including the isolated plugin header/init adaptation.
+          (
+            cd third_party
+            zip -q -r -9 "${OUT}/SquinkyLabs-SeqPP-2.1.10-source.zip" SquinkyVCV-main
+          )
+
+          cat > "${OUT}/BUILD-INFO.txt" <<EOF2
+          RackDroid branch: ${GITHUB_REF_NAME}
+          RackDroid commit: ${GITHUB_SHA}
+          Upstream: https://github.com/kockie69/SquinkyVCV-main
+          Upstream version: 2.1.10
+          Upstream commit: 3701a8c8931e5e8073e00cd5632db3966befe54f
+          Plugin slug: squinkylabs-plug1
+          Model slug: squinkylabs-sequencer
+          Module name: Seq++
+          Android ABI: arm64-v8a
+          MIDI load: stock OSDIALOG_OPEN (.mid) -> RackDroid SAF bridge
+          Playback outputs: stock polyphonic CV + Gate, plus EOC
+          External clock: required by stock Seq++
+          Seq++ DSP/model/ports/params/serializer source modified: no
+          CI-only plugin isolation (Squinky.hpp / Squinky.cpp): yes
+          APK modification required: no
+          EOF2
+
+          (
+            cd "${OUT}"
+            sha256sum \
+              SquinkyLabs-SeqPP-2.1.10-arm64.rdmod \
+              SquinkyLabs-SeqPP-2.1.10-source.zip \
+              > SHA256.txt
+          )
+
+          ls -lh "${OUT}"
+
+      - name: Validate RDMod contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          RDMOD="${GITHUB_WORKSPACE}/seqpp-rdmod/SquinkyLabs-SeqPP-2.1.10-arm64.rdmod"
+          CHECK="${RUNNER_TEMP}/seqpp-rdmod-check"
+          rm -rf "${CHECK}"
+          mkdir -p "${CHECK}"
+          unzip -q "${RDMOD}" -d "${CHECK}"
+
+          test -s "${CHECK}/plugin.json"
+          test -s "${CHECK}/libplugin_squinky_seq.so"
+          test -s "${CHECK}/res/seq_panel.svg"
+          test -s "${CHECK}/res/square-button-01.svg"
+          test -s "${CHECK}/res/square-button-02.svg"
+          test -s "${CHECK}/thumbs/squinkylabs-sequencer.webp"
+          test -s "${CHECK}/LICENSE"
+
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+          import os
+          from PIL import Image
+
+          check = Path(os.environ["RUNNER_TEMP"]) / "seqpp-rdmod-check"
+          manifest = json.loads((check / "plugin.json").read_text(encoding="utf-8"))
+          assert manifest["slug"] == "squinkylabs-plug1", manifest["slug"]
+          assert manifest["version"] == "2.1.10", manifest["version"]
+          assert [m["slug"] for m in manifest["modules"]] == ["squinkylabs-sequencer"], manifest["modules"]
+
+          root_sos = sorted(x.name for x in check.glob("*.so"))
+          assert root_sos == ["libplugin_squinky_seq.so"], root_sos
+          nested_sos = [str(x.relative_to(check)) for x in check.rglob("*.so") if x.parent != check]
+          assert not nested_sos, nested_sos
+
+          thumb = check / "thumbs" / "squinkylabs-sequencer.webp"
+          with Image.open(thumb) as im:
+              assert im.format == "WEBP", im.format
+              assert im.width > 0 and im.height > 0, im.size
+              thumb_size = im.size
+
+          print("Manifest identity: squinkylabs-plug1/squinkylabs-sequencer 2.1.10")
+          print("Exactly one root native library: libplugin_squinky_seq.so")
+          print(f"Thumbnail: WEBP {thumb_size[0]}x{thumb_size[1]}")
+          PY
+
+          file "${CHECK}/libplugin_squinky_seq.so"
+          readelf -h "${CHECK}/libplugin_squinky_seq.so" | tee "${CHECK}/elf-header.txt"
+          readelf -h "${CHECK}/libplugin_squinky_seq.so" | grep -Eq 'Machine:[[:space:]]+AArch64'
+
+          SO_COUNT="$(zipinfo -1 "${RDMOD}" | grep -E '(^|/)[^/]+\.so$' | wc -l | tr -d ' ')"
+          test "${SO_COUNT}" = "1"
+
+          echo "Squinky Labs Seq++ RDMod validation passed."
+
+      - name: Upload Squinky Labs Seq++ RDMod
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: SquinkyLabs-SeqPP-2.1.10-arm64-rdmod
+          path: |
+            seqpp-rdmod/SquinkyLabs-SeqPP-2.1.10-arm64.rdmod
+            seqpp-rdmod/SquinkyLabs-SeqPP-2.1.10-source.zip
+            seqpp-rdmod/SHA256.txt
+            seqpp-rdmod/BUILD-INFO.txt
+          if-no-files-found: error
+          compression-level: 0
