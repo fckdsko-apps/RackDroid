@@ -1,0 +1,147 @@
+name: Integrate Recording Save As Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
+    paths:
+      - ".github/workflows/integrate-recording-save-as-source.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  integrate:
+    name: Commit tested Recording Save As source
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify branch and tested commit ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          TESTED_COMMIT="374967277ff43aa0ba99ffd400c2ea1e0c432932"
+          test "${GITHUB_REF_NAME}" = "android-file-picker"
+          git merge-base --is-ancestor "${TESTED_COMMIT}" HEAD
+
+      - name: Locate exact successful tested run
+        id: tested
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TESTED_COMMIT="374967277ff43aa0ba99ffd400c2ea1e0c432932"
+
+          RUN_ID="$(
+            gh run list \
+              --repo fckdsko-apps/RackDroid \
+              --workflow build-recording-save-as-apk.yml \
+              --branch android-file-picker \
+              --commit "${TESTED_COMMIT}" \
+              --status success \
+              --limit 10 \
+              --json databaseId,headSha,conclusion \
+              --jq '.[] | select(.headSha == "'"${TESTED_COMMIT}"'" and .conclusion == "success") | .databaseId' \
+              | head -n 1
+          )"
+
+          test -n "${RUN_ID}"
+          echo "run_id=${RUN_ID}" >> "${GITHUB_OUTPUT}"
+          echo "Exact successful tested run: ${RUN_ID}"
+
+      - name: Download and verify exact tested artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TESTED_COMMIT="374967277ff43aa0ba99ffd400c2ea1e0c432932"
+          RUN_ID="${{ steps.tested.outputs.run_id }}"
+          ARTIFACT="RackDroid-recording-save-as-${TESTED_COMMIT}"
+
+          mkdir -p /tmp/recording-save-as
+          gh run download "${RUN_ID}" \
+            --repo fckdsko-apps/RackDroid \
+            --name "${ARTIFACT}" \
+            --dir /tmp/recording-save-as
+
+          cd /tmp/recording-save-as
+          test -s RackDroid-Recording-Save-As.patch
+          test -s RackDroid-recording-save-as-SHA256.txt
+          test -s "RackDroid-recording-save-as-${TESTED_COMMIT:0:7}.apk"
+
+          # This checksum manifest was produced inside the exact green build
+          # after the APK and source patch were created.
+          sha256sum -c RackDroid-recording-save-as-SHA256.txt
+
+      - name: Apply exact tested source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH="/tmp/recording-save-as/RackDroid-Recording-Save-As.patch"
+
+          git apply --check "${PATCH}"
+          git apply "${PATCH}"
+
+          # New helper Activity is untracked until staged; intent-to-add lets
+          # the changed-file validator see it before the real commit.
+          git add -N app/src/main/java/org/rackdroid/RecordingSaveActivity.kt
+
+          python3 <<'PY'
+          import subprocess
+
+          allowed = {
+              "app/src/main/java/org/rackdroid/MainActivity.kt",
+              "app/src/main/java/org/rackdroid/RecordingSaveActivity.kt",
+              "app/src/main/AndroidManifest.xml",
+              "app/src/main/res/values/strings.xml",
+          }
+
+          changed = set(
+              subprocess.check_output(
+                  ["git", "diff", "--name-only"],
+                  text=True,
+              ).splitlines()
+          )
+
+          if changed != allowed:
+              print("ERROR: unexpected Recording Save As changed-file set.")
+              print("Expected:")
+              for path in sorted(allowed):
+                  print("  ", path)
+              print("Actual:")
+              for path in sorted(changed):
+                  print("  ", path)
+              raise SystemExit(1)
+
+          print("Exact four-file Recording Save As patch validated.")
+          PY
+
+          git diff --check
+
+      - name: Commit Recording Save As to android-file-picker
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            app/src/main/java/org/rackdroid/MainActivity.kt \
+            app/src/main/java/org/rackdroid/RecordingSaveActivity.kt \
+            app/src/main/AndroidManifest.xml \
+            app/src/main/res/values/strings.xml
+
+          test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = "4"
+          git diff --cached --check
+
+          git commit -m "Integrate Recording Save As into android-file-picker"
+          git push origin HEAD:android-file-picker
