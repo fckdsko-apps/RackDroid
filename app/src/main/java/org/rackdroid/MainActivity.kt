@@ -840,10 +840,12 @@ class MainActivity : NativeActivity() {
 	}
 
 	// ---- Master WAV recording (⏺ toolbar button) ----
-	// The native side taps the oboe output callback into a WAV file under
-	// filesDir/user/recordings/; on stop the file is published to
-	// Documents/RackDroid/ via MediaStore (no permission needed for files
-	// this app contributes) so it's reachable from any file manager.
+	// Native recording itself is unchanged: the Oboe output callback writes a
+	// private WAV under filesDir/user/recordings/. When Stop is tapped, a
+	// transparent helper opens Android's ACTION_CREATE_DOCUMENT picker so the
+	// user chooses both the final filename and destination. If the picker is
+	// cancelled or that export fails, the helper falls back to the historical
+	// Documents/RackDroid location so a completed take is never discarded.
 	private var recordingFile: File? = null
 
 	private fun toggleRecording(button: ImageButton) {
@@ -857,37 +859,59 @@ class MainActivity : NativeActivity() {
 			if (nativeRecordStart(f.absolutePath)) {
 				recordingFile = f
 				button.setImageResource(R.drawable.ic_tb_stop)
-				android.widget.Toast.makeText(this, getString(R.string.toast_recording), android.widget.Toast.LENGTH_SHORT).show()
+				android.widget.Toast.makeText(
+					this, getString(R.string.toast_recording),
+					android.widget.Toast.LENGTH_SHORT).show()
 			} else {
-				android.widget.Toast.makeText(this, getString(R.string.toast_recording_failed), android.widget.Toast.LENGTH_SHORT).show()
+				android.widget.Toast.makeText(
+					this, getString(R.string.toast_recording_failed),
+					android.widget.Toast.LENGTH_SHORT).show()
 			}
 		} else {
 			nativeRecordStop()
 			recordingFile = null
 			button.setImageResource(R.drawable.ic_tb_record)
-			Thread {
-				val name = current.name
-				try {
-					val coll = android.provider.MediaStore.Files.getContentUri("external")
-					val values = android.content.ContentValues().apply {
-						put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
-						put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "audio/wav")
-						put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Documents/RackDroid/")
-					}
-					val uri = contentResolver.insert(coll, values)
-					if (uri != null) {
+
+			val saveIntent = Intent(this, RecordingSaveActivity::class.java).apply {
+				putExtra(RecordingSaveActivity.EXTRA_SOURCE_PATH, current.absolutePath)
+				putExtra(RecordingSaveActivity.EXTRA_SAVE_FILENAME, current.name)
+			}
+			try {
+				startActivity(saveIntent)
+			} catch (t: Throwable) {
+				jlog("recording Save As helper failed: ${android.util.Log.getStackTraceString(t)}")
+				Thread {
+					try {
+						val coll = android.provider.MediaStore.Files.getContentUri("external")
+						val values = android.content.ContentValues().apply {
+							put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, current.name)
+							put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "audio/wav")
+							put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Documents/RackDroid/")
+						}
+						val uri = contentResolver.insert(coll, values)
+							?: throw IllegalStateException("MediaStore insert failed")
 						contentResolver.openOutputStream(uri)?.use { out ->
 							current.inputStream().use { it.copyTo(out) }
-						}
+						} ?: throw IllegalStateException("MediaStore output stream failed")
 						runOnUiThread {
-							android.widget.Toast.makeText(this,
-								getString(R.string.toast_saved_to, name), android.widget.Toast.LENGTH_LONG).show()
+							Toast.makeText(
+								this,
+								getString(R.string.toast_saved_to, current.name),
+								Toast.LENGTH_LONG
+							).show()
+						}
+					} catch (fallback: Throwable) {
+						jlog("recording fallback export failed: ${android.util.Log.getStackTraceString(fallback)}")
+						runOnUiThread {
+							Toast.makeText(
+								this,
+								R.string.toast_recording_save_failed,
+								Toast.LENGTH_LONG
+							).show()
 						}
 					}
-				} catch (t: Throwable) {
-					jlog("recording export failed: ${android.util.Log.getStackTraceString(t)}")
-				}
-			}.start()
+				}.start()
+			}
 		}
 	}
 
