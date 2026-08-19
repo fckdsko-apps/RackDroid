@@ -1,0 +1,487 @@
+name: Build True Stereo Sampler RDMods
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
+    paths:
+      - ".github/workflows/build-true-stereo-samplers-rdmods.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-true-stereo-samplers:
+    name: Build Grains + SamplerX8 true-stereo RDMods
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out current RackDroid branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify expected branch baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASELINE="729848fd91da3cc8d2827653e93c438154b9650c"
+          test "${GITHUB_REF_NAME}" = "android-file-picker"
+          git merge-base --is-ancestor "${BASELINE}" HEAD
+
+          test -s third_party/JW-Modules/src/Grains.cpp
+          test -s third_party/JW-Modules/plugin.json
+          test -s .github/workflows/build-samplerx8-rdmod.yml
+
+          # Pin the already-successful SamplerX8 build/package workflow.
+          test "$(git hash-object .github/workflows/build-samplerx8-rdmod.yml)" = \
+            "7cb5dcc48c0eba4973631ef58c91163f808c5c0c"
+
+      - name: Set up Java 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Install packaging helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends librsvg2-bin zip
+          python3 -m pip install --disable-pip-version-check --no-cache-dir \
+            "Pillow==11.3.0" "PyYAML==6.0.2"
+
+      # ----------------------------------------------------------------------
+      # JW-Modules / Grains
+      # ----------------------------------------------------------------------
+      - name: Patch Grains to preserve source stereo
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          p = Path("third_party/JW-Modules/src/Grains.cpp")
+          text = p.read_text(encoding="utf-8")
+
+          # The current granular path reads independent sL/sR samples, then
+          # deliberately sums them to sMono before generating L/R output.
+          pattern = re.compile(
+              r'(?P<indent>[ \t]*)// Pan the grain\'s contribution using equal-power law on mono mix\n'
+              r'(?P=indent)double sMono = 0\.5 \* \(sL \+ sR\);\n'
+              r'(?P<body>.*?)'
+              r'(?P=indent)// Compute equal-power pan weights from g\.pan in \[-1,1\]\n'
+              r'(?P=indent)double theta = \(g\.pan \+ 1\.0\) \* 0\.5 \* 1\.5707963267948966; // 0\.\.pi/2\n'
+              r'(?P=indent)double wL = std::cos\(theta\);\n'
+              r'(?P=indent)double wR = std::sin\(theta\);\n'
+              r'(?P=indent)outL \+= sMono \* w \* wL;\n'
+              r'(?P=indent)outR \+= sMono \* w \* wR;',
+              re.DOTALL,
+          )
+          m = pattern.search(text)
+          if not m:
+              raise RuntimeError("Could not find the exact Grains mono-summing block")
+
+          indent = m.group("indent")
+          body = m.group("body")
+          replacement = (
+              f"{indent}// Preserve the source stereo pair for every grain.\n"
+              f"{body}"
+              f"{indent}// Pan randomness acts as stereo balance. At pan=0,\n"
+              f"{indent}// L and R remain independent; there is no L+R downmix.\n"
+              f"{indent}double balanceL = 1.0;\n"
+              f"{indent}double balanceR = 1.0;\n"
+              f"{indent}if (g.pan > 0.0)\n"
+              f"{indent}\tbalanceL = 1.0 - g.pan;\n"
+              f"{indent}else if (g.pan < 0.0)\n"
+              f"{indent}\tbalanceR = 1.0 + g.pan;\n"
+              f"{indent}outL += sL * w * balanceL;\n"
+              f"{indent}outR += sR * w * balanceR;"
+          )
+          text = text[:m.start()] + replacement + text[m.end():]
+
+          if "double sMono = 0.5 * (sL + sR);" in text:
+              raise RuntimeError("Grains still contains the stereo-destroying mono sum")
+          for marker in [
+              'configOutput(OUT_L, "Audio L")',
+              'configOutput(OUT_R, "Audio R")',
+          ]:
+              if marker not in text:
+                  raise RuntimeError(f"Grains public structure changed unexpectedly: {marker!r}")
+
+          p.write_text(text, encoding="utf-8")
+
+          manifest = json.loads(Path("third_party/JW-Modules/plugin.json").read_text(encoding="utf-8"))
+          assert manifest["slug"] == "JW-Modules"
+          assert any(mod.get("slug") == "Grains" for mod in manifest.get("modules", []))
+
+          print("Grains true-stereo granular patch applied.")
+          print("Identity remains JW-Modules / Grains.")
+          PY
+
+          git diff --check -- third_party/JW-Modules/src/Grains.cpp
+          mkdir -p true-stereo-output
+          git diff -- third_party/JW-Modules/src/Grains.cpp \
+            > true-stereo-output/Grains-true-stereo.patch
+          test -s true-stereo-output/Grains-true-stereo.patch
+
+      - name: Build JW-Modules with true-stereo Grains
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew assembleSideloadRelease \
+            -PdevKeystore \
+            -PallPlugins \
+            -PtargetAbis=arm64-v8a \
+            --no-daemon
+
+      - name: Package true-stereo JW-Modules RDMod
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/true-stereo-jw-rdmods"
+          rm -rf "${OUT}"
+          scripts/make_rdmods.sh "${OUT}" arm64-v8a
+
+          SRC="${OUT}/JW-Modules.rdmod"
+          DST="${GITHUB_WORKSPACE}/true-stereo-output/JW-Modules-Grains-True-Stereo-arm64.rdmod"
+          test -s "${SRC}"
+          unzip -t "${SRC}" >/dev/null
+          cp "${SRC}" "${DST}"
+
+          CHECK="${RUNNER_TEMP}/true-stereo-jw-check"
+          rm -rf "${CHECK}"
+          mkdir -p "${CHECK}"
+          unzip -q "${DST}" -d "${CHECK}"
+
+          test -s "${CHECK}/plugin.json"
+          python3 <<'PY'
+          from pathlib import Path
+          import json, os
+          check = Path(os.environ["RUNNER_TEMP"]) / "true-stereo-jw-check"
+          manifest = json.loads((check / "plugin.json").read_text(encoding="utf-8"))
+          assert manifest["slug"] == "JW-Modules"
+          assert any(mod.get("slug") == "Grains" for mod in manifest.get("modules", []))
+          sos = list(check.glob("*.so"))
+          assert len(sos) == 1, [p.name for p in sos]
+          print("JW-Modules RDMod identity/contract passed.")
+          PY
+
+      # ----------------------------------------------------------------------
+      # Voxglitch / SamplerX8
+      # ----------------------------------------------------------------------
+      - name: Replay pinned SamplerX8 fetch and preparation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+          import subprocess
+          import yaml
+
+          wf = yaml.safe_load(
+              Path(".github/workflows/build-samplerx8-rdmod.yml").read_text(encoding="utf-8")
+          )
+          steps = wf["jobs"]["build-samplerx8-arm64"]["steps"]
+
+          def run_named(name):
+              matches = [s for s in steps if s.get("name") == name]
+              if len(matches) != 1 or "run" not in matches[0]:
+                  raise RuntimeError(f"Expected one shell step named {name!r}")
+              script = "set -euo pipefail\n" + matches[0]["run"]
+              print(f"=== Replaying canonical step: {name} ===", flush=True)
+              subprocess.run(["bash", "-c", script], check=True, env=os.environ.copy())
+
+          run_named("Fetch pinned Voxglitch 2.41.1 source")
+          run_named("Prepare isolated stock SamplerX8 port in CI workspace")
+          PY
+
+      - name: Patch SamplerX8 WAV decoding for strict stereo
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Add a mature WAV decoder without touching the model identity,
+          # parameters, ports, or playback/output layout.
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/sickozell/SickoCV/b3504b2c41f22454379823faa980606d35d83f70/src/dr_wav.h" \
+            -o third_party/voxglitch/src/vgLib-2.0/dr_wav.h
+          test -s third_party/voxglitch/src/vgLib-2.0/dr_wav.h
+
+          python3 <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          vox = Path("third_party/voxglitch")
+          sample_path = vox / "src/vgLib-2.0/sample.hpp"
+          sample = sample_path.read_text(encoding="utf-8")
+
+          include_anchor = '#include "dr_mp3.h"\n'
+          if sample.count(include_anchor) != 1:
+              raise RuntimeError("Unexpected SamplerX8 sample.hpp dr_mp3 include")
+          sample = sample.replace(
+              include_anchor,
+              include_anchor + '#include "dr_wav.h"\n',
+              1,
+          )
+
+          load_start = sample.find("  bool load(std::string path)\n")
+          if load_start < 0:
+              raise RuntimeError("SamplerX8 Sample::load() not found")
+
+          mp3_route = (
+              '    if (isMP3File(path)) {\n'
+              '      return loadMP3(path);\n'
+              '    }\n'
+          )
+          route_pos = sample.find(mp3_route, load_start)
+          if route_pos < 0:
+              raise RuntimeError("SamplerX8 MP3 routing block not found in Sample::load()")
+
+          wav_route = (
+              '\n'
+              '    // Decode WAV frames explicitly as interleaved channels.\n'
+              '    // ch0 remains L; ch1 remains R; only true mono is duplicated.\n'
+              '    if (path.length() >= 4) {\n'
+              '      std::string ext = path.substr(path.length() - 4);\n'
+              '      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);\n'
+              '      if (ext == ".wav") {\n'
+              '        return loadWAV(path);\n'
+              '      }\n'
+              '    }\n'
+          )
+          sample = (
+              sample[:route_pos + len(mp3_route)]
+              + wav_route
+              + sample[route_pos + len(mp3_route):]
+          )
+
+          mp3_method_anchor = "  bool loadMP3(std::string path)\n  {\n"
+          mp3_method_pos = sample.find(mp3_method_anchor)
+          if mp3_method_pos < 0:
+              raise RuntimeError("SamplerX8 loadMP3() method not found")
+
+          wav_method = textwrap.dedent(r'''
+            bool loadWAV(std::string path)
+            {
+              this->loading = true;
+              this->loaded = false;
+
+              drwav_uint32 wavChannels = 0;
+              drwav_uint32 wavSampleRate = 0;
+              drwav_uint64 totalFrameCount = 0;
+
+              float* pSampleData = drwav_open_file_and_read_pcm_frames_f32(
+                  path.c_str(),
+                  &wavChannels,
+                  &wavSampleRate,
+                  &totalFrameCount,
+                  NULL
+              );
+
+              if (pSampleData == NULL || wavChannels == 0 || totalFrameCount == 0) {
+                if (pSampleData != NULL) {
+                  drwav_free(pSampleData, NULL);
+                }
+                this->loading = false;
+                this->loaded = false;
+                return false;
+              }
+
+              this->channels = wavChannels;
+              this->sample_rate = wavSampleRate;
+              sample_audio_buffer.clear();
+              sample_audio_buffer.left_buffer.reserve((size_t)totalFrameCount);
+              sample_audio_buffer.right_buffer.reserve((size_t)totalFrameCount);
+
+              for (drwav_uint64 i = 0; i < totalFrameCount; i++) {
+                const size_t frame = (size_t)(i * wavChannels);
+                const float left = pSampleData[frame];
+                const float right = (wavChannels >= 2)
+                    ? pSampleData[frame + 1]
+                    : left;
+                sample_audio_buffer.push_back(left, right);
+              }
+
+              drwav_free(pSampleData, NULL);
+
+              this->sample_length = sample_audio_buffer.size();
+              this->filename = system::getFilename(path);
+              this->display_name = filename;
+              if (this->display_name.length() > 4) {
+                this->display_name.erase(this->display_name.length() - 4);
+              }
+              this->path = path;
+              this->loading = false;
+              this->loaded = true;
+              return true;
+            }
+
+          ''').lstrip("\n")
+          sample = sample[:mp3_method_pos] + wav_method + sample[mp3_method_pos:]
+          sample_path.write_text(sample, encoding="utf-8")
+
+          plugin_path = vox / "src/plugin.cpp"
+          plugin = plugin_path.read_text(encoding="utf-8")
+          plugin_anchor = (
+              '#define DR_MP3_IMPLEMENTATION\n'
+              '#include "vgLib-2.0/dr_mp3.h"\n'
+              '#include "plugin.hpp"\n'
+          )
+          if plugin.count(plugin_anchor) != 1:
+              raise RuntimeError("Unexpected isolated SamplerX8 plugin.cpp decoder anchor")
+          plugin_new = (
+              '#define DR_MP3_IMPLEMENTATION\n'
+              '#include "vgLib-2.0/dr_mp3.h"\n'
+              '#define DR_WAV_IMPLEMENTATION\n'
+              '#include "vgLib-2.0/dr_wav.h"\n'
+              '#include "plugin.hpp"\n'
+          )
+          plugin = plugin.replace(plugin_anchor, plugin_new, 1)
+          plugin_path.write_text(plugin, encoding="utf-8")
+
+          # The actual module output wiring must still be separate L/R.
+          sx8 = (vox / "src/modules/SamplerX8/SamplerX8.hpp").read_text(encoding="utf-8")
+          for marker in [
+              "sample_players[i].getStereoOutput(&left_audio, &right_audio, interpolation);",
+              "outputs[AUDIO_LEFT_OUTPUTS + i].setVoltage(left_audio);",
+              "outputs[AUDIO_RIGHT_OUTPUTS + i].setVoltage(right_audio);",
+              "outputs[AUDIO_MIX_OUTPUT_LEFT].setVoltage(summed_output_left);",
+              "outputs[AUDIO_MIX_OUTPUT_RIGHT].setVoltage(summed_output_right);",
+          ]:
+              if marker not in sx8:
+                  raise RuntimeError(f"SamplerX8 stereo output path changed unexpectedly: {marker!r}")
+
+          patched = sample_path.read_text(encoding="utf-8")
+          for marker in [
+              '#include "dr_wav.h"',
+              "return loadWAV(path);",
+              "const float left = pSampleData[frame];",
+              "? pSampleData[frame + 1]",
+              ": left;",
+          ]:
+              if marker not in patched:
+                  raise RuntimeError(f"SamplerX8 strict-stereo patch missing marker: {marker!r}")
+
+          print("SamplerX8 WAV decoder maps source channel 0 -> L and channel 1 -> R explicitly.")
+          print("Identity/params/ports/playback-output layout remain unchanged.")
+          PY
+
+      - name: Build true-stereo SamplerX8
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew assembleSideloadRelease \
+            -PdevKeystore \
+            -PtargetAbis=arm64-v8a \
+            -PsamplerX8Plugin \
+            --no-daemon
+
+      - name: Replay canonical SamplerX8 thumbnail, package, and validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+          import subprocess
+          import yaml
+
+          wf = yaml.safe_load(
+              Path(".github/workflows/build-samplerx8-rdmod.yml").read_text(encoding="utf-8")
+          )
+          steps = wf["jobs"]["build-samplerx8-arm64"]["steps"]
+
+          def run_named(name):
+              matches = [s for s in steps if s.get("name") == name]
+              if len(matches) != 1 or "run" not in matches[0]:
+                  raise RuntimeError(f"Expected one shell step named {name!r}")
+              script = "set -euo pipefail\n" + matches[0]["run"]
+              print(f"=== Replaying canonical step: {name} ===", flush=True)
+              subprocess.run(["bash", "-c", script], check=True, env=os.environ.copy())
+
+          run_named("Render lightweight SamplerX8 browser thumbnail")
+          run_named("Package Voxglitch SamplerX8 RDMod")
+          run_named("Validate RDMod contract")
+          PY
+
+          SRC="samplerx8-rdmod/Voxglitch-SamplerX8-2.41.1-arm64.rdmod"
+          DST="true-stereo-output/Voxglitch-SamplerX8-2.41.1-True-Stereo-arm64.rdmod"
+          test -s "${SRC}"
+          mv "${SRC}" "${DST}"
+
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path("samplerx8-rdmod/BUILD-INFO.txt")
+          text = p.read_text(encoding="utf-8")
+          old = "Module DSP/params/ports: stock upstream"
+          if old not in text:
+              raise RuntimeError("Expected canonical SamplerX8 BUILD-INFO marker not found")
+          text = text.replace(
+              old,
+              "Module params/ports: stock upstream\n"
+              "WAV decoder: dr_wav strict channel-preserving path\n"
+              "Stereo mapping: source ch0 -> L; source ch1 -> R; "
+              "mono duplicates only for true 1ch files"
+          )
+          p.write_text(text, encoding="utf-8")
+          PY
+
+          (
+            cd true-stereo-output
+            sha256sum \
+              JW-Modules-Grains-True-Stereo-arm64.rdmod \
+              Voxglitch-SamplerX8-2.41.1-True-Stereo-arm64.rdmod \
+              Grains-true-stereo.patch \
+              > TRUE-STEREO-SHA256.txt
+          )
+
+      - name: Final isolation and identity checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s true-stereo-output/JW-Modules-Grains-True-Stereo-arm64.rdmod
+          test -s true-stereo-output/Voxglitch-SamplerX8-2.41.1-True-Stereo-arm64.rdmod
+          test -s true-stereo-output/TRUE-STEREO-SHA256.txt
+          test -s samplerx8-rdmod/Voxglitch-SamplerX8-2.41.1-source.zip
+          test -s samplerx8-rdmod/BUILD-INFO.txt
+
+          # No host/audio implementation is changed by either sampler test.
+          git diff --quiet -- native/port/audio_oboe.cpp
+          git diff --quiet -- third_party/Rack/src/core/Audio.cpp
+          git diff --quiet -- app/src
+
+          # SamplerX8's canonical CI preparation intentionally edits these two
+          # tracked build files in the runner; Grains is the only tracked DSP
+          # source changed.
+          TRACKED="$(git diff --name-only | sort)"
+          EXPECTED="$(printf '%s\n' \
+            app/build.gradle.kts \
+            native/CMakeLists.txt \
+            third_party/JW-Modules/src/Grains.cpp \
+            | sort)"
+          test "${TRACKED}" = "${EXPECTED}"
+
+          echo "True-stereo sampler RDMod build isolation passed."
+
+      - name: Upload true-stereo sampler RDMods
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: RackDroid-true-stereo-samplers-${{ github.sha }}
+          path: |
+            true-stereo-output/JW-Modules-Grains-True-Stereo-arm64.rdmod
+            true-stereo-output/Voxglitch-SamplerX8-2.41.1-True-Stereo-arm64.rdmod
+            true-stereo-output/Grains-true-stereo.patch
+            true-stereo-output/TRUE-STEREO-SHA256.txt
+            samplerx8-rdmod/Voxglitch-SamplerX8-2.41.1-source.zip
+            samplerx8-rdmod/BUILD-INFO.txt
+          if-no-files-found: error
+          compression-level: 0
