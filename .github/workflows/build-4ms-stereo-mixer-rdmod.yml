@@ -201,7 +201,7 @@ jobs:
                   configOutput(RIGHT_OUTPUT, "Right");
               }
 
-              static float orLast(const Input& input, int channel) {
+              static float orLast(Input& input, int channel) {
                   const int channels = input.getChannels();
                   if (channels <= 0)
                       return 0.f;
@@ -238,8 +238,8 @@ jobs:
                               rightLevel = level * (2.f * pan);
                           }
 
-                          const Input& leftIn = inputs[CH1_LEFT_INPUT + 2 * i];
-                          const Input& rightIn = inputs[CH1_RIGHT_INPUT + 2 * i];
+                          Input& leftIn = inputs[CH1_LEFT_INPUT + 2 * i];
+                          Input& rightIn = inputs[CH1_RIGHT_INPUT + 2 * i];
                           const float leftVal = orLast(leftIn, v);
                           const float rightVal = rightIn.isConnected()
                               ? orLast(rightIn, v)
