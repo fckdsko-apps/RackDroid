@@ -1,0 +1,503 @@
+name: Build 4ms Stereo Mixer RDMod
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-file-picker
+    paths:
+      - ".github/workflows/build-4ms-stereo-mixer-rdmod.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-stmix-arm64:
+    name: Build 4ms Stereo Mixer arm64 RDMod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out current RackDroid branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact RackDroid baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASELINE="3089f6d64b424a1e3cff4b7b80b96eb6b85c53ee"
+          test "${GITHUB_REF_NAME}" = "android-file-picker"
+          git merge-base --is-ancestor "${BASELINE}" HEAD
+          test "$(git hash-object app/build.gradle.kts)" = \
+            "b9ea4155fb00212f74226876fe0b4358eedbedd1"
+          test "$(git hash-object native/CMakeLists.txt)" = \
+            "e5e0cb102b0e313479642c51ccbee868ea416f41"
+
+      - name: Set up Java 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Install thumbnail helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends librsvg2-bin
+          python3 -m pip install --disable-pip-version-check --no-cache-dir "Pillow==11.3.0"
+
+      - name: Fetch pinned 4ms source and verify Stereo Mixer references
+        shell: bash
+        run: |
+          set -euo pipefail
+          FOURMS_SHA="3dbe7ce49bc99b320415564d2904f3ec4ec703f3"
+          CORE_SHA="9ad0e1bf26373004cd6ba110b0c1d0b4ece30fab"
+
+          rm -rf third_party/4ms-stmix "${RUNNER_TEMP}/4ms-core-reference"
+          mkdir -p third_party/4ms-stmix "${RUNNER_TEMP}/4ms-core-reference"
+
+          curl --fail --location --retry 3 \
+            "https://github.com/4ms/4ms-vcv/archive/${FOURMS_SHA}.tar.gz" \
+            -o "${RUNNER_TEMP}/4ms-vcv.tar.gz"
+          tar -xzf "${RUNNER_TEMP}/4ms-vcv.tar.gz" -C "${RUNNER_TEMP}"
+          cp -a "${RUNNER_TEMP}/4ms-vcv-${FOURMS_SHA}/." third_party/4ms-stmix/
+
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/4ms/metamodule-core-modules/${CORE_SHA}/4ms/info/StMix_info.hh" \
+            -o "${RUNNER_TEMP}/4ms-core-reference/StMix_info.hh"
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/4ms/metamodule-core-modules/${CORE_SHA}/4ms/core/StMixCore.cc" \
+            -o "${RUNNER_TEMP}/4ms-core-reference/StMixCore.cc"
+
+          # Fail immediately if any pinned source/resource is not the exact
+          # revision this port was audited against.
+          test "$(git hash-object "${RUNNER_TEMP}/4ms-core-reference/StMix_info.hh")" = \
+            "8ab97da4959dec2815878908c25003248c6aac16"
+          test "$(git hash-object "${RUNNER_TEMP}/4ms-core-reference/StMixCore.cc")" = \
+            "3e96d96a8ecb4fc7cb49b139e6e79b592c19ffc2"
+          test "$(git hash-object third_party/4ms-stmix/res/modules/StMix_artwork.svg)" = \
+            "75ea8dcd12915c8799a46a7e3924823a34c43a75"
+          test "$(git hash-object third_party/4ms-stmix/res/components/Davies1900hBlack.svg)" = \
+            "459f596d5ecda7fa7727654b07eec6c23f282b26"
+          test "$(git hash-object third_party/4ms-stmix/LICENSE.md)" = \
+            "281c17f22ad5511440d40e16e7ece4bae53000a1"
+
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+
+          p = Path("third_party/4ms-stmix/plugin.json")
+          manifest = json.loads(p.read_text(encoding="utf-8"))
+          assert manifest["slug"] == "4msCompany", manifest["slug"]
+          assert manifest["version"] == "2.2.1", manifest["version"]
+          matches = [m for m in manifest["modules"] if m.get("slug") == "StMix"]
+          assert len(matches) == 1, len(matches)
+          manifest["modules"] = matches
+          p.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          print("Pinned upstream identity: 4msCompany / StMix / 2.2.1")
+          PY
+
+          grep -Fq 'static constexpr std::string_view slug{"StMix"};' \
+            "${RUNNER_TEMP}/4ms-core-reference/StMix_info.hh"
+          grep -Fq 'static constexpr uint32_t width_hp = 18;' \
+            "${RUNNER_TEMP}/4ms-core-reference/StMix_info.hh"
+          grep -Fq 'float level[4]{1.f, 1.f, 1.f, 1.f};' \
+            "${RUNNER_TEMP}/4ms-core-reference/StMixCore.cc"
+          grep -Fq 'float pan[4]{0.5f, 0.5f, 0.5f, 0.5f};' \
+            "${RUNNER_TEMP}/4ms-core-reference/StMixCore.cc"
+          grep -Fq 'float rightVal = rightIn.is_patched() ? rightIn.or_last(v) : leftVal;' \
+            "${RUNNER_TEMP}/4ms-core-reference/StMixCore.cc"
+
+      - name: Create minimal faithful Rack port of StMix
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > third_party/4ms-stmix/src/plugin.cpp <<'CPP'
+          #include <rack.hpp>
+
+          using namespace rack;
+
+          Plugin* pluginInstance;
+          extern Model* modelStMix;
+
+          void init(Plugin* p) {
+              pluginInstance = p;
+              p->addModel(modelStMix);
+          }
+          CPP
+
+          cat > third_party/4ms-stmix/src/StMix.cpp <<'CPP'
+          #include <rack.hpp>
+          #include <algorithm>
+
+          using namespace rack;
+          using namespace rack::componentlibrary;
+
+          extern Plugin* pluginInstance;
+
+          struct FourMsDavies1900hBlack : Davies1900hKnob {
+              FourMsDavies1900hBlack() {
+                  setSvg(APP->window->loadSvg(asset::plugin(
+                      pluginInstance, "res/components/Davies1900hBlack.svg")));
+              }
+          };
+
+          struct StMix : Module {
+              enum ParamIds {
+                  CH1_LEVEL_PARAM,
+                  CH2_LEVEL_PARAM,
+                  CH3_LEVEL_PARAM,
+                  CH4_LEVEL_PARAM,
+                  CH1_PAN_PARAM,
+                  CH2_PAN_PARAM,
+                  CH3_PAN_PARAM,
+                  CH4_PAN_PARAM,
+                  NUM_PARAMS
+              };
+              enum InputIds {
+                  CH1_LEFT_INPUT,
+                  CH1_RIGHT_INPUT,
+                  CH2_LEFT_INPUT,
+                  CH2_RIGHT_INPUT,
+                  CH3_LEFT_INPUT,
+                  CH3_RIGHT_INPUT,
+                  CH4_LEFT_INPUT,
+                  CH4_RIGHT_INPUT,
+                  NUM_INPUTS
+              };
+              enum OutputIds {
+                  LEFT_OUTPUT,
+                  RIGHT_OUTPUT,
+                  NUM_OUTPUTS
+              };
+              enum LightIds {
+                  NUM_LIGHTS
+              };
+
+              StMix() {
+                  config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
+
+                  for (int i = 0; i < 4; ++i) {
+                      configParam(
+                          CH1_LEVEL_PARAM + i, 0.f, 1.f, 0.875f,
+                          string::f("Ch. %d Level", i + 1));
+                      configParam(
+                          CH1_PAN_PARAM + i, 0.f, 1.f, 0.5f,
+                          string::f("Ch. %d Pan", i + 1));
+                      configInput(
+                          CH1_LEFT_INPUT + 2 * i,
+                          string::f("Ch. %d Left", i + 1));
+                      configInput(
+                          CH1_RIGHT_INPUT + 2 * i,
+                          string::f("Ch. %d Right", i + 1));
+                  }
+                  configOutput(LEFT_OUTPUT, "Left");
+                  configOutput(RIGHT_OUTPUT, "Right");
+              }
+
+              static float orLast(const Input& input, int channel) {
+                  const int channels = input.getChannels();
+                  if (channels <= 0)
+                      return 0.f;
+                  return input.getVoltage(std::min(channel, channels - 1));
+              }
+
+              void process(const ProcessArgs& args) override {
+                  (void) args;
+
+                  int voices = 1;
+                  for (int i = 0; i < NUM_INPUTS; ++i)
+                      voices = std::max(voices, inputs[i].getChannels());
+                  voices = std::min(voices, PORT_MAX_CHANNELS);
+
+                  outputs[LEFT_OUTPUT].setChannels(voices);
+                  outputs[RIGHT_OUTPUT].setChannels(voices);
+
+                  for (int v = 0; v < voices; ++v) {
+                      float mixedLeft = 0.f;
+                      float mixedRight = 0.f;
+
+                      for (int i = 0; i < 4; ++i) {
+                          const float level = params[CH1_LEVEL_PARAM + i].getValue();
+                          const float pan = params[CH1_PAN_PARAM + i].getValue();
+
+                          float leftLevel;
+                          float rightLevel;
+                          if (pan >= 0.5f) {
+                              leftLevel = level * (2.f - 2.f * pan);
+                              rightLevel = level;
+                          }
+                          else {
+                              leftLevel = level;
+                              rightLevel = level * (2.f * pan);
+                          }
+
+                          const Input& leftIn = inputs[CH1_LEFT_INPUT + 2 * i];
+                          const Input& rightIn = inputs[CH1_RIGHT_INPUT + 2 * i];
+                          const float leftVal = orLast(leftIn, v);
+                          const float rightVal = rightIn.isConnected()
+                              ? orLast(rightIn, v)
+                              : leftVal;
+
+                          mixedLeft += leftVal * leftLevel;
+                          mixedRight += rightVal * rightLevel;
+                      }
+
+                      outputs[LEFT_OUTPUT].setVoltage(mixedLeft, v);
+                      outputs[RIGHT_OUTPUT].setVoltage(mixedRight, v);
+                  }
+              }
+          };
+
+          struct StMixWidget : app::ModuleWidget {
+              static Vec p72(float x, float y) {
+                  // Upstream StMix_info.hh coordinates are authored at 72 DPI.
+                  // Rack's panel coordinate system is 75 DPI.
+                  return Vec(x * (75.f / 72.f), y * (75.f / 72.f));
+              }
+
+              StMixWidget(StMix* module) {
+                  setModule(module);
+                  setPanel(createPanel(
+                      asset::plugin(pluginInstance, "res/modules/StMix_artwork.svg")));
+
+                  addChild(createWidget<ScrewBlack>(Vec(RACK_GRID_WIDTH, 0)));
+                  addChild(createWidget<ScrewBlack>(
+                      Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+                  addChild(createWidget<ScrewBlack>(
+                      Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
+                  addChild(createWidget<ScrewBlack>(
+                      Vec(box.size.x - 2 * RACK_GRID_WIDTH,
+                          RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+
+                  const float levelX[4] = {35.16f, 98.12f, 161.08f, 224.04f};
+                  const float panX[4] = {35.16f, 98.12f, 160.97f, 224.04f};
+                  const float panY[4] = {150.39f, 150.17f, 150.34f, 150.17f};
+                  const float inputX[4] = {34.78f, 97.81f, 160.85f, 223.88f};
+
+                  for (int i = 0; i < 4; ++i) {
+                      addParam(createParamCentered<FourMsDavies1900hBlack>(
+                          p72(levelX[i], 58.02f), module, StMix::CH1_LEVEL_PARAM + i));
+                      addParam(createParamCentered<FourMsDavies1900hBlack>(
+                          p72(panX[i], panY[i]), module, StMix::CH1_PAN_PARAM + i));
+                      addInput(createInputCentered<PJ301MPort>(
+                          p72(inputX[i], 222.7f), module, StMix::CH1_LEFT_INPUT + 2 * i));
+                      addInput(createInputCentered<PJ301MPort>(
+                          p72(inputX[i], 271.8f), module, StMix::CH1_RIGHT_INPUT + 2 * i));
+                  }
+
+                  addOutput(createOutputCentered<PJ301MPort>(
+                      p72(138.33f, 322.18f), module, StMix::LEFT_OUTPUT));
+                  addOutput(createOutputCentered<PJ301MPort>(
+                      p72(206.36f, 322.18f), module, StMix::RIGHT_OUTPUT));
+              }
+          };
+
+          Model* modelStMix = createModel<StMix, StMixWidget>("StMix");
+          CPP
+
+          # Keep only resources actually used by this one model.
+          find third_party/4ms-stmix/res/modules -type f \
+            ! -name 'StMix_artwork.svg' -delete
+          find third_party/4ms-stmix/res/components -type f \
+            ! -name 'Davies1900hBlack.svg' -delete
+
+          grep -Fq 'mixedLeft += leftVal * leftLevel;' third_party/4ms-stmix/src/StMix.cpp
+          grep -Fq 'mixedRight += rightVal * rightLevel;' third_party/4ms-stmix/src/StMix.cpp
+          grep -Fq '? orLast(rightIn, v)' third_party/4ms-stmix/src/StMix.cpp
+          grep -Fq ': leftVal;' third_party/4ms-stmix/src/StMix.cpp
+          grep -Fq 'CH1_LEVEL_PARAM + i, 0.f, 1.f, 0.875f' third_party/4ms-stmix/src/StMix.cpp
+          grep -Fq 'CH1_PAN_PARAM + i, 0.f, 1.f, 0.5f' third_party/4ms-stmix/src/StMix.cpp
+
+      - name: Add isolated native target in CI workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          cmake_path = Path("native/CMakeLists.txt")
+          cmake = cmake_path.read_text(encoding="utf-8")
+          anchor = "\t# Frozen Wasteland (49 modules): code GPLv3, but everything under res/\n"
+          if cmake.count(anchor) != 1:
+              raise RuntimeError("Could not find unique CMake insertion anchor")
+          block = r'''\t# 4ms Stereo Mixer: isolated Rack-native port of pinned StMix DSP/UI.
+          \tset(FOURMS_STMIX_DIR ${THIRD_PARTY}/4ms-stmix)
+          \tadd_library(plugin_4ms_stmix SHARED
+          \t\t${FOURMS_STMIX_DIR}/src/plugin.cpp
+          \t\t${FOURMS_STMIX_DIR}/src/StMix.cpp)
+          \ttarget_link_libraries(plugin_4ms_stmix PUBLIC rack_engine)
+          \ttarget_compile_options(plugin_4ms_stmix PRIVATE
+          \t\t-I${FOURMS_STMIX_DIR}/src -O3 -funsafe-math-optimizations -w)
+          
+          '''.replace('\\t', '\t')
+          cmake_path.write_text(cmake.replace(anchor, block + anchor, 1), encoding="utf-8")
+
+          gradle_path = Path("app/build.gradle.kts")
+          gradle = gradle_path.read_text(encoding="utf-8")
+
+          old_targets = '''\t\t\t\ttargets += if (project.hasProperty("allPlugins"))
+          \t\t\t\t\tbaseTargets + optionalTargets
+          \t\t\t\telse
+          \t\t\t\t\tbaseTargets
+          '''.replace('\\t', '\t')
+          new_targets = '''\t\t\t\ttargets += when {
+          \t\t\t\t\tproject.hasProperty("fourMsStMixPlugin") ->
+          \t\t\t\t\t\tbaseTargets + listOf("plugin_4ms_stmix")
+          \t\t\t\t\tproject.hasProperty("allPlugins") ->
+          \t\t\t\t\t\tbaseTargets + optionalTargets
+          \t\t\t\t\telse -> baseTargets
+          \t\t\t\t}
+          '''.replace('\\t', '\t')
+          if gradle.count(old_targets) != 1:
+              raise RuntimeError("Could not find exact Gradle target-selection block")
+          gradle = gradle.replace(old_targets, new_targets, 1)
+
+          exclude_anchor = '\t\t\t\t"**/libplugin_ml.so",\n'
+          if gradle.count(exclude_anchor) != 1:
+              raise RuntimeError("Could not find unique Gradle JNI exclude anchor")
+          gradle = gradle.replace(
+              exclude_anchor,
+              exclude_anchor + '\t\t\t\t"**/libplugin_4ms_stmix.so",\n',
+              1,
+          )
+          gradle_path.write_text(gradle, encoding="utf-8")
+          PY
+
+          git diff --check -- native/CMakeLists.txt app/build.gradle.kts
+          grep -Fq 'add_library(plugin_4ms_stmix SHARED' native/CMakeLists.txt
+          grep -Fq 'project.hasProperty("fourMsStMixPlugin")' app/build.gradle.kts
+          grep -Fq '"**/libplugin_4ms_stmix.so",' app/build.gradle.kts
+
+      - name: Build only 4ms Stereo Mixer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew assembleSideloadRelease \
+            -PdevKeystore \
+            -PtargetAbis=arm64-v8a \
+            -PfourMsStMixPlugin \
+            --no-daemon
+
+      - name: Package and validate one installable RDMod
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SO_DIR="$(ls -dt app/build/intermediates/cxx/RelWithDebInfo/*/obj/arm64-v8a 2>/dev/null | head -1 || true)"
+          test -n "${SO_DIR}"
+          test -s "${SO_DIR}/libplugin_4ms_stmix.so"
+
+          STRIP="$(ls "${ANDROID_HOME}"/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip 2>/dev/null | sort -V | tail -1 || true)"
+          test -x "${STRIP}"
+
+          PACK="${RUNNER_TEMP}/4ms-stmix-pack"
+          CHECK="${RUNNER_TEMP}/4ms-stmix-check"
+          OUT_DIR="${GITHUB_WORKSPACE}/4ms-output"
+          OUT="${OUT_DIR}/4ms-Stereo-Mixer-2.2.1-arm64.rdmod"
+          rm -rf "${PACK}" "${CHECK}" "${OUT_DIR}"
+          mkdir -p \
+            "${PACK}/res/modules" \
+            "${PACK}/res/components" \
+            "${PACK}/thumbs" \
+            "${CHECK}" \
+            "${OUT_DIR}"
+
+          "${STRIP}" --strip-unneeded \
+            -o "${PACK}/libplugin_4ms_stmix.so" \
+            "${SO_DIR}/libplugin_4ms_stmix.so"
+
+          cp third_party/4ms-stmix/plugin.json "${PACK}/plugin.json"
+          cp third_party/4ms-stmix/res/modules/StMix_artwork.svg \
+            "${PACK}/res/modules/StMix_artwork.svg"
+          cp third_party/4ms-stmix/res/components/Davies1900hBlack.svg \
+            "${PACK}/res/components/Davies1900hBlack.svg"
+          cp third_party/4ms-stmix/LICENSE.md "${PACK}/LICENSE.md"
+          cp third_party/4ms-stmix/LICENSE-GPL-v3.txt "${PACK}/LICENSE-GPL-v3.txt"
+
+          rsvg-convert \
+            third_party/4ms-stmix/res/modules/StMix_artwork.svg \
+            -o "${RUNNER_TEMP}/StMix.png"
+          RUNNER_TEMP="${RUNNER_TEMP}" python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import os
+
+          root = Path(os.environ["RUNNER_TEMP"])
+          with Image.open(root / "StMix.png") as src:
+              src.convert("RGBA").save(root / "StMix.webp", "WEBP", quality=90, method=6)
+          PY
+          cp "${RUNNER_TEMP}/StMix.webp" "${PACK}/thumbs/StMix.webp"
+
+          (cd "${PACK}" && zip -q -r -9 "${OUT}" .)
+          unzip -t "${OUT}" >/dev/null
+          unzip -q "${OUT}" -d "${CHECK}"
+
+          CHECK="${CHECK}" python3 <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json
+          import os
+          import subprocess
+
+          root = Path(os.environ["CHECK"])
+          manifest = json.loads((root / "plugin.json").read_text(encoding="utf-8"))
+
+          assert manifest["slug"] == "4msCompany", manifest["slug"]
+          assert manifest["version"] == "2.2.1", manifest["version"]
+          assert [m["slug"] for m in manifest["modules"]] == ["StMix"], manifest["modules"]
+
+          root_sos = sorted(p.name for p in root.glob("*.so"))
+          assert root_sos == ["libplugin_4ms_stmix.so"], root_sos
+          nested_sos = [
+              str(p.relative_to(root))
+              for p in root.rglob("*.so")
+              if p.parent != root
+          ]
+          assert not nested_sos, nested_sos
+
+          required = [
+              "res/modules/StMix_artwork.svg",
+              "res/components/Davies1900hBlack.svg",
+              "thumbs/StMix.webp",
+              "LICENSE.md",
+              "LICENSE-GPL-v3.txt",
+          ]
+          for rel in required:
+              assert (root / rel).is_file(), rel
+
+          extra_panels = [
+              p.name for p in (root / "res/modules").glob("*")
+              if p.name != "StMix_artwork.svg"
+          ]
+          assert not extra_panels, extra_panels
+
+          with Image.open(root / "thumbs/StMix.webp") as im:
+              assert im.format == "WEBP", im.format
+              assert im.width > 0 and im.height > 0, im.size
+
+          hdr = subprocess.check_output(
+              ["readelf", "-h", str(root / "libplugin_4ms_stmix.so")],
+              text=True,
+          )
+          assert "AArch64" in hdr, hdr
+          print("4ms Stereo Mixer RDMod contract passed.")
+          PY
+
+          # The Actions artifact intentionally contains ONLY the installable RDMod.
+          test "$(find "${OUT_DIR}" -maxdepth 1 -type f | wc -l)" -eq 1
+          test -s "${OUT}"
+
+      - name: Upload only the installable RDMod
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: 4ms-Stereo-Mixer-${{ github.sha }}
+          path: 4ms-output/4ms-Stereo-Mixer-2.2.1-arm64.rdmod
+          if-no-files-found: error
+          compression-level: 0
