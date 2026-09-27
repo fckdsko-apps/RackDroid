@@ -39,6 +39,9 @@ void nativeBrowserShow();
 /** Hand a saved .vcv to Java for the system share sheet. */
 void nativeSharePatch(const std::string& path);
 
+/** Ask Java to export old private .mid/.midi files to a user-selected folder. */
+void nativeRecoverMidi();
+
 /** Open the Java help UI: 0 = guide sheet, 1 = step-by-step wizard. */
 void nativeShowHelp(int which);
 
