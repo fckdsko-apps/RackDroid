@@ -25,6 +25,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
+import android.os.FileObserver
 import android.os.Looper
 import android.os.ParcelUuid
 import android.provider.OpenableColumns
@@ -1243,9 +1244,60 @@ class MainActivity : NativeActivity() {
 		}
 	}
 
+	/** Plugins expect osdialog SAVE to return a normal filesystem path, while
+	 * Android's document picker returns a content:// URI. For MIDI export, give
+	 * the plugin a private staging file and watch for its CLOSE_WRITE. Once the
+	 * plugin closes the finished file, publish those exact bytes to the document
+	 * the user chose in ACTION_CREATE_DOCUMENT. The staging file is deleted only
+	 * after a successful publish, so an export-provider failure never destroys
+	 * the plugin's output. */
+	private fun watchPluginSave(staging: File, uri: Uri, displayName: String) {
+		val finished = java.util.concurrent.atomic.AtomicBoolean(false)
+		lateinit var observer: FileObserver
+		observer = object : FileObserver(staging.parentFile!!, CLOSE_WRITE) {
+			override fun onEvent(event: Int, path: String?) {
+				if (path != staging.name || !finished.compareAndSet(false, true))
+					return
+				stopWatching()
+				synchronized(activePluginSaveObservers) {
+					activePluginSaveObservers.remove(observer)
+				}
+				Thread {
+					try {
+						if (!staging.isFile || staging.length() <= 0L)
+							throw IllegalStateException("plugin produced an empty file")
+						val output = contentResolver.openOutputStream(uri, "wt")
+							?: throw IllegalStateException("cannot open selected destination")
+						staging.inputStream().use { input ->
+							output.use { input.copyTo(it) }
+						}
+						if (!staging.delete())
+							staging.deleteOnExit()
+					} catch (e: Exception) {
+						uiHandler.post {
+							Toast.makeText(
+								this@MainActivity,
+								"Couldn't export $displayName. An internal copy was kept.",
+								Toast.LENGTH_LONG
+							).show()
+						}
+					}
+				}.start()
+			}
+		}
+		synchronized(activePluginSaveObservers) {
+			activePluginSaveObservers.add(observer)
+		}
+		observer.startWatching()
+	}
+
 	private val REQ_PICK_RDMOD = 4711
 	private val REQ_PICK_OSDIALOG_FILE = 4712
+	private val REQ_SAVE_OSDIALOG_FILE = 4713
 	@Volatile private var pendingOsdialogExtensions: Set<String> = emptySet()
+	@Volatile private var pendingOsdialogSaveExtensions: Set<String> = emptySet()
+	@Volatile private var pendingOsdialogSaveFilename: String = ""
+	private val activePluginSaveObservers = mutableSetOf<FileObserver>()
 	private var moduleManagerDialog: AlertDialog? = null
 
 	/** 📥 toolbar button: the module manager. Lists every installed .rdmod pack
@@ -1516,6 +1568,38 @@ class MainActivity : NativeActivity() {
 	@Deprecated("Deprecated in Java")
 	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
 		super.onActivityResult(requestCode, resultCode, data)
+
+		if (requestCode == REQ_SAVE_OSDIALOG_FILE) {
+			val allowed = pendingOsdialogSaveExtensions
+			val requestedName = pendingOsdialogSaveFilename
+			pendingOsdialogSaveExtensions = emptySet()
+			pendingOsdialogSaveFilename = ""
+			val uri = if (resultCode == RESULT_OK) data?.data else null
+			if (uri == null) {
+				nativeDialogString(null)
+				return
+			}
+			Thread {
+				try {
+					val display = queryDisplayName(uri) ?: requestedName.ifEmpty {
+						if (allowed.isEmpty()) "file" else "file.${allowed.first()}"
+					}
+					val safeName = safeDocumentName(display, allowed)
+					val dir = File(filesDir, "user/exports").apply { mkdirs() }
+					val staging = uniqueDestination(dir, safeName)
+					if (!staging.createNewFile())
+						throw IllegalStateException("cannot create export staging file")
+					watchPluginSave(staging, uri, safeName)
+					nativeDialogString(staging.absolutePath)
+				} catch (e: Exception) {
+					uiHandler.post {
+						Toast.makeText(this, "Couldn't prepare save: ${e.message ?: "unknown error"}", Toast.LENGTH_LONG).show()
+					}
+					nativeDialogString(null)
+				}
+			}.start()
+			return
+		}
 
 		if (requestCode == REQ_PICK_OSDIALOG_FILE) {
 			val allowed = pendingOsdialogExtensions
@@ -1883,8 +1967,35 @@ class MainActivity : NativeActivity() {
 			.filter { it.isNotEmpty() }
 			.toSet()
 
-		// OSDIALOG_SAVE = 2. Preserve RackDroid's existing private-file save
-		// behavior, but use the requested extension instead of forcing .vcv.
+		// OSDIALOG_SAVE = 2. MIDI export needs a user-visible destination, not
+		// RackDroid's private sandbox. Use Android's normal Save As picker for
+		// .mid/.midi and bridge the chosen content URI through a watched staging
+		// file. Leave every other plugin's existing save behavior unchanged.
+		if (action == 2 && extensions.isNotEmpty() && extensions.all { it == "mid" || it == "midi" }) {
+			pendingOsdialogSaveExtensions = extensions
+			pendingOsdialogSaveFilename = filename
+			uiHandler.post {
+				val preferredExt = if ("mid" in extensions) ".mid" else ".midi"
+				var title = filename.trim().ifEmpty { "Untitled$preferredExt" }
+				if (extensions.none { title.endsWith(".$it", ignoreCase = true) })
+					title += preferredExt
+				val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+					addCategory(Intent.CATEGORY_OPENABLE)
+					type = "audio/*"
+					putExtra(Intent.EXTRA_TITLE, title)
+				}
+				try {
+					startActivityForResult(intent, REQ_SAVE_OSDIALOG_FILE)
+				} catch (t: Throwable) {
+					pendingOsdialogSaveExtensions = emptySet()
+					pendingOsdialogSaveFilename = ""
+					nativeDialogString(null)
+				}
+			}
+			return
+		}
+
+		// Other plugin SAVE requests retain the existing private-file behavior.
 		if (action == 2) {
 			uiHandler.post {
 				val preferredExt = extensions.firstOrNull()?.let { ".$it" } ?: ""
