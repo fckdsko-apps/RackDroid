@@ -46,6 +46,7 @@ static jmethodID midMenuShow;
 static jmethodID midMenuDismiss;
 static jmethodID midBrowserShow;
 static jmethodID midSharePatch;
+static jmethodID midRecoverMidi;
 static jmethodID midShowHelp;
 static jmethodID midLoadUserPlugins;
 static jmethodID midPatchReady;
@@ -143,6 +144,7 @@ void jniInit(ANativeActivity* activity) {
 	midMenuDismiss = env->GetMethodID(activityCls, "dismissNativeMenu", "()V");
 	midBrowserShow = env->GetMethodID(activityCls, "showNativeBrowser", "()V");
 	midSharePatch = env->GetMethodID(activityCls, "sharePatchFromNative", "(Ljava/lang/String;)V");
+	midRecoverMidi = env->GetMethodID(activityCls, "recoverMidiFromNative", "()V");
 	midShowHelp = env->GetMethodID(activityCls, "showHelpFromNative", "(I)V");
 	midLoadUserPlugins = env->GetMethodID(activityCls, "loadUserPluginsFromNative", "()V");
 	midPatchReady = env->GetMethodID(activityCls, "patchReadyFromNative", "()V");
@@ -241,6 +243,16 @@ void nativeSharePatch(const std::string& path) {
 	env->CallVoidMethod(activityObj, midSharePatch, js);
 	if (js)
 		env->DeleteLocalRef(js);
+	if (env->ExceptionCheck())
+		env->ExceptionClear();
+}
+
+
+void nativeRecoverMidi() {
+	JNIEnv* env = getEnv();
+	if (!env || !midRecoverMidi)
+		return;
+	env->CallVoidMethod(activityObj, midRecoverMidi);
 	if (env->ExceptionCheck())
 		env->ExceptionClear();
 }
