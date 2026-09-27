@@ -28,6 +28,7 @@ import android.os.Handler
 import android.os.FileObserver
 import android.os.Looper
 import android.os.ParcelUuid
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.text.InputType
 import android.view.Gravity
@@ -1294,9 +1295,11 @@ class MainActivity : NativeActivity() {
 	private val REQ_PICK_RDMOD = 4711
 	private val REQ_PICK_OSDIALOG_FILE = 4712
 	private val REQ_SAVE_OSDIALOG_FILE = 4713
+	private val REQ_RECOVER_MIDI_DIR = 4714
 	@Volatile private var pendingOsdialogExtensions: Set<String> = emptySet()
 	@Volatile private var pendingOsdialogSaveExtensions: Set<String> = emptySet()
 	@Volatile private var pendingOsdialogSaveFilename: String = ""
+	@Volatile private var pendingMidiRecoveryFiles: List<File> = emptyList()
 	private val activePluginSaveObservers = mutableSetOf<FileObserver>()
 	private var moduleManagerDialog: AlertDialog? = null
 
@@ -1569,6 +1572,61 @@ class MainActivity : NativeActivity() {
 	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
 		super.onActivityResult(requestCode, resultCode, data)
 
+		if (requestCode == REQ_RECOVER_MIDI_DIR) {
+			val sources = pendingMidiRecoveryFiles
+			pendingMidiRecoveryFiles = emptyList()
+			val treeUri = if (resultCode == RESULT_OK) data?.data else null
+			if (treeUri == null || sources.isEmpty())
+				return
+			Thread {
+				var recovered = 0
+				var failed = 0
+				try {
+					runCatching {
+						contentResolver.takePersistableUriPermission(
+							treeUri,
+							Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+						)
+					}
+					val parent = DocumentsContract.buildDocumentUriUsingTree(
+						treeUri,
+						DocumentsContract.getTreeDocumentId(treeUri)
+					)
+					for (source in sources) {
+						try {
+							val target = DocumentsContract.createDocument(
+								contentResolver,
+								parent,
+								"audio/midi",
+								source.name
+							) ?: throw IllegalStateException("cannot create ${source.name}")
+							val output = contentResolver.openOutputStream(target, "wt")
+								?: throw IllegalStateException("cannot open ${source.name}")
+							source.inputStream().use { input ->
+								output.use { input.copyTo(it) }
+							}
+							recovered++
+						} catch (_: Exception) {
+							failed++
+						}
+					}
+				} catch (_: Exception) {
+					failed = sources.size - recovered
+				}
+				uiHandler.post {
+					val message = when {
+						recovered == sources.size ->
+							"Recovered $recovered MIDI ${if (recovered == 1) "file" else "files"}."
+						recovered > 0 ->
+							"Recovered $recovered of ${sources.size} MIDI files; $failed failed."
+						else -> "Couldn't recover the MIDI files."
+					}
+					Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+				}
+			}.start()
+			return
+		}
+
 		if (requestCode == REQ_SAVE_OSDIALOG_FILE) {
 			val allowed = pendingOsdialogSaveExtensions
 			val requestedName = pendingOsdialogSaveFilename
@@ -1806,6 +1864,55 @@ class MainActivity : NativeActivity() {
 				val anchor = wizardAnchor()
 				wizard?.reanchor(anchor)
 				activeTutorial?.reanchor(anchor)
+			}
+		}
+	}
+
+	/** Called from the synthetic File-menu recovery row. Finds old MIDI files
+	 * that earlier RackDroid builds left in app-private storage, then asks the
+	 * user for a destination folder. Recovery copies files only; originals are
+	 * deliberately retained. */
+	fun recoverMidiFromNative() {
+		uiHandler.post {
+			val roots = listOf(
+				File(filesDir, "user/exports"),
+				File(filesDir, "user/imports")
+			)
+			val files = roots.flatMap { root ->
+				if (!root.isDirectory) emptyList()
+				else root.walkTopDown()
+					.filter {
+						it.isFile &&
+							it.length() > 0L &&
+							it.extension.lowercase() in setOf("mid", "midi")
+					}
+					.toList()
+			}.distinctBy { it.absolutePath }
+				.sortedBy { it.name.lowercase() }
+
+			if (files.isEmpty()) {
+				Toast.makeText(this, "No recoverable MIDI files found.", Toast.LENGTH_LONG).show()
+				return@post
+			}
+
+			pendingMidiRecoveryFiles = files
+			Toast.makeText(
+				this,
+				"Found ${files.size} MIDI ${if (files.size == 1) "file" else "files"}. Choose a folder to copy ${if (files.size == 1) "it" else "them"} to.",
+				Toast.LENGTH_LONG
+			).show()
+			val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+				addFlags(
+					Intent.FLAG_GRANT_READ_URI_PERMISSION or
+						Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+						Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+				)
+			}
+			try {
+				startActivityForResult(intent, REQ_RECOVER_MIDI_DIR)
+			} catch (t: Throwable) {
+				pendingMidiRecoveryFiles = emptyList()
+				Toast.makeText(this, "Couldn't open the folder picker.", Toast.LENGTH_LONG).show()
 			}
 		}
 	}
