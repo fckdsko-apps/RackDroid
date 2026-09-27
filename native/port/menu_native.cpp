@@ -84,6 +84,9 @@ enum RowFlag {
 	ROW_PRESET_PASTE = 4096,
 	// Synthetic Help row: run the first-run interface tour again.
 	ROW_TOUR = 8192,
+	// Synthetic File row: copy old private .mid/.midi files out through
+	// Android's Storage Access Framework without deleting the originals.
+	ROW_RECOVER_MIDI = 16384,
 };
 
 
@@ -243,6 +246,10 @@ static void present(ui::Menu* menu) {
 		labels.push_back("Share patch…"); // replaced by a localized string in Java
 		rights.push_back("");
 		flags.push_back(ROW_SHARE);
+		g.rows.push_back(Row(NULL, ROW_RECOVER_MIDI));
+		labels.push_back("Recover MIDI files…");
+		rights.push_back("");
+		flags.push_back(ROW_RECOVER_MIDI);
 	}
 	if (g.helpMenuPending && !menu->parentMenu) {
 		g.rows.push_back(Row(NULL, ROW_SEPARATOR));
@@ -312,6 +319,11 @@ static void handleSelect(int idx) {
 	if (row.flags & ROW_SHARE) {
 		g.sharePending = true;
 		closeAll();
+		return;
+	}
+	if (row.flags & ROW_RECOVER_MIDI) {
+		closeAll();
+		nativeRecoverMidi();
 		return;
 	}
 	if (row.flags & (ROW_GUIDE | ROW_WIZARD | ROW_WIZARD_PRO | ROW_TOUR)) {
