@@ -1254,7 +1254,7 @@ class MainActivity : NativeActivity() {
 	private fun watchPluginSave(staging: File, uri: Uri, displayName: String) {
 		val finished = java.util.concurrent.atomic.AtomicBoolean(false)
 		lateinit var observer: FileObserver
-		observer = object : FileObserver(staging.parentFile!!, CLOSE_WRITE) {
+		observer = object : FileObserver(staging.parentFile!!, FileObserver.CLOSE_WRITE) {
 			override fun onEvent(event: Int, path: String?) {
 				if (path != staging.name || !finished.compareAndSet(false, true))
 					return
